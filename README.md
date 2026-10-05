@@ -225,7 +225,7 @@ Di **Lahan Komersial**, tiap kavling yang masih available bisa dicatat penawaran
 | Penjualan (Sales Report) | Google Sheet rekap (tab REKAP ALL TIME) | sama |
 | Event marketing | Browser | Tab `EVENT` di Google Sheet rekap (via `event-sync.gs`) + browser |
 | Produk kompetitor | Browser | Sheet `Competitors` di spreadsheet backend |
-| Kavling komersial (termasuk bentuk hasil impor gambar) | Browser | Sheet `Plots` di spreadsheet backend |
+| Kavling komersial (termasuk bentuk hasil impor gambar) dan penawaran tenant | Browser | Browser (tidak diambil dari Sheet; sheet `Plots` dan `Offers` di backend tidak dipakai) |
 | Gambar lahan (DWG/DXF/PDF) + skala, kalibrasi, kavling yang digambar manual | Browser | Google Drive untuk file ≤ 8 MB + browser |
 | File (brosur, pricelist, foto, dll.) | Browser | Google Drive, folder **MARKETHINGS Arsip** (daftarnya di sheet `Files`) + browser |
 | Pengaturan & password | Browser | Browser |
