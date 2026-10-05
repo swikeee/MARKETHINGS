@@ -302,6 +302,10 @@ td.n .note{font-family:var(--f-body)}
 .ana-range{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:4px 0 14px}
 .ana-range .seg{flex-wrap:wrap;max-width:100%}
 .tab canvas{max-width:100%}
+.tp-kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin:2px 0 16px} .tp-kpis .kpi{padding:12px 14px;box-shadow:none} .tp-kpis .kpi .v{font-size:21px}
+.tp-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:20px} @media (max-width:860px){.tp-grid{grid-template-columns:minmax(0,1fr)}}
+.tp-h{font:600 13px var(--f-body);margin:0 0 6px;color:var(--ink)}
+#tpTable td .pbar{width:70px} #tpTable tr.zero td{color:var(--muted)} #tpTable td.t{white-space:normal;min-width:150px}
 .btn.xl{display:inline-flex;align-items:center;gap:6px;color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,var(--line));font-weight:600;white-space:nowrap}
 .btn.xl:hover{background:var(--accent-soft)}
 .btn.xl svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
@@ -710,7 +714,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
     <div class="kpis sk hero-k" id="salesKpis"></div>
       </div>
     </div>
-    <nav class="jump" id="salesJump" aria-label="Lompat ke bagian"><a href="#s-tren">Tren</a><a href="#s-cluster">Cluster</a><a href="#s-komposisi">Komposisi</a><a href="#s-channel">Channel</a><a href="#s-pembeli">Pembeli</a><a href="#s-kalender">Kalender</a><a href="#s-tim">Tim</a></nav>
+    <nav class="jump" id="salesJump" aria-label="Lompat ke bagian"><a href="#s-tren">Tren</a><a href="#s-cluster">Cluster</a><a href="#s-tipe">Tipe</a><a href="#s-komposisi">Komposisi</a><a href="#s-channel">Channel</a><a href="#s-pembeli">Pembeli</a><a href="#s-kalender">Kalender</a><a href="#s-tim">Tim</a></nav>
     <div class="ai-out" id="salesOut" hidden>
       <div class="hd"><b>Ringkasan AI · Sales</b><span class="grp"><button class="btn sm" id="salesCopy">Salin</button><button class="btn sm" id="salesClose">Tutup</button></span></div>
       <div class="md" id="salesBody"></div>
@@ -755,6 +759,25 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
       <div class="panel"><h3>Total per cluster</h3><p class="meta" id="anaClDesc"></p><div class="chartbox" style="height:320px"><canvas id="chAnaCl" aria-label="Total per cluster"></canvas></div></div>
       <div class="panel"><h3>Komposisi segmen</h3><p class="desc">Porsi unit per segmen.</p><div class="chartbox pie"><canvas id="chAnaSegPie" aria-label="Komposisi segmen"></canvas></div></div>
       <div class="panel"><h3>Rata-rata harga per cluster</h3><p class="desc">Rp miliar per unit.</p><div class="chartbox" style="height:320px"><canvas id="chAnaAvg" aria-label="Rata-rata harga per cluster"></canvas></div></div>
+    </div>
+    <div class="sec-h" id="s-tipe"><h2>Tipe rumah</h2></div>
+    <div class="panel reveal" id="tpPanel">
+      <div class="ph"><div><h3>Penjualan per tipe</h3><p class="desc">Unit dan nilai booking bersih (tanpa batal) per tipe rumah, dicocokkan dengan katalog tipe tiap cluster. Ukuran = lebar × panjang kavling. Pilih “Semua tipe” di tabel untuk melihat juga tipe katalog yang belum terjual di rentang ini.</p></div>
+        <div class="ana-tools"><label class="sel" for="tpCluster">Cluster <select id="tpCluster"></select></label>
+          <div class="seg" id="tpMetric"><button aria-pressed="true" data-m="unit">Unit</button><button aria-pressed="false" data-m="val">Nilai</button></div></div></div>
+      <div class="ana-range"><div class="rp-presets" id="tpPresets"><button data-n="6">6 bln</button><button data-n="12">12 bln</button><button data-n="ytd">Tahun ini</button><button data-n="all">Semua</button></div><span class="note" id="tpRange"></span></div>
+      <div class="kpis tp-kpis" id="tpKpis"></div>
+      <div class="tp-grid">
+        <div><h4 class="tp-h">Tipe terlaris</h4><div class="chartbox" id="tpTopBox" style="height:380px"><canvas id="chTpTop" aria-label="Tipe terlaris"></canvas></div></div>
+        <div>
+          <h4 class="tp-h">Lebar muka kavling</h4><div class="chartbox" style="height:170px"><canvas id="chTpWidth" aria-label="Unit menurut lebar muka kavling"></canvas></div>
+          <h4 class="tp-h" style="margin-top:14px">Luas kavling</h4><div class="chartbox" style="height:170px"><canvas id="chTpArea" aria-label="Unit menurut luas kavling"></canvas></div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:18px"><h4 class="tp-h" style="margin:0">Rincian per tipe</h4>
+        <div class="seg" id="tpShow"><button aria-pressed="true" data-z="0">Terjual saja</button><button aria-pressed="false" data-z="1">Semua tipe</button></div></div>
+      <div class="tablewrap flat pivot"><table id="tpTable"></table></div>
+      <p class="note" id="tpNote" style="margin:10px 0 0"></p>
     </div>
     <div class="sec-h" id="s-komposisi"><h2>Komposisi pembelian</h2></div>
     <div class="g4 reveal">
@@ -3208,6 +3231,44 @@ const CLUSTERS = [   // cluster Pororo Land (data penjualan dummy)
 ];
 const SEGMENTS = ["Milenial","Deluxe","Premium","Shophouse","Student House"];
 const segOf = name => CLUSTERS.find(c=>c.name===name)?.seg || "Lainnya";
+// ---------- katalog tipe rumah per cluster: "Nama LEBARxPANJANG" (meter). "(Kavling)" = dijual tanah saja. "|alias" = ejaan lain di data ----------
+const TYPE_CATALOG = {
+  "Anapuri":            ["Darmaraja 8x20", "Wanayasa 8x22", "Jayagiri 9x22"],
+  "Brahmapuri":         ["Tanaya 7x20", "Askara 8x22", "Sagara 9x22", "Nawasena 5x20"],
+  "Fashagriya":         ["Jasmine 6x15", "Aster 6x16", "Varda 7x16", "Edelweis 7x18"],
+  "Neo Plaza":          ["Standard 5x15", "Hook 6x15"],
+  "Wangsagriya":        ["Arana Eka 6x12", "Arna Dwi 6x14|Arana Dwi", "Vetra 6x16", "Calya 7x16", "Grand Calya 7x18"],
+  "La Plaza":           ["Reguler 5x15", "Hook 6x15", "Accent 5x15", "Hook B 7x15"],
+  "Sadyagriya":         ["Amala Eka 6x15", "Amala Tri 6x17", "Amala Catur 8x20", "Asha Deluxe 6x17",
+                         ...["Eka","Dwi","Tri","Catur","Panca","Sad","Sapta","Asta","Nava"].map(n => "Ananta " + n + " (Kavling)")],
+  "Patragriya":         ["Ishara Eka 6x11", "Ishara Dwi 6x12", "Warsa Eka 6x15", "Asasta 5x12", "Avanya 5x14", "Avega 5x12"],
+  "Patragriya Shimizu": ["Hanami 5x14", "Hinoki 5x12", "Kyabin"],
+  "Padmagriya":         ["Ayana 7x12", "Asoka 6x11", "Akasha 5.5x10.5", "Akasha 5.5x10", "Arsana 6x15", "Arsana 6x14"],
+  "Dharmapuri":         [],
+  "Naragriya":          ["Vasa 5x14", "Nava 5x15", "Nava 5x18"],
+  "Arunagriya":         ["Svara Eka 5x12", "Svara Dwi 5x14"],
+};
+const CLUSTER_NOTE = {"Arunagriya":"2 lantai", "Neo Plaza":"Shophouse", "La Plaza":"Shophouse"};
+const tnorm = v => String(v||"").toUpperCase().replace(/[^A-Z0-9]/g, "");
+const parseSize = v => { const m = String(v||"").match(/(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)/i); return m ? {w:+m[1].replace(",","."), d:+m[2].replace(",",".")} : null; };
+const sizeTxt = z => z ? `${String(z.w).replace(".",",")} × ${String(z.d).replace(".",",")}` : "";
+const TYPES = Object.fromEntries(Object.entries(TYPE_CATALOG).map(([cl, list]) => [cl, list.map((raw, i) => { const [main, alias] = raw.split("|"), kav = /\(kavling\)/i.test(main), z = parseSize(main);
+  const name = main.replace(/\(kavling\)/i, "").replace(/\s*\d+(?:[.,]\d+)?\s*x\s*\d+(?:[.,]\d+)?\s*$/i, "").trim();
+  return {cluster:cl, name, w:z?.w ?? null, d:z?.d ?? null, lt:z ? z.w*z.d : null, size:sizeTxt(z), kav, order:i, keys:[tnorm(name), ...(alias ? [tnorm(alias)] : [])], key:cl + "|" + name + "|" + sizeTxt(z)}; })]));
+const typeCache = new Map();
+/** Cocokkan satu baris penjualan ke katalog: nama tipe (tanpa akhiran Standard/Hook), lalu ukuran kavling bila ada dua tipe bernama sama. */
+function typeOf(x){
+  const ck = x.cluster + "|" + x.unitType + "|" + x.kavling; if (typeCache.has(ck)) return typeCache.get(ck);
+  const txt = String(x.unitType||"").trim(); let out = null;
+  if (txt){ const list = TYPES[x.cluster] || [], raw = tnorm(txt), baseTxt = txt.replace(/\s+(standard|std|hook)\s*$/i, "").trim(), base = tnorm(baseTxt), z = parseSize(x.kavling);
+    let c = list.filter(t => t.keys.includes(base));
+    if (!c.length){ c = list.filter(t => t.keys.some(k => raw.includes(k))); const L = Math.max(0, ...c.flatMap(t => t.keys.filter(k => raw.includes(k)).map(k => k.length))); c = c.filter(t => t.keys.some(k => k.length === L && raw.includes(k))); }
+    if (c.length > 1 && z){ const m = c.filter(t => t.w === z.w && t.d === z.d); if (m.length) c = m; }
+    if (c.length === 1) out = c[0];
+    else if (c.length > 1) out = {cluster:x.cluster, name:c[0].name, w:c.every(t => t.w === c[0].w) ? c[0].w : null, d:null, lt:z ? z.w*z.d : null, size:c.map(t => t.size).join(" / "), kav:false, order:c[0].order, key:x.cluster + "|" + c[0].name + "|?", merged:true};
+    else out = {cluster:x.cluster, name:/[a-z]/.test(baseTxt) ? baseTxt : titleCase(baseTxt), w:z?.w ?? null, d:z?.d ?? null, lt:z ? z.w*z.d : null, size:sizeTxt(z), kav:false, order:999, key:x.cluster + "|" + base + "|" + sizeTxt(z), extra:true}; }
+  typeCache.set(ck, out); return out;
+}
 const CHANNELS = [["Digital ads",.32],["Walk-in / pameran",.22],["Agen properti",.2],["Referral konsumen",.16],["Corporate / B2B",.10]];
 const AGENTS = [["Rina Kartika",1.4],["Bayu Pratama",1.2],["Sinta Maharani",1.05],["Dimas Ardiansyah",.95],["Fajar Nugraha",.8],["Lestari Wulan",.6]];
 const SERIES = ["var(--c1)","var(--c2)","var(--c3)","var(--c4)","var(--c5)","var(--c6)"];
@@ -3223,7 +3284,8 @@ function pickW(list, r){ const t = list.reduce((a,x)=>a+x[1],0); let v = r()*t; 
 /** Data dummy: 24 bulan terakhir (sampai bulan lalu), deterministik supaya angka tidak berubah tiap dibuka. */
 function makeDemoSales(){
   const r = rng(20261), now = new Date(), endKey = dateKey(new Date(now.getFullYear(), now.getMonth()-1, 1));
-  const months = monthKeys(24, endKey), out = [], ld = [];
+  const months = monthKeys(24, endKey), out = [], ld = [], rt = rng(77);
+  const demoType = cl => { const l = (TYPES[cl] || []).filter(t => t.lt); if (!l.length) return {}; const t = l[Math.min(l.length-1, Math.floor(Math.pow(rt(), 1.6)*l.length))]; return {unitType:t.name, kavling:`${t.w} x ${t.d}`}; };
   months.forEach((m, i) => {
     const season = 1 + .22*Math.sin((i+2)/12*Math.PI*2) + .012*i;
     const perCh = {};
@@ -3233,7 +3295,7 @@ function makeDemoSales(){
         const ch = pickW(CHANNELS, r), ag = pickW(AGENTS, r), age = months.length-1-i;
         const st = r() < .075 ? "Batal" : (age <= 1 && r() < .65) || (age === 2 && r() < .25) ? "Booking" : "Akad";
         out.push({id:`s${i}-${out.length}`, date:`${m}-${String(1+Math.floor(r()*27)).padStart(2,"0")}`, cluster:c.name, price:Math.round(c.price*(.94+.12*r())/1e6)*1e6, channel:ch, agent:ag, status:st,
-          payment:pickW([["KPR DELUXE",5],["KB 24x DLX",3],["CK DELUXE",2],["CASH KERAS",1]], r), purpose:r()<.1?"INVESTASI":"PAKAI SENDIRI", hook:r()<.22?"Hook":"Standard",
+          ...demoType(c.name), payment:pickW([["KPR DELUXE",5],["KB 24x DLX",3],["CK DELUXE",2],["CASH KERAS",1]], r), purpose:r()<.1?"INVESTASI":"PAKAI SENDIRI", hook:r()<.22?"Hook":"Standard",
           job:pickW([["KARYAWAN SWASTA",5],["WIRASWASTA",3],["IBU RUMAH TANGGA",3],["PNS",2],["DOKTER",1]], r), city:pickW([["BANDUNG",6],["KAB. BANDUNG",4],["CIMAHI",1],["JAKARTA",1],["BEKASI",1]], r), age:Math.round(24+r()*32)});
         perCh[ch] = (perCh[ch]||0) + 1;
       }
@@ -3355,7 +3417,7 @@ function renderSales(){
   $("#quickActions").innerHTML = acts.slice(0,5).map(a => `<div class="act"><span class="ic ${a[0]}">${a[1]}</span><p>${esc(a[2])}<small>${esc(a[3])}</small></p>${a[4]?`<button class="btn sm" data-go="${a[4]}">Buka</button>`:"<span></span>"}</div>`).join("");
 
   if (heatView === "day") renderCal(); else renderHeat();
-  renderAnalysis();
+  renderAnalysis(); renderTypes();
 
   // roster
   const target = 2*salesP;
@@ -3435,7 +3497,7 @@ function rekapToSales(rows){
     const date = parseDateID(g("date"), g("month")); if (!date) return;
     const st = g("status").toUpperCase();
     out.push({id:"r"+i, date, cluster: known[cl.toUpperCase()] || titleCase(cl), price: pr, channel: g("channel") || "Tidak tercatat", agent: g("agent") || "Tidak tercatat",
-      status: /BATAL/.test(st) ? "Batal" : /BOOK/.test(st) ? "Booking" : "Akad", unitType:g("unitType"), hook:g("hook"), unit:g("unit"), payment:g("payment"), payCat:g("payCat"), purpose:g("purpose").toUpperCase(),
+      status: /BATAL/.test(st) ? "Batal" : /BOOK/.test(st) ? "Booking" : "Akad", unitType:g("unitType"), hook:g("hook"), kavling:g("kavling"), unit:g("unit"), payment:g("payment"), payCat:g("payCat"), purpose:g("purpose").toUpperCase(),
       job:g("job"), city:g("city"), age: num(g("age")) || null});
   });
   return out;
@@ -3595,6 +3657,66 @@ function hbar(id, entries, colors, fmt, axisFmt){
   o.plugins.tooltip.callbacks = {label: ctx => fmt ? fmt(ctx.raw) : nf(ctx.raw)};
   mk(id, {type:"bar", data:{labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]), backgroundColor:colors || seriesColor(1), borderRadius:4, barThickness:14}]}, options:o}, {fmt:v => fmt ? fmt(v) : nf(v)});
 }
+// ---------- analisis per tipe rumah ----------
+const tp = {cluster:"all", n:"12", metric:"unit", zero:false};
+function renderTypes(){
+  const el = $("#tpTable"); if (!el) return;
+  const ms = allSalesMonths(); if (!ms.length){ el.innerHTML = `<tbody><tr><td class="empty">Belum ada data penjualan.</td></tr></tbody>`; return; }
+  const full = monthKeys(monthDiff(ms[0], ms[ms.length-1]) + 1, ms[ms.length-1]), last = full[full.length-1];
+  const from = tp.n === "all" ? full[0] : tp.n === "ytd" ? (full.find(k => k.startsWith(last.slice(0,4))) || full[0]) : full[Math.max(0, full.length - +tp.n)];
+  const inR = x => { const m = String(x.date).slice(0,7); return m >= from && m <= last; };
+  const all = sales.filter(x => x.status !== "Batal" && inR(x));
+  // pilihan cluster: yang ada di katalog atau punya penjualan
+  const clAll = [...new Set([...CLUSTERS.map(c => c.name), ...Object.keys(TYPES), ...sales.map(x => x.cluster)])].filter(c => (TYPES[c] || []).length || sales.some(x => x.cluster === c));
+  if (tp.cluster !== "all" && !clAll.includes(tp.cluster)) tp.cluster = "all";
+  $("#tpCluster").innerHTML = `<option value="all">Semua cluster</option>` + clAll.map(c => `<option value="${esc(c)}"${tp.cluster === c ? " selected" : ""}>${esc(c)}</option>`).join("");
+  $("#tpMetric").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === tp.metric));
+  $("#tpPresets").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.n === tp.n));
+  const N = all.filter(x => tp.cluster === "all" || x.cluster === tp.cluster), scope = tp.cluster === "all" ? clAll : [tp.cluster];
+  $("#tpRange").textContent = `${keyLabel(from)} – ${keyLabel(last)} · ${nf(N.length)} unit`;
+  // agregasi
+  const rows = new Map(); let noType = 0;
+  const row = t => { let r = rows.get(t.key); if (!r){ r = {t, n:0, val:0, std:0, hook:0, last:""}; rows.set(t.key, r); } return r; };
+  scope.forEach(c => (TYPES[c] || []).forEach(t => row(t)));
+  N.forEach(x => { const t = typeOf(x); if (!t){ noType++; return; } const r = row(t); r.n++; r.val += num(x.price); /hook/i.test(x.hook || x.unitType) ? r.hook++ : r.std++; if (String(x.date) > r.last) r.last = String(x.date); });
+  const list = [...rows.values()], sold = list.filter(r => r.n), val = r => tp.metric === "val" ? r.val/1e9 : r.n, fmtV = v => tp.metric === "val" ? "Rp " + nf(v,2) + " M" : nf(v) + " unit";
+  const catalogN = list.filter(r => !r.t.extra && !r.t.merged).length, soldCat = sold.filter(r => !r.t.extra).length, totN = sold.reduce((a,r) => a + r.n, 0);
+  const best = [...sold].sort((a,b) => val(b) - val(a) || b.n - a.n)[0];
+  const byW = {}, byA = {}; let ltSum = 0, ltN = 0;
+  const AB = [["< 70 m²",0,70],["70–89 m²",70,90],["90–119 m²",90,120],["120–159 m²",120,160],["≥ 160 m²",160,1e9]];
+  sold.forEach(r => { const t = r.t; if (t.w) byW[t.w] = (byW[t.w] || 0) + r.n; if (t.lt){ ltSum += t.lt*r.n; ltN += r.n; const b = AB.find(a => t.lt >= a[1] && t.lt < a[2]); byA[b[0]] = (byA[b[0]] || 0) + r.n; } });
+  const wE = Object.entries(byW).sort((a,b) => +a[0] - +b[0]), wBest = [...wE].sort((a,b) => b[1] - a[1])[0], wTot = wE.reduce((a,e) => a + e[1], 0);
+  $("#tpKpis").innerHTML = `
+    <div class="kpi"><div class="l">Tipe terjual</div><div class="v">${soldCat} <small style="font-size:13px;font-weight:500">dari ${catalogN} tipe katalog</small></div><div class="s">${catalogN - soldCat} tipe belum terjual di rentang ini</div></div>
+    <div class="kpi"><div class="l">Tipe terlaris</div><div class="v">${best ? esc(best.t.name) : "–"}</div><div class="s">${best ? `${esc(best.t.cluster)} · ${nf(best.n)} unit · ${nf(totN ? best.n/totN*100 : 0)}% dari semua tipe` : "belum ada penjualan"}</div></div>
+    <div class="kpi"><div class="l">Lebar muka terlaris</div><div class="v">${wBest ? String(wBest[0]).replace(".",",") + " m" : "–"}</div><div class="s">${wBest ? `${nf(wBest[1])} unit · ${nf(wTot ? wBest[1]/wTot*100 : 0)}% dari unit berukuran` : "ukuran belum tercatat"}</div></div>
+    <div class="kpi"><div class="l">Rata-rata luas kavling</div><div class="v">${ltN ? nf(ltSum/ltN) + " m²" : "–"}</div><div class="s">${ltN ? `dari ${nf(ltN)} unit yang ukurannya tercatat` : "ukuran belum tercatat"}</div></div>`;
+  // grafik
+  const top = [...sold].sort((a,b) => val(b) - val(a) || b.n - a.n).slice(0, 12);
+  $("#tpTopBox").style.height = Math.max(170, 46 + top.length*28) + "px";
+  const narrow = innerWidth < 640;      // layar sempit: label cukup nama tipe + ukuran
+  hbar("chTpTop", top.map(r => [r.t.name + (tp.cluster === "all" && !narrow ? " · " + r.t.cluster : "") + (r.t.size && !r.t.merged ? " (" + r.t.size.replace(/ /g,"") + ")" : ""), val(r)]), top.map(r => clusterColor(r.t.cluster)), fmtV, tp.metric === "val" ? v => nf(v,0) + " M" : null);
+  const vbar = (id, entries, color) => { const o = chartBase(); o.scales.x.grid = {display:false}; o.scales.y.ticks.precision = 0; o.plugins.tooltip.callbacks = {label:c => `${nf(c.raw)} unit`};
+    mk(id, {type:"bar", data:{labels:entries.map(e => e[0]), datasets:[{data:entries.map(e => e[1]), backgroundColor:color, borderRadius:4, maxBarThickness:46}]}, options:o}); };
+  vbar("chTpWidth", wE.map(([w, n]) => [String(w).replace(".",",") + " m", n]), seriesColor(0));
+  vbar("chTpArea", AB.filter(a => byA[a[0]]).map(a => [a[0], byA[a[0]]]), seriesColor(1));
+  // tabel rincian, dikelompokkan per cluster
+  $("#tpShow").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", (b.dataset.z === "1") === tp.zero));
+  const byCl = {}; list.filter(r => tp.zero || r.n).forEach(r => (byCl[r.t.cluster] = byCl[r.t.cluster] || []).push(r));
+  const clOrder = scope.filter(c => byCl[c]).sort((a,b) => byCl[b].reduce((s,r) => s + r.n, 0) - byCl[a].reduce((s,r) => s + r.n, 0) || a.localeCompare(b));
+  el.innerHTML = `<thead><tr><th>Tipe</th><th>Ukuran (m)</th><th class="n">LT (m²)</th><th class="n">Unit</th><th class="n">Std / Hook</th><th class="n">Nilai</th><th class="n">Rata-rata harga</th><th class="n">Harga / m² tanah</th><th>Porsi di cluster</th><th>Terakhir terjual</th></tr></thead><tbody>${
+    clOrder.map(c => { const rs = byCl[c].sort((a,b) => b.n - a.n || a.t.order - b.t.order || a.t.name.localeCompare(b.t.name)), cn = rs.reduce((s,r) => s + r.n, 0), cv = rs.reduce((s,r) => s + r.val, 0);
+      return `<tr class="segrow"><td colspan="10">${esc(c)}${CLUSTER_NOTE[c] ? " · " + esc(CLUSTER_NOTE[c]) : ""} · ${nf(cn)} unit · ${rp(cv)}${(TYPES[c] || []).length ? "" : " · tipe belum ada di katalog"}</td></tr>` + rs.map(r => { const t = r.t, avg = r.n ? r.val/r.n : 0, share = cn ? r.n/cn*100 : 0;
+        return `<tr class="${r.n ? "" : "zero"}"><td class="t"><b>${esc(t.name)}</b>${t.kav ? ' <span class="chip">Kavling</span>' : ""}${t.extra ? ' <span class="chip warn" title="Nama tipe ini ada di data penjualan tetapi tidak ada di katalog tipe cluster ini">di luar katalog</span>' : ""}${t.merged ? ' <span class="chip" title="Ada lebih dari satu ukuran untuk nama tipe ini dan ukuran kavling di data tidak cocok dengan salah satunya">ukuran campur</span>' : ""}</td>
+          <td>${esc(t.size) || "–"}</td><td class="n">${t.lt ? nf(t.lt, 1) : "–"}</td><td class="n"><b>${nf(r.n)}</b></td><td class="n">${r.n ? `${r.std} / ${r.hook}` : "–"}</td><td class="n">${r.n ? rp(r.val) : "–"}</td><td class="n">${r.n ? rp(avg) : "–"}</td><td class="n">${r.n && t.lt ? rp(avg/t.lt) : "–"}</td>
+          <td>${r.n ? `<span class="pbar"><b style="width:${Math.min(100, share)}%"></b></span><span style="font-variant-numeric:tabular-nums">${nf(share)}%</span>` : '<span class="note">belum terjual</span>'}</td><td>${r.last ? esc(fmtDate(r.last)) : "–"}</td></tr>`; }).join(""); }).join("") || `<tr><td colspan="10" class="empty">Belum ada penjualan bertipe di rentang ini.</td></tr>`}</tbody>`;
+  const extraN = sold.filter(r => r.t.extra).reduce((a,r) => a + r.n, 0);
+  $("#tpNote").textContent = [extraN ? `${nf(extraN)} unit memakai nama tipe yang tidak ada di katalog (ditandai “di luar katalog”).` : "", noType ? `${nf(noType)} unit tidak punya keterangan tipe.` : ""].filter(Boolean).join(" ");
+}
+$("#tpCluster").onchange = e => { tp.cluster = e.target.value; renderTypes(); };
+$("#tpMetric").onclick = e => { const b = e.target.closest("button"); if (!b) return; tp.metric = b.dataset.m; renderTypes(); };
+$("#tpPresets").onclick = e => { const b = e.target.closest("button"); if (!b) return; tp.n = b.dataset.n; renderTypes(); };
+$("#tpShow").onclick = e => { const b = e.target.closest("button"); if (!b) return; tp.zero = b.dataset.z === "1"; renderTypes(); };
 function renderAnalysis(){
   const full = anaRangeKeys();
   if (!full.length){ $("#anaPanel").hidden = true; return; }

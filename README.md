@@ -282,3 +282,11 @@ Hasilnya satu file `.xlsx` per tenant berisi:
 Semua hitungan berupa **rumus Excel**: sel kuning (harga ditawar, jangka waktu, persen, booking fee, dll.) bisa diubah dan angka lain ikut berubah. Kolom opsional "Cicilan / angsuran diminta" di form penawaran dipakai untuk jumlah cicilan; kosong = standar. Cara bayar lain mengikuti Ketentuan sewa & jual saat file dibuat.
 
 File dibuat langsung di browser tanpa pustaka atau koneksi tambahan. Teks kop ada di konstanta `KOP` di `index.html`. Kalau memakai backend Google Sheet, jalankan `setup()` lagi supaya kolom `inst` ditambahkan ke sheet Offers.
+
+## Analisis per tipe rumah (Sales Report → Tipe)
+
+Katalog tipe tiap cluster (nama + ukuran kavling lebar × panjang) ada di konstanta `TYPE_CATALOG` di `index.html`. Tiap baris penjualan dicocokkan ke katalog lewat kolom `TIPE` (akhiran Standard/Hook diabaikan) dan, bila ada dua tipe bernama sama, lewat kolom `Uk Kavling`.
+
+Isi bagian ini: tipe terjual vs jumlah tipe di katalog, tipe terlaris, lebar muka terlaris, rata-rata luas kavling, grafik tipe terlaris, grafik menurut lebar muka dan luas kavling, serta tabel rincian per tipe (unit, Standard/Hook, nilai, rata-rata harga, harga per m² tanah, porsi di cluster, terakhir terjual). Saringan: cluster, rentang waktu, unit/nilai, dan "Terjual saja / Semua tipe".
+
+Nama tipe di data yang tidak ada di katalog tetap dihitung dan ditandai "di luar katalog". Untuk menambah atau mengubah tipe, edit `TYPE_CATALOG` dengan format `"Nama LEBARxPANJANG"`; tambahkan `(Kavling)` untuk tanah saja dan `|Alias` untuk ejaan lain.
