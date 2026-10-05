@@ -151,6 +151,12 @@ textarea{min-height:80px;resize:vertical}
 .bep{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end}
 .bep .big{font:700 44px/1 var(--f-display);color:var(--accent)}
 .bep .big small{font:500 15px var(--f-body);color:var(--muted);margin-left:4px}
+/* proyeksi omzet & laba (Simulator Investor) */
+.proj-kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:4px 0 16px} .proj-kpis .kpi{padding:12px 14px;box-shadow:none} .proj-kpis .kpi .v{font-size:20px}
+table.proj{width:100%;min-width:520px} .proj td small{display:block;font-size:11px;font-weight:400;color:var(--muted)} .proj td,.proj th{white-space:nowrap;padding:9px 6px;font-size:12.5px;font-family:var(--f-body)} .proj th{font-size:11.5px} .proj td:first-child,.proj th:first-child{padding-left:12px} .proj td:last-child,.proj th:last-child{padding-right:12px} .proj td.n,.proj th.n{text-align:right;font-variant-numeric:tabular-nums}
+.proj td.neg{color:var(--bad)} .proj tr.tot td{border-top:2px solid var(--line);font-weight:700} .proj tr.now td{background:var(--accent-soft);font-weight:600} .proj tr.pre td{color:var(--muted)}
+.proj-scroll{max-height:380px;overflow:auto;margin-top:12px} .proj-scroll thead th{position:sticky;top:0;background:var(--surface);z-index:1}
+#projLegA{background:color-mix(in srgb,var(--info) 38%,transparent)}
 .cmp td{white-space:normal}
 .cmp{min-width:0}
 .note{font-size:12px;color:var(--muted)}
@@ -1017,6 +1023,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
         <div class="field"><label for="sBuild">Biaya bangun / m² <em id="hBuild"></em></label><input type="number" id="sBuild" step="100000"></div>
         <div class="field"><label for="sFit">Fit-out &amp; peralatan / m² <em id="hFit"></em></label><input type="number" id="sFit" step="100000"></div>
         <div class="field"><label for="sRev">Omzet / bulan (stabil) <em id="hRev"></em></label><input type="number" id="sRev" step="1000000"></div>
+        <div class="field"><label for="sGrowth">Kenaikan omzet per tahun (%)</label><input type="number" id="sGrowth" min="-50" max="100" step="1"></div>
         <div class="sep"></div>
         <div id="beliFields" class="form">
           <div class="field"><label for="sPrice">Harga jual lahan / m² <em id="hPrice"></em></label><input type="number" id="sPrice" step="100000" min="0"></div>
@@ -1044,7 +1051,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
         </div>
         <div class="field"><label for="sOpen">Buka / operasional, bulan ke- setelah LOI</label><input type="number" id="sOpen" min="0" step="1"></div>
         <button type="button" class="btn sm" id="btnSimStd" style="justify-self:start">Pakai ketentuan standar</button>
-        <p class="note" style="margin:0">Semua harga belum termasuk PPN. Omzet mulai setelah buka dan naik 50% → 100% dalam 6 bulan. <span id="simTermWarn"></span></p>
+        <p class="note" style="margin:0">Semua harga belum termasuk PPN. Omzet mulai setelah buka, naik 50% → 100% dalam 6 bulan, lalu mengikuti kenaikan per tahun. <span id="simTermWarn"></span></p>
       </div>
       <div style="display:grid;gap:14px;min-width:0">
         <div class="panel">
@@ -1052,6 +1059,18 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
             <div><div class="note">Estimasi BEP</div><div class="big" id="oBep">–</div></div>
             <div class="kpis" style="flex:1;min-width:260px" id="simKpis"></div>
           </div>
+        </div>
+        <div class="panel" id="projPanel">
+          <h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span>Proyeksi omzet &amp; laba · <span id="projTitle"></span></span>
+            <span class="seg" id="projSeg" style="margin-left:auto"><button type="button" data-b="y" aria-pressed="true">Per tahun</button><button type="button" data-b="m" aria-pressed="false">Per bulan</button></span></h3>
+          <p class="desc" id="projDesc"></p>
+          <div class="kpis proj-kpis" id="projKpis"></div>
+          <div class="chartbox" style="height:260px"><canvas id="chProj" aria-label="Proyeksi omzet dan laba per periode"></canvas></div>
+          <div class="legend"><span><i id="projLegA"></i>Omzet</span><span><i style="background:var(--accent)"></i>Laba bersih (setelah opex &amp; bayar lahan)</span><span><i style="background:var(--bad)"></i>Rugi</span></div>
+          <div class="tablewrap proj-scroll"><table class="proj" id="projTable"></table></div>
+          <h4 class="tp-h" style="margin-top:18px">Kalau omzet per bulan berubah</h4>
+          <div class="tablewrap"><table class="proj" id="scenTable"></table></div>
+          <p class="note" id="projNote" style="margin:10px 0 0"></p>
         </div>
         <div class="panel">
           <h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span>Jadwal pembayaran lahan · <span id="schedTitle"></span></span><button type="button" class="btn sm xl" id="btnSimXlsx" style="margin-left:auto" title="Unduh hitungan sesuai isian simulator sebagai file Excel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export Excel</button></h3>
@@ -2111,7 +2130,7 @@ const PRESETS = {
   showroom: {label:"Showroom / kantor", ratio:.55, build:5500000, fit:1200000, revM2:400000, opex:55},
   edu:      {label:"Bimbel / daycare", ratio:.5, build:4500000, fit:1500000, revM2:450000, opex:60},
 };
-const sim = {plotId:null, scheme:"beli", preset:"coffee", bldg:0, build:0, fit:0, rev:0, opex:70, open:6,
+const sim = {plotId:null, scheme:"beli", preset:"coffee", bldg:0, build:0, fit:0, rev:0, opex:70, open:6, growth:0,
   price:0, bf:0, dp:30, tenor:24,                                        // beli
   rent:0, ipl:0, term:10, pay1:10, pay2:10, instN:36, dep:3, jam:0};     // sewa
 $("#sPreset").innerHTML = Object.entries(PRESETS).map(([k,v])=>`<option value="${k}">${esc(v.label)}</option>`).join("");
@@ -2130,7 +2149,7 @@ function resetBiz(){ const p=curPlot(); if(!p) return; const pr=PRESETS[sim.pres
 function resetLand(){ const p=curPlot(); if(!p) return;
   Object.assign(sim, {price:plotPrice(p), bf:KOM.bf, dp:KOM.dp, tenor:KOM.saleInstN, rent:plotRent(p), ipl:KOM.ipl, term:KOM.term, pay1:KOM.pay1, pay2:KOM.pay2, instN:KOM.instN, dep:KOM.depMonths, jam:KOM.jaminan}); writeInputs(); }
 function resetForPlot(){ resetBiz(); resetLand(); }
-const MAP = {sBldg:"bldg",sOpex:"opex",sBuild:"build",sFit:"fit",sRev:"rev",sOpen:"open",sPrice:"price",sBf:"bf",sDp:"dp",sTenor:"tenor",sRent:"rent",sIpl:"ipl",sTerm:"term",sPay1:"pay1",sPay2:"pay2",sInstN:"instN",sDep:"dep",sJam:"jam"};
+const MAP = {sBldg:"bldg",sOpex:"opex",sBuild:"build",sFit:"fit",sRev:"rev",sGrowth:"growth",sOpen:"open",sPrice:"price",sBf:"bf",sDp:"dp",sTenor:"tenor",sRent:"rent",sIpl:"ipl",sTerm:"term",sPay1:"pay1",sPay2:"pay2",sInstN:"instN",sDep:"dep",sJam:"jam"};
 function writeInputs(){ for (const [id,k] of Object.entries(MAP)) $("#"+id).value = sim[k]; $("#sPreset").value=sim.preset; $("#sPlot").value=sim.plotId||""; }
 for (const [id,k] of Object.entries(MAP)) $("#"+id).addEventListener("input", e => { sim[k]=num(e.target.value); renderSimOut(); });
 $("#sPlot").onchange = e => { sim.plotId=e.target.value; resetForPlot(); renderSimOut(); };
@@ -2147,37 +2166,101 @@ $("#btnSimStd").onclick = () => { resetLand(); renderSimOut(); toast("Harga dan 
  *  Sewa: bayar 1 + deposit + jaminan di bulan 0, bayar 2 sebulan kemudian, sisanya dicicil sejak buka; IPL tiap bulan sejak buka;
  *        jaminan pembangunan kembali saat buka, security deposit kembali di akhir masa sewa.
  *  Beli: booking fee di bulan 0, DP (dikurangi BF) sebulan kemudian, sisanya diangsur tiap bulan sesudahnya. */
-function calc(scheme){
+/** ov (opsional): timpa sebagian isian, mis. {rev: ...} untuk skenario omzet. */
+function calc(scheme, ov){
   const p=curPlot(); if(!p) return null;
-  const area=num(p.area), open=Math.max(0, Math.round(sim.open)), term=Math.max(1, sim.term), H=Math.min(480, open + Math.round(term*12));
-  const capex = sim.bldg*sim.build + sim.bldg*sim.fit, net = sim.rev*(1-sim.opex/100);
-  const flow = new Array(H+1).fill(0), at = m => Math.min(H, Math.max(0, Math.round(m)));
-  if (open > 0) for (let m=1; m<=open; m++) flow[m] -= capex/open; else flow[0] -= capex;      // biaya bangun dibagi rata selama masa bangun
-  for (let m=open+1; m<=H; m++) flow[m] += net*Math.min(1, .5 + .5*(m-open-1)/6);
-  let landBefore=0, monthlyCost=0, extra, sched;
-  const pay = (m, v) => { flow[at(m)] -= v; if (at(m) <= open) landBefore += v; };
+  const S = ov ? {...sim, ...ov} : sim;
+  const area=num(p.area), open=Math.max(0, Math.round(S.open)), term=Math.max(1, S.term), H=Math.min(480, open + Math.round(term*12));
+  const capex = S.bldg*S.build + S.bldg*S.fit, net = S.rev*(1-S.opex/100);
+  const Z = () => new Array(H+1).fill(0), at = m => Math.min(H, Math.max(0, Math.round(m)));
+  // komponen arus kas per bulan: omzet, opex, investasi (bangun + fit-out), bayar lahan (termasuk IPL), dan deposit/jaminan yang dikembalikan
+  const rev = Z(), opx = Z(), cap = Z(), land = Z(), oth = Z(), g = Math.max(-50, Math.min(100, num(S.growth)))/100;
+  if (open > 0) for (let m=1; m<=open; m++) cap[m] += capex/open; else cap[0] += capex;        // biaya bangun dibagi rata selama masa bangun
+  for (let m=open+1; m<=H; m++){ rev[m] = S.rev*Math.min(1, .5 + .5*(m-open-1)/6)*Math.pow(1+g, Math.floor((m-open-1)/12)); opx[m] = rev[m]*S.opex/100; }
+  let landBefore=0, monthlyCost=0, extra, sched, instEnd=0, afterInst=0;
+  const pay = (m, v) => { land[at(m)] += v; if (at(m) <= open) landBefore += v; };
   if (scheme==="beli"){
-    const landVal=area*sim.price, bf=Math.min(sim.bf, landVal), dpTot=landVal*sim.dp/100, dpRest=Math.max(0, dpTot-bf), rest=Math.max(0, landVal-Math.max(dpTot, bf)), n=Math.max(1, Math.round(sim.tenor)), inst=rest/n;
+    const landVal=area*S.price, bf=Math.min(S.bf, landVal), dpTot=landVal*S.dp/100, dpRest=Math.max(0, dpTot-bf), rest=Math.max(0, landVal-Math.max(dpTot, bf)), n=Math.max(1, Math.round(S.tenor)), inst=rest/n;
     pay(0, bf); pay(1, dpRest); for (let i=1;i<=n;i++) pay(1+i, inst);
-    monthlyCost=inst; extra={landVal, bf, dpTot, dpRest, rest, n, inst};
-    sched=[["Booking fee","saat booking",bf],[`DP ${nf(sim.dp)}%`,`${rp(dpTot)} dikurangi booking fee`,dpRest],[`Sisa ${nf(landVal?rest/landVal*100:0)}%`,`${n} angsuran bulanan`,inst,"/bln"],["Total harga lahan",`${nf(area)} m² × ${rp0(sim.price)}, exc PPN`,landVal,"","tot"]];
+    monthlyCost=inst; instEnd=at(1+n); afterInst=0; extra={landVal, bf, dpTot, dpRest, rest, n, inst};
+    sched=[["Booking fee","saat booking",bf],[`DP ${nf(S.dp)}%`,`${rp(dpTot)} dikurangi booking fee`,dpRest],[`Sisa ${nf(landVal?rest/landVal*100:0)}%`,`${n} angsuran bulanan`,inst,"/bln"],["Total harga lahan",`${nf(area)} m² × ${rp0(S.price)}, exc PPN`,landVal,"","tot"]];
   } else {
-    const rentMo=area*sim.rent, total=rentMo*12*term, p1=total*sim.pay1/100, p2=total*sim.pay2/100, rest=Math.max(0,total-p1-p2), n=Math.max(1, Math.round(sim.instN)), inst=rest/n;
-    const dep=rentMo*sim.dep, jam=sim.jam, iplMo=area*sim.ipl, m2=Math.max(1, Math.round(KOM.pay2Days/30));
+    const rentMo=area*S.rent, total=rentMo*12*term, p1=total*S.pay1/100, p2=total*S.pay2/100, rest=Math.max(0,total-p1-p2), n=Math.max(1, Math.round(S.instN)), inst=rest/n;
+    const dep=rentMo*S.dep, jam=S.jam, iplMo=area*S.ipl, m2=Math.max(1, Math.round(KOM.pay2Days/30));
     pay(0, p1); pay(m2, p2); for (let i=1;i<=n;i++) pay(open+i, inst);
-    flow[0] -= dep + jam; landBefore += dep + jam; flow[at(open)] += jam; flow[H] += dep;
-    for (let m=open+1; m<=H; m++) flow[m] -= iplMo;
-    monthlyCost=inst+iplMo; extra={landVal:0, rentMo, total, p1, p2, rest, n, inst, dep, jam, iplMo};
-    sched=[[`Pembayaran 1 · ${nf(sim.pay1)}%`,"saat TTD LOI",p1],[`Pembayaran 2 · ${nf(sim.pay2)}%`,`${nf(KOM.pay2Days)} hari setelah pembayaran 1`,p2],[`Sisa ${nf(total?rest/total*100:0)}%`,`${n} cicilan bulanan sejak buka / operasional`,inst,"/bln"],
-      [`Total sewa ${nf(term)} tahun`,`${nf(area)} m² × ${rp0(sim.rent)} × ${nf(term*12)} bulan, exc PPN`,total,"","tot"],
-      [`Security deposit · ${nf(sim.dep)} bulan sewa`,"dibayar di awal, dikembalikan di akhir masa sewa",dep,"","ref"],["Jaminan pembangunan","dibayar di awal, dikembalikan setelah bangunan selesai",jam,"","ref"],["IPL",`${rp0(sim.ipl)} / m² / bulan, sejak buka`,iplMo,"/bln"]];
+    oth[0] -= dep + jam; landBefore += dep + jam; oth[at(open)] += jam; oth[H] += dep;
+    for (let m=open+1; m<=H; m++) land[m] += iplMo;
+    monthlyCost=inst+iplMo; instEnd=at(open+n); afterInst=iplMo; extra={landVal:0, rentMo, total, p1, p2, rest, n, inst, dep, jam, iplMo};
+    sched=[[`Pembayaran 1 · ${nf(S.pay1)}%`,"saat TTD LOI",p1],[`Pembayaran 2 · ${nf(S.pay2)}%`,`${nf(KOM.pay2Days)} hari setelah pembayaran 1`,p2],[`Sisa ${nf(total?rest/total*100:0)}%`,`${n} cicilan bulanan sejak buka / operasional`,inst,"/bln"],
+      [`Total sewa ${nf(term)} tahun`,`${nf(area)} m² × ${rp0(S.rent)} × ${nf(term*12)} bulan, exc PPN`,total,"","tot"],
+      [`Security deposit · ${nf(S.dep)} bulan sewa`,"dibayar di awal, dikembalikan di akhir masa sewa",dep,"","ref"],["Jaminan pembangunan","dibayar di awal, dikembalikan setelah bangunan selesai",jam,"","ref"],["IPL",`${rp0(S.ipl)} / m² / bulan, sejak buka`,iplMo,"/bln"]];
   }
-  const cum=[]; let c=0; for (let m=0;m<=H;m++){ c += flow[m]; cum.push(c); }
-  let bep=null; for (let m=0;m<cum.length;m++) if (cum[m]>=0 && cum.slice(m).every(v=>v>=0)) { bep=m; break; }
+  const flow = rev.map((v, m) => v - opx[m] - cap[m] - land[m] + oth[m]);
+  const cum=[]; let c=0, lastNeg=-1; for (let m=0;m<=H;m++){ c += flow[m]; cum.push(c); if (c < 0) lastNeg = m; }
+  const bep = lastNeg >= H ? null : lastNeg + 1;                         // bulan pertama sejak kas kumulatif tidak pernah negatif lagi
   const upfront = capex + landBefore, peak = -Math.min(0, ...cum), y5 = cum[Math.min(60, H)];
-  return {scheme, H, open, upfront, peak, capex, cum, bep, net, monthlyCost, cf: net-monthlyCost, y5, roi: peak ? cum[H]/peak : 0, sched, ...extra};
+  return {scheme, H, open, upfront, peak, capex, cum, bep, net, monthlyCost, cf: net-monthlyCost, y5, roi: peak ? cum[H]/peak : 0, sched,
+    rev, opx, cap, land, oth, flow, growth:g, revStable:S.rev, opexPct:S.opex, instEnd, afterInst, ...extra};
 }
 const bepTxt = (b, H) => b===null ? ">" + (H || 120) : String(b);
+
+// ---------- proyeksi omzet & laba: per tahun / per bulan, plus skenario bila omzet per bulan berubah ----------
+let projBy = "y";
+const rpS = v => (v < 0 ? "−" : "") + rp(Math.abs(v)).replace(/^−/, "");
+const hexA = (c, a) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(c).trim()); if (!m) return c; const n = parseInt(m[1], 16); return `rgba(${n>>16},${(n>>8)&255},${n&255},${a})`; };
+/** Jumlahkan komponen arus kas per periode. Tahun 1 mencakup bulan 0 (LOI / booking).
+ *  Per bulan: satu baris gabungan "sebelum buka" (masa bangun), lalu 36 bulan pertama operasional. */
+function simPeriods(r, by){
+  const out = [], add = (label, m0, m1, pre, agg) => { const o = {label, m0, m1, pre, agg, rev:0, opx:0, land:0, cap:0};
+    for (let m=m0; m<=m1; m++){ o.rev += r.rev[m]; o.opx += r.opx[m]; o.land += r.land[m]; o.cap += r.cap[m]; }
+    o.op = o.rev - o.opx; o.laba = o.op - o.land; o.cum = r.cum[m1]; out.push(o); };
+  if (by === "m"){ const N = Math.min(r.H, r.open + 36); add(r.open > 0 ? "Sebelum buka" : "Saat LOI / booking", 0, r.open, true, true);
+    for (let m=r.open+1; m<=N; m++) add("Bln " + m, m, m, false); }
+  else for (let y=1; (y-1)*12 < r.H; y++){ const m1 = Math.min(r.H, y*12), part = m1 - (y-1)*12; add("Thn " + y + (part < 12 ? ` (${part} bln)` : ""), y === 1 ? 0 : (y-1)*12 + 1, m1, y*12 <= r.open); }
+  return out;
+}
+function renderProj(cur){
+  const beli = cur.scheme === "beli", H = cur.H, yrs = nf(H/12, H%12 ? 1 : 0), pay = beli ? "angsuran lahan" : "cicilan sewa + IPL";
+  $("#projTitle").textContent = beli ? "opsi jual" : "opsi sewa";
+  $("#projSeg").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.b === projBy));
+  const stab = cur.revStable, op = cur.net, during = op - cur.monthlyCost, after = op - cur.afterInst, mar = stab ? op/stab*100 : 0;
+  $("#projDesc").textContent = `Dengan omzet ${rp(stab)} per bulan dan opex ${nf(cur.opexPct)}%${cur.growth ? `, omzet ${cur.growth > 0 ? "naik" : "turun"} ${nf(Math.abs(cur.growth)*100, 1)}% per tahun` : ""}. Dihitung sejak ${beli ? "booking" : "TTD LOI"} sampai tahun ke-${yrs}.`;
+  $("#projKpis").innerHTML = `
+    <div class="kpi"><div class="l">Omzet / bln</div><div class="v">${rp(stab)}</div><div class="s">kondisi stabil, mulai bulan ke-${nf(cur.open + 7)}</div></div>
+    <div class="kpi"><div class="l">Laba operasional / bln</div><div class="v ${op<0?"up":""}">${rpS(op)}</div><div class="s">omzet − opex · margin ${nf(mar, 0)}%</div></div>
+    <div class="kpi"><div class="l">Laba / bln · selama ${beli?"angsuran":"cicilan"}</div><div class="v ${during<0?"up":""}">${rpS(during)}</div><div class="s">setelah ${pay} ${rp(cur.monthlyCost)}${cur.instEnd < H ? ` · sampai bulan ke-${nf(cur.instEnd)}` : ""}</div></div>
+    <div class="kpi"><div class="l">Laba / bln · setelah lunas</div><div class="v ${after<0?"up":""}">${cur.instEnd < H ? rpS(after) : "–"}</div><div class="s">${cur.instEnd < H ? (beli ? "tidak ada lagi bayar lahan" : `tinggal IPL ${rp(cur.afterInst)}`) + ` · mulai bulan ke-${nf(cur.instEnd + 1)}` : "cicilan berjalan sampai akhir periode"}</div></div>`;
+  // grafik + tabel per periode
+  const P = simPeriods(cur, projBy), mo = projBy === "m", short = v => Math.abs(v) >= 1e9 ? nf(v/1e9, 1) + " M" : nf(v/1e6, 0) + " jt";
+  const o = chartBase(); o.scales.x.grid = {display:false}; o.scales.y.ticks.callback = v => short(v);
+  const C = P.filter(x => !x.agg);                                 // grafik per bulan hanya masa operasional: pembayaran awal lahan membuat skalanya tidak terbaca
+  if (mo){ o.scales.x.ticks.autoSkip = false; o.scales.x.ticks.maxRotation = 0; o.scales.x.ticks.callback = (v, i) => i % 6 === 0 ? C[i].m0 : ""; o.scales.x.title = {display:true, text:"bulan ke- (sejak " + (beli ? "booking" : "LOI") + ")", color:css("--muted"), font:{size:11}}; }
+  o.interaction = {mode:"index", intersect:false};
+  o.plugins.tooltip.callbacks = {label:c => `${c.dataset.label}: ${rpS(c.raw)}`};
+  const acc = css("--accent"), badc = css("--bad"), every = mo ? 6 : C.length > 12 ? Math.ceil(C.length/10) : 1;
+  mk("chProj", {type:"bar", data:{labels:C.map(x => x.label), datasets:[
+    {label:"Omzet", data:C.map(x => Math.round(x.rev)), backgroundColor:hexA(css("--info"), .38), borderRadius:3, categoryPercentage:.8, barPercentage:.9},
+    {label:"Laba bersih", data:C.map(x => Math.round(x.laba)), backgroundColor:C.map(x => x.laba < 0 ? badc : acc), borderRadius:3, categoryPercentage:.8, barPercentage:.9}]}, options:o},
+    {filter:c => c.datasetIndex === 1 && c.dataIndex % every === 0, fmt:v => short(v), size:10});
+  const T = P.reduce((t, x) => ({rev:t.rev+x.rev, opx:t.opx+x.opx, op:t.op+x.op, land:t.land+x.land, laba:t.laba+x.laba, cap:t.cap+x.cap}), {rev:0, opx:0, op:0, land:0, laba:0, cap:0});
+  const cell = (v, neg) => `<td class="n${neg && v < 0 ? " neg" : ""}">${v ? rpS(v) : "–"}</td>`;
+  $("#projTable").innerHTML = `<thead><tr><th>${mo ? "Bulan" : "Tahun"}</th><th class="n">Omzet</th><th class="n">Laba operasional</th><th class="n">Bayar lahan</th><th class="n">Laba bersih</th><th class="n">Kas kumulatif</th></tr></thead><tbody>${
+    P.map(x => { const sub = [x.agg && cur.open > 0 ? `bln 0–${cur.open}` : x.pre && !mo ? "masa bangun" : mo && x.m0 === cur.open + 1 ? "buka" : "", x.cap ? "investasi " + rp(x.cap) : ""].filter(Boolean).join(" · ");
+      return `<tr class="${x.pre ? "pre" : ""}"><td>${esc(x.label)}${sub ? `<small>${esc(sub)}</small>` : ""}</td>${cell(x.rev)}${cell(x.op, 1)}${cell(x.land)}${cell(x.laba, 1)}${cell(x.cum, 1)}</tr>`; }).join("")}
+    <tr class="tot"><td>Total${mo ? `<small>s/d bulan ke-${nf(P[P.length-1].m1)}</small>` : ""}${T.cap ? `<small>investasi ${rp(T.cap)}</small>` : ""}</td>${cell(T.rev)}${cell(T.op, 1)}${cell(T.land)}${cell(T.laba, 1)}${cell(P[P.length-1].cum, 1)}</tr></tbody>`;
+  // skenario: omzet per bulan diubah, isian lain tetap
+  const F = [.6, .8, 1, 1.2, 1.5];
+  $("#scenTable").innerHTML = `<thead><tr><th>Omzet / bln</th><th class="n">Laba / bln saat ${beli?"angsuran":"cicilan"}</th><th class="n">Laba / bln setelah lunas</th><th class="n">BEP</th><th class="n">Kas akhir thn ke-${yrs}</th></tr></thead><tbody>${
+    F.map(f => { const r = f === 1 ? cur : calc(cur.scheme, {rev:stab*f}), d = r.net - r.monthlyCost, a2 = r.net - r.afterInst;
+      return `<tr class="${f === 1 ? "now" : ""}"><td>${rp(stab*f)}<small>${f === 1 ? "isian sekarang" : (f > 1 ? "+" : "−") + nf(Math.abs(f-1)*100) + "%"}</small></td>${cell(d, 1)}${r.instEnd < H ? cell(a2, 1) : '<td class="n">–</td>'}<td class="n">${r.bep === null ? "> " + nf(H) : nf(r.bep)} bln</td>${cell(r.cum[H], 1)}</tr>`; }).join("")}</tbody>`;
+  // omzet minimal: tidak nombok selama cicilan, dan balik modal dalam periode
+  const noLoss = cur.opexPct < 100 ? cur.monthlyCost/(1 - cur.opexPct/100) : null;
+  let minBep = null; { let lo = 0, hi = Math.max(stab, 1e6), ok = false;
+    for (let i=0; i<40 && !ok; i++){ if (calc(cur.scheme, {rev:hi}).bep !== null) ok = true; else { lo = hi; hi *= 2; } }
+    if (ok){ for (let i=0; i<36; i++){ const mid = (lo + hi)/2; if (calc(cur.scheme, {rev:mid}).bep !== null) hi = mid; else lo = mid; } minBep = Math.ceil(hi/1e5)*1e5; } }
+  $("#projNote").innerHTML = `${noLoss !== null ? `Supaya tidak nombok selama ${beli?"angsuran":"cicilan"}, omzet minimal <b>${rp(noLoss)}</b> per bulan. ` : ""}${minBep !== null ? `Supaya balik modal dalam ${yrs} tahun, omzet minimal sekitar <b>${rp(minBep)}</b> per bulan. ` : `Dengan opex ${nf(cur.opexPct)}%, modal tidak kembali dalam ${yrs} tahun berapa pun omzetnya. `}${beli ? "" : "Deposit dan jaminan (dikembalikan) hanya masuk ke kas kumulatif. "}Laba operasional = omzet − opex ${nf(cur.opexPct)}%. Laba bersih = laba operasional − bayar lahan${beli ? "" : " (termasuk IPL)"}. Investasi bangun dan fit-out hanya masuk ke kas kumulatif. BEP dihitung sejak ${beli ? "booking" : "LOI"}. Semua angka belum termasuk PPN dan pajak penghasilan. Ini proyeksi dari asumsi yang diisi, bukan jaminan hasil.`;
+}
+$("#projSeg").onclick = e => { const b = e.target.closest("button"); if (!b) return; projBy = b.dataset.b; renderSimOut(); };
 function renderSim(){
   $("#schemeSeg").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.s===sim.scheme));
   $("#beliFields").hidden = sim.scheme!=="beli"; $("#sewaFields").hidden = sim.scheme!=="sewa";
@@ -2187,7 +2270,8 @@ function renderSim(){
 function renderSimOut(){
   ["Build","Fit","Rev","Price","Rent","Bf","Jam"].forEach(k=>$("#h"+k).textContent = rp(num($("#s"+k).value)));
   const a=calc("beli"), b=calc("sewa"); const cur = sim.scheme==="beli"?a:b;
-  if (!cur){ $("#oBep").textContent="–"; $("#simKpis").innerHTML=`<div class="note">Tambahkan kavling di tab Lahan Komersial untuk mulai simulasi.</div>`; $("#cmpTable").innerHTML=""; $("#schedTable").innerHTML=""; return; }
+  if (!cur){ $("#oBep").textContent="–"; $("#simKpis").innerHTML=`<div class="note">Tambahkan kavling di tab Lahan Komersial untuk mulai simulasi.</div>`; $("#cmpTable").innerHTML=""; $("#schedTable").innerHTML=""; $("#projPanel").hidden = true; return; }
+  $("#projPanel").hidden = false; renderProj(cur);
   const H = cur.H, yrs = nf(H/12, H%12 ? 1 : 0), beli = sim.scheme==="beli";
   $("#oBep").innerHTML = `${bepTxt(cur.bep, H)}<small>bulan</small>`;
   $("#simTermWarn").textContent = !beli && sim.term < KOM.term ? `Jangka waktu ${nf(sim.term)} thn di bawah minimal standar ${nf(KOM.term)} thn.` : !beli && sim.pay1 + sim.pay2 > 100 ? "Pembayaran 1 + 2 melebihi 100%." : "";
@@ -3279,7 +3363,7 @@ function simContext(){
     ketentuan_standar:{...KOM},
     penawaran_masuk:offersOf(p).map(o => ({tenant:o.tenant, jenis:o.type, harga_m2:o.priceM2, masa_sewa_thn:o.term, status:o.status, tanggal:o.date, rencana_usaha:o.use})),
     aturan_kawasan:{kdb_maks_pct:KAWASAN.kdb*100, klb_maks:KAWASAN.klb, gsb_depan_m:KAWASAN.rowJalan/2, sempadan_samping_m:KAWASAN.gsSamping, sempadan_belakang_m:KAWASAN.gsBelakang, tapak_maks_m2:Math.round(aturanKavling(p).maxFoot), luas_bangunan_maks_m2:Math.round(aturanKavling(p).maxBldg)},
-    asumsi:{jenis_usaha:PRESETS[sim.preset].label, luas_bangunan:sim.bldg, biaya_bangun_m2:sim.build, fitout_m2:sim.fit, omzet_bulan:sim.rev, opex_pct:sim.opex, buka_bulan_ke:sim.open,
+    asumsi:{jenis_usaha:PRESETS[sim.preset].label, luas_bangunan:sim.bldg, biaya_bangun_m2:sim.build, fitout_m2:sim.fit, omzet_bulan:sim.rev, kenaikan_omzet_pct_per_tahun:sim.growth, opex_pct:sim.opex, buka_bulan_ke:sim.open,
       beli:{harga_m2:sim.price, booking_fee:sim.bf, dp_pct:sim.dp, sisa_diangsur_kali:sim.tenor}, sewa:{sewa_m2_per_bulan:sim.rent, ipl_m2_per_bulan:sim.ipl, jangka_waktu_thn:sim.term, bayar1_pct:sim.pay1, bayar2_pct:sim.pay2, sisa_dicicil_kali:sim.instN, deposit_bulan_sewa:sim.dep, jaminan_pembangunan:sim.jam}},
     hasil_beli:{modal_sampai_buka:Math.round(a.upfront), puncak_dana:Math.round(a.peak), harga_lahan:Math.round(a.landVal), angsuran_bln:Math.round(a.inst), bep_bln:a.bep, kas_thn5:Math.round(a.y5), kas_akhir:Math.round(a.cum[a.H]), horizon_bln:a.H},
     hasil_sewa:{modal_sampai_buka:Math.round(b.upfront), puncak_dana:Math.round(b.peak), total_sewa:Math.round(b.total), cicilan_bln:Math.round(b.inst), ipl_bln:Math.round(b.iplMo), bep_bln:b.bep, kas_thn5:Math.round(b.y5), kas_akhir:Math.round(b.cum[b.H]), horizon_bln:b.H},

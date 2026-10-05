@@ -70,6 +70,18 @@ Yang perlu diingat:
 
 `node tests/backend.test.js` menjalankan `apps-script/Code.gs` apa adanya di atas tiruan layanan Google (Sheet, Drive, UrlFetch, Properties), termasuk kebiasaan Sheets mengubah teks jadi angka/tanggal. 43 pemeriksaan: setup, token, simpan/edit/hapus, impor massal, file ke Drive, pengaturan bersama, sinkron sumber, riwayat harga. Ini menguji logika kode; izin dan kuota akun Google yang asli tetap perlu dicek dengan **Tes koneksi** / `selfTest` setelah deploy.
 
+## Proyeksi omzet & laba (Simulator Investor)
+
+Panel **Proyeksi omzet & laba** di Simulator Investor menerjemahkan isian "Omzet / bulan" menjadi proyeksi laba:
+
+- Empat angka per bulan: omzet stabil, laba operasional (omzet − opex), laba selama angsuran/cicilan lahan, dan laba setelah lunas.
+- Grafik dan tabel **Per tahun** (sejak booking / LOI sampai akhir periode) atau **Per bulan** (36 bulan pertama operasional; masa bangun dirangkum satu baris).
+- Tabel **Kalau omzet per bulan berubah**: omzet −40%, −20%, isian sekarang, +20%, +50% beserta laba, BEP, dan kas akhir periode.
+- Dua ambang: omzet minimal supaya tidak nombok selama cicilan, dan omzet minimal supaya balik modal dalam periode.
+- Isian baru **Kenaikan omzet per tahun (%)** (bawaan 0). Omzet tetap mulai 50% saat buka dan penuh dalam 6 bulan.
+
+Laba bersih = omzet − opex − bayar lahan (termasuk IPL untuk sewa). Investasi bangun dan fit-out serta deposit/jaminan hanya masuk ke kas kumulatif. Semua angka belum termasuk PPN dan pajak penghasilan, dan merupakan proyeksi dari asumsi yang diisi.
+
 ## Pindah browser / laptop (link sambungan)
 
 URL Apps Script dan token tersimpan per browser. Supaya tidak perlu mengisi lagi di perangkat lain: **Pengaturan → Salin link sambungan**, lalu buka link itu di browser tujuan dan setujui konfirmasinya. Dashboard langsung tersambung, dan kodenya otomatis dibuang dari kolom alamat.
