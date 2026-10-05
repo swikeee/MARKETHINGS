@@ -287,6 +287,6 @@ File dibuat langsung di browser tanpa pustaka atau koneksi tambahan. Teks kop ad
 
 Katalog tipe tiap cluster (nama + ukuran kavling lebar × panjang) ada di konstanta `TYPE_CATALOG` di `index.html`. Tiap baris penjualan dicocokkan ke katalog lewat kolom `TIPE` (akhiran Standard/Hook diabaikan) dan, bila ada dua tipe bernama sama, lewat kolom `Uk Kavling`.
 
-Isi bagian ini: tipe terjual vs jumlah tipe di katalog, tipe terlaris, lebar muka terlaris, rata-rata luas kavling, grafik tipe terlaris, grafik menurut lebar muka dan luas kavling, serta tabel rincian per tipe (unit, Standard/Hook, nilai, rata-rata harga, harga per m² tanah, porsi di cluster, terakhir terjual). Saringan: cluster, rentang waktu, unit/nilai, dan "Terjual saja / Semua tipe".
+Isi bagian ini: tipe terjual vs jumlah tipe di katalog, tipe terlaris, lebar muka terlaris, rata-rata luas kavling, grafik tipe terlaris, grafik menurut lebar muka dan luas kavling, serta tabel rincian per tipe (unit, Standard/Hook, nilai, rata-rata harga, harga per m² tanah, porsi di cluster, terakhir terjual). Saringan: cluster, rentang waktu, unit/nilai, dan "Terjual saja / Semua tipe". Tabel rincian tersembunyi dulu; buka dengan tombol **Tampilkan rincian per tipe** di bawah grafik.
 
 Nama tipe di data yang tidak ada di katalog tetap dihitung dan ditandai "di luar katalog". Untuk menambah atau mengubah tipe, edit `TYPE_CATALOG` dengan format `"Nama LEBARxPANJANG"`; tambahkan `(Kavling)` untuk tanah saja dan `|Alias` untuk ejaan lain.

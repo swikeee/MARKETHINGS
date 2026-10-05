@@ -305,6 +305,9 @@ td.n .note{font-family:var(--f-body)}
 .tp-kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin:2px 0 16px} .tp-kpis .kpi{padding:12px 14px;box-shadow:none} .tp-kpis .kpi .v{font-size:21px}
 .tp-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:20px} @media (max-width:860px){.tp-grid{grid-template-columns:minmax(0,1fr)}}
 .tp-h{font:600 13px var(--f-body);margin:0 0 6px;color:var(--ink)}
+.tp-detail-h{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+#tpToggle{display:inline-flex;align-items:center;gap:6px} #tpToggle svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
+#tpToggle[aria-expanded="true"] svg{transform:rotate(180deg)}
 #tpTable td .pbar{width:70px} #tpTable tr.zero td{color:var(--muted)} #tpTable td.t{white-space:normal;min-width:150px}
 .btn.xl{display:inline-flex;align-items:center;gap:6px;color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,var(--line));font-weight:600;white-space:nowrap}
 .btn.xl:hover{background:var(--accent-soft)}
@@ -762,7 +765,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
     </div>
     <div class="sec-h" id="s-tipe"><h2>Tipe rumah</h2></div>
     <div class="panel reveal" id="tpPanel">
-      <div class="ph"><div><h3>Penjualan per tipe</h3><p class="desc">Unit dan nilai booking bersih (tanpa batal) per tipe rumah, dicocokkan dengan katalog tipe tiap cluster. Ukuran = lebar × panjang kavling. Pilih “Semua tipe” di tabel untuk melihat juga tipe katalog yang belum terjual di rentang ini.</p></div>
+      <div class="ph"><div><h3>Penjualan per tipe</h3><p class="desc">Unit dan nilai booking bersih (tanpa batal) per tipe rumah, dicocokkan dengan katalog tipe tiap cluster. Ukuran = lebar × panjang kavling. Tabel rincian per tipe ada di bawah grafik, klik “Tampilkan rincian per tipe” untuk membukanya.</p></div>
         <div class="ana-tools"><label class="sel" for="tpCluster">Cluster <select id="tpCluster"></select></label>
           <div class="seg" id="tpMetric"><button aria-pressed="true" data-m="unit">Unit</button><button aria-pressed="false" data-m="val">Nilai</button></div></div></div>
       <div class="ana-range"><div class="rp-presets" id="tpPresets"><button data-n="6">6 bln</button><button data-n="12">12 bln</button><button data-n="ytd">Tahun ini</button><button data-n="all">Semua</button></div><span class="note" id="tpRange"></span></div>
@@ -774,10 +777,13 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
           <h4 class="tp-h" style="margin-top:14px">Luas kavling</h4><div class="chartbox" style="height:170px"><canvas id="chTpArea" aria-label="Unit menurut luas kavling"></canvas></div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:18px"><h4 class="tp-h" style="margin:0">Rincian per tipe</h4>
-        <div class="seg" id="tpShow"><button aria-pressed="true" data-z="0">Terjual saja</button><button aria-pressed="false" data-z="1">Semua tipe</button></div></div>
-      <div class="tablewrap flat pivot"><table id="tpTable"></table></div>
-      <p class="note" id="tpNote" style="margin:10px 0 0"></p>
+      <div class="tp-detail-h"><button type="button" class="btn sm" id="tpToggle" aria-expanded="false" aria-controls="tpDetail"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg><span>Tampilkan rincian per tipe</span></button><span class="note" id="tpDetailNote"></span></div>
+      <div id="tpDetail" hidden>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:14px 0 8px"><h4 class="tp-h" style="margin:0">Rincian per tipe</h4>
+          <div class="seg" id="tpShow"><button aria-pressed="true" data-z="0">Terjual saja</button><button aria-pressed="false" data-z="1">Semua tipe</button></div></div>
+        <div class="tablewrap flat pivot"><table id="tpTable"></table></div>
+        <p class="note" id="tpNote" style="margin:10px 0 0"></p>
+      </div>
     </div>
     <div class="sec-h" id="s-komposisi"><h2>Komposisi pembelian</h2></div>
     <div class="g4 reveal">
@@ -3658,7 +3664,7 @@ function hbar(id, entries, colors, fmt, axisFmt){
   mk(id, {type:"bar", data:{labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]), backgroundColor:colors || seriesColor(1), borderRadius:4, barThickness:14}]}, options:o}, {fmt:v => fmt ? fmt(v) : nf(v)});
 }
 // ---------- analisis per tipe rumah ----------
-const tp = {cluster:"all", n:"12", metric:"unit", zero:false};
+const tp = {cluster:"all", n:"12", metric:"unit", zero:false, open:false};
 function renderTypes(){
   const el = $("#tpTable"); if (!el) return;
   const ms = allSalesMonths(); if (!ms.length){ el.innerHTML = `<tbody><tr><td class="empty">Belum ada data penjualan.</td></tr></tbody>`; return; }
@@ -3702,6 +3708,8 @@ function renderTypes(){
   vbar("chTpArea", AB.filter(a => byA[a[0]]).map(a => [a[0], byA[a[0]]]), seriesColor(1));
   // tabel rincian, dikelompokkan per cluster
   $("#tpShow").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", (b.dataset.z === "1") === tp.zero));
+  $("#tpDetail").hidden = !tp.open; $("#tpToggle").setAttribute("aria-expanded", tp.open); $("#tpToggle span").textContent = tp.open ? "Sembunyikan rincian per tipe" : "Tampilkan rincian per tipe";
+  $("#tpDetailNote").textContent = tp.open ? "" : `${nf(sold.length)} tipe terjual di ${nf(new Set(sold.map(r => r.t.cluster)).size)} cluster${sold.some(r => r.t.extra) ? `, ${nf(sold.filter(r => r.t.extra).length)} di luar katalog` : ""}`;
   const byCl = {}; list.filter(r => tp.zero || r.n).forEach(r => (byCl[r.t.cluster] = byCl[r.t.cluster] || []).push(r));
   const clOrder = scope.filter(c => byCl[c]).sort((a,b) => byCl[b].reduce((s,r) => s + r.n, 0) - byCl[a].reduce((s,r) => s + r.n, 0) || a.localeCompare(b));
   el.innerHTML = `<thead><tr><th>Tipe</th><th>Ukuran (m)</th><th class="n">LT (m²)</th><th class="n">Unit</th><th class="n">Std / Hook</th><th class="n">Nilai</th><th class="n">Rata-rata harga</th><th class="n">Harga / m² tanah</th><th>Porsi di cluster</th><th>Terakhir terjual</th></tr></thead><tbody>${
@@ -3716,6 +3724,7 @@ function renderTypes(){
 $("#tpCluster").onchange = e => { tp.cluster = e.target.value; renderTypes(); };
 $("#tpMetric").onclick = e => { const b = e.target.closest("button"); if (!b) return; tp.metric = b.dataset.m; renderTypes(); };
 $("#tpPresets").onclick = e => { const b = e.target.closest("button"); if (!b) return; tp.n = b.dataset.n; renderTypes(); };
+$("#tpToggle").onclick = () => { tp.open = !tp.open; renderTypes(); };
 $("#tpShow").onclick = e => { const b = e.target.closest("button"); if (!b) return; tp.zero = b.dataset.z === "1"; renderTypes(); };
 function renderAnalysis(){
   const full = anaRangeKeys();
