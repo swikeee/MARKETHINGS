@@ -146,7 +146,7 @@ function handle(action, p) {
 }
 
 /**
- * Uji nyata: tulis-baca-hapus di Sheet, buat-hapus file di Drive, dan ambil satu URL publik.
+ * Uji nyata: tulis-baca-hapus di Sheet, buat-hapus file di Drive, ambil satu URL publik, dan (bila ANTHROPIC_API_KEY terisi) satu panggilan kecil ke Claude API.
  * Bisa dijalankan dari editor (Run → selfTest, lihat Execution log) atau dari dashboard (Pengaturan → Tes koneksi).
  */
 function selfTest() {
@@ -168,6 +168,11 @@ function selfTest() {
     const code = UrlFetchApp.fetch('https://www.gstatic.com/generate_204', { muteHttpExceptions: true }).getResponseCode();
     r.fetch = { ok: code >= 200 && code < 400, msg: 'HTTP ' + code };
   } catch (e) { r.fetch = { ok: false, msg: String(e.message || e) }; }
+  if (r.ai) {   // kunci terisi: coba satu panggilan kecil ke Claude API supaya ketahuan kuncinya benar, saldo ada, dan nama model valid
+    const model = prop('MODEL') || 'claude-sonnet-5-5';
+    try { const t = claudeText([{ type: 'text', text: 'Balas hanya dengan satu kata: OK' }], 20); r.aiTest = { ok: !!t, msg: 'Claude API menjawab · model ' + model }; }
+    catch (e) { r.aiTest = { ok: false, msg: String(e.message || e) + ' · model ' + model }; }
+  }
   Logger.log(JSON.stringify(r, null, 2));
   return r;
 }

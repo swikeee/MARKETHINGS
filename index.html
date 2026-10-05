@@ -3038,7 +3038,7 @@ $("#btnSettings").onclick = () => {
     try { if (TOKEN){ let r; try { r = await api("selfTest",{}); } catch(e){ if (e.code !== "server" || !/unknown action/.test(e.message||"")) throw e; r = await api("ping",{}); }   // backend lama belum punya selfTest
         const line = (l, t) => t ? `${t.ok ? "✓" : "✗"} ${l}: ${t.msg || (t.ok ? "ok" : "gagal")}` : "";
         m.style.whiteSpace = "pre-line";
-        m.textContent = ["Terhubung. Token benar.", line("Google Sheet", r.sheet), line("Google Drive", r.drive), line("Ambil data dari internet", r.fetch), "AI: " + (r.ai ? "aktif" : "belum aktif (isi ANTHROPIC_API_KEY)"), r.sheet ? "" : "Backend versi lama: tempel ulang Code.gs untuk tes lengkap."].filter(Boolean).join("\n"); }
+        m.textContent = ["Terhubung. Token benar.", line("Google Sheet", r.sheet), line("Google Drive", r.drive), line("Ambil data dari internet", r.fetch), r.aiTest ? line("AI (Claude API)", r.aiTest) : "AI: " + (r.ai ? "aktif" : "belum aktif (isi ANTHROPIC_API_KEY di Script Properties)"), r.sheet ? "" : "Backend versi lama: tempel ulang Code.gs untuk tes lengkap."].filter(Boolean).join("\n"); }
       else { const j=await (await fetch(API_URL)).json(); m.textContent = j.ok ? "Terhubung (baca saja)." : "Server menolak: " + j.error; } }
     catch(e){ m.textContent = errText(e); } };
   save.onclick=()=>{ apply(); store.set("li.api",API_URL); store.set("li.token",TOKEN);

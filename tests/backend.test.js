@@ -74,6 +74,20 @@ ok('import ke sheet tidak valid ditolak', /tidak valid/.test(post('import', {she
 // volume: 300 baris penjualan
 r = post('import', {sheet:'Sales', rows:Array.from({length:300}, (_, i) => ({id:'s'+i, date:'2026-0'+(1+i%9)+'-15', cluster:'Padmagriya', price:1.1e9, status:'Akad'}))});
 ok('import 300 baris Sales, tanggal tetap teks', r.count === 300 && get().sales.length === 300 && get().sales[5].date === '2026-06-15', get().sales[5].date);
+// AI: panggilan ke Claude API (ditiru) — format permintaan, kunci salah, kunci kosong
+let seen = null;
+env.setFetch((url, o) => { if (!url.includes('api.anthropic.com')) return {code:204, body:'', type:'text/plain'}; seen = {url, o, body:JSON.parse(o.payload)};
+  return o.headers['x-api-key'] === 'sk-benar' ? {code:200, type:'application/json', body:JSON.stringify({content:[{type:'text', text:'## Ringkasan\n- Penjualan naik'}]})} : {code:401, type:'application/json', body:JSON.stringify({type:'error', error:{type:'authentication_error', message:'invalid x-api-key'}})}; });
+env.props.ANTHROPIC_API_KEY = 'sk-benar'; r = post('ai', {prompt:'Ringkas penjualan'});
+ok('aksi ai: jawaban Claude diteruskan ke dashboard', r.ok && /Penjualan naik/.test(r.text));
+ok('permintaan ke Claude API berformat benar', seen.url === 'https://api.anthropic.com/v1/messages' && seen.o.method === 'post' && seen.o.headers['anthropic-version'] === '2023-06-01' && seen.o.contentType === 'application/json' && seen.body.model === 'claude-sonnet-5-5' && seen.body.max_tokens > 0 && seen.body.messages[0].role === 'user' && seen.body.messages[0].content[0].text === 'Ringkas penjualan', seen.body.model);
+env.props.MODEL = 'claude-haiku-4-5-20251001'; post('ai', {prompt:'x'}); ok('properti MODEL mengganti model', seen.body.model === 'claude-haiku-4-5-20251001'); delete env.props.MODEL;
+r = post('selfTest', {}); ok('selfTest: kunci benar → AI ✓', r.ai === true && r.aiTest && r.aiTest.ok === true, r.aiTest && r.aiTest.msg);
+env.props.ANTHROPIC_API_KEY = 'sk-salah'; r = post('selfTest', {}); ok('selfTest: kunci salah → AI ✗ dengan pesan dari Claude', r.aiTest && r.aiTest.ok === false && /invalid x-api-key/.test(r.aiTest.msg), r.aiTest && r.aiTest.msg);
+r = post('ai', {prompt:'x'}); ok('aksi ai dengan kunci salah → pesan jelas, tidak crash', r.ok === false && /Claude API: invalid x-api-key/.test(r.error), r.error);
+delete env.props.ANTHROPIC_API_KEY; r = post('ai', {prompt:'x'}); ok('aksi ai tanpa kunci → pesan jelas', /ANTHROPIC_API_KEY belum diisi/.test(r.error || ''), r.error);
+r = post('selfTest', {}); ok('selfTest tanpa kunci: tidak memanggil AI', r.ai === false && !r.aiTest);
+ok('kunci API tidak pernah ikut terkirim ke dashboard', !JSON.stringify(get()).includes('sk-') && !JSON.stringify(post('selfTest', {})).includes('sk-'));
 // penanda perubahan untuk sinkron otomatis
 const rev = () => JSON.parse(A.doGet({parameter:{rev:'1'}}).text);
 let r0 = rev(); ok('cek revisi ringan: hanya mengembalikan penanda, bukan data', r0.ok && typeof r0.rev === 'string' && !('competitors' in r0), r0.rev);
