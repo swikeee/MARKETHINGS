@@ -100,7 +100,7 @@ h3{font:600 15px var(--f-body);letter-spacing:-.01em;color:var(--ink);margin:0 0
 .kpi .v{font:600 24px var(--f-body);letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:2px;overflow-wrap:anywhere}
 .kpi .s{font-size:12px;color:var(--muted);margin-top:2px}
 .up{color:var(--bad)} .down{color:var(--ok)}
-.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:12px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;min-width:0;box-shadow:var(--shadow)}
 .chartbox{position:relative;height:280px}
 .legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
@@ -219,18 +219,20 @@ td.n .note{font-family:var(--f-body)}
 @keyframes rowin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
 /* developer cards */
-.devgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
-.dev{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:10px;min-width:0;transition:transform .25s ease,box-shadow .25s ease,border-color .25s}
+.devgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(250px,100%),1fr));gap:12px}
+.dev{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;grid-template-columns:minmax(0,1fr);gap:10px;min-width:0;container-type:inline-size;transition:transform .25s ease,box-shadow .25s ease,border-color .25s}
 .dev:hover{transform:translateY(-4px);box-shadow:0 14px 30px -18px color-mix(in srgb,var(--ink) 45%,transparent);border-color:var(--c)}
 .dev::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;border-radius:14px 14px 0 0;background:var(--c)}
-.dev .nm{font:700 17px var(--f-display);display:flex;justify-content:space-between;gap:8px;align-items:baseline}
-.dev .big{font:600 24px var(--f-mono);font-variant-numeric:tabular-nums}
+.dev .nm{font:700 17px var(--f-display);display:flex;justify-content:space-between;gap:8px;align-items:flex-start;line-height:1.25}
+.dev .nm > span:first-child{min-width:0;overflow-wrap:break-word} .dev .nm .chip{flex:none;white-space:nowrap;margin-top:2px}
+.dev .big{font:600 24px var(--f-mono);font-size:clamp(17px,9.6cqw,24px);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .dev .row{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}
-.dev .row b{color:var(--ink);font-family:var(--f-mono);font-weight:500}
+.dev .row b{color:var(--ink);font-family:var(--f-mono);font-weight:500;text-align:right;white-space:nowrap}
 .mix{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--surface-2)}
 .mix i{display:block;height:100%}
-.mixleg{display:flex;gap:10px;font-size:11px;color:var(--muted)}
-.mixleg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}
+.mixleg{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11px;color:var(--muted)}
+.mixleg span{display:inline-flex;align-items:center;white-space:nowrap}
+.mixleg i{display:inline-block;flex:none;width:8px;height:8px;border-radius:2px;margin-right:4px}
 
 /* ladder */
 .ladder{display:grid;gap:14px;min-width:0}
@@ -313,7 +315,7 @@ td.n .note{font-family:var(--f-body)}
 .btn.xl:hover{background:var(--accent-soft)}
 .btn.xl svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .offer-x{display:flex;justify-content:flex-end;margin:-2px 0 4px}
-.kom{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:8px}
+.kom{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:14px;margin-bottom:8px}
 .kom .panel h3{display:flex;align-items:center;gap:8px;margin:0 0 12px}
 .kom .big{font:700 26px/1.1 var(--f-display);letter-spacing:-.02em} .kom .big small{font:500 13px var(--f-body);color:var(--muted);letter-spacing:0}
 .terms{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 14px;font-size:13px;margin:14px 0 0}
