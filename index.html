@@ -382,7 +382,8 @@ table.sched{width:100%;min-width:0;table-layout:auto} .sched td{white-space:norm
 /* kepala kalender heatmap bulanan: pita tahun + nama bulan, garis batas tiap pergantian tahun */
 .heat .hyb{font:600 11px var(--f-mono);letter-spacing:.08em;color:var(--ink);background:var(--surface-2);border-radius:6px;padding:5px 8px;white-space:nowrap;overflow:hidden;display:flex;align-items:center;gap:8px}
 .heat .hyb::after{content:"";flex:1;height:1px;background:var(--line)}
-.heat .hmo{font:600 12px var(--f-body);color:var(--ink);padding:3px 0 6px;border-bottom:2px solid var(--line);line-height:1.2}
+.heat .hmo{font:600 12px var(--f-body);color:var(--ink);padding:6px 0 4px;border:1px solid var(--line);border-radius:6px;background:var(--surface);line-height:1.2;box-shadow:var(--shadow)}
+.heat .hmo.yr1{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
 .heat .hmo .hev{display:flex;justify-content:center;gap:2px;height:7px;margin-top:2px} .heat .hmo .hev .evdot{margin:0}
 .heat .yb{position:relative}
 .heat .yb::before{content:"";position:absolute;left:-3px;top:-3px;bottom:-3px;width:2px;border-radius:1px;background:color-mix(in srgb,var(--ink) 38%,var(--line));pointer-events:none}
@@ -3817,7 +3818,7 @@ function renderHeat(){
   const evOf = k => events.filter(e => e.start.slice(0,7) <= k && e.end.slice(0,7) >= k);
   $("#heat").innerHTML = `<div class="hr" style="${cols}"><div></div>${yrs.map(g => `<div class="hyb" style="grid-column:span ${g.n}" title="${g.y}">${g.n === 1 ? "’" + g.y.slice(2) : g.y}</div>`).join("")}<div></div></div>`
     + `<div class="hr" style="${cols}"><div class="hm" style="text-align:left">Bulan</div>${ks.map((k,i) => { const evs = evOf(k);
-        return `<div class="hm hmo${yb(k,i)}" title="${esc(keyLabel(k) + (evs.length ? " · " + evs.map(e=>e.name+" ("+fmtDay(e.start)+")").join(", ") : ""))}">${MONTHS_ID[+k.slice(5,7)-1]}<span class="hev">${evs.map(e=>`<span class="evdot" style="background:${evColor(e.type)}"></span>`).join("")}</span></div>`; }).join("")}<div class="hm">Total</div></div>`
+        return `<div class="hm hmo${yb(k,i)}${i === 0 || k.endsWith("-01") ? " yr1" : ""}" title="${esc(keyLabel(k) + (evs.length ? " · " + evs.map(e=>e.name+" ("+fmtDay(e.start)+")").join(", ") : ""))}">${MONTHS_ID[+k.slice(5,7)-1]}<span class="hev">${evs.map(e=>`<span class="evdot" style="background:${evColor(e.type)}"></span>`).join("")}</span></div>`; }).join("")}<div class="hm">Total</div></div>`
     + clNames.map((cl,ci) => { const tot = ks.reduce((a,k)=>a+cell(cl,k),0), sg = segOf(cl), newSeg = ci===0 || segOf(clNames[ci-1]) !== sg;
       return (newSeg ? `<div class="hseg${ci===0?" first":""}">${esc(sg)}</div>` : "") + `<div class="hr" style="${cols}"><div class="hl" title="${esc(cl)}">${esc(cl)}</div>${ks.map((k,i) => { const v = cell(cl,k), t = v/mx;
         return `<div class="hc${yb(k,i)}" title="${esc(cl)} · ${keyLabel(k)}: ${v} unit" style="background:color-mix(in srgb, var(--accent) ${v ? Math.round(12 + t*80) : 0}%, var(--surface-2));color:${t>.55?"var(--accent-ink)":"var(--ink)"}">${v||""}</div>`; }).join("")}<div class="ht">${tot}</div></div>`; }).join("")
