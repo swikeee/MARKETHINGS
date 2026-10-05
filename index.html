@@ -3141,8 +3141,12 @@ $("#btnSettings").onclick = () => {
 async function aiText(prompt){ if (mode!=="live") throw {code:"demo"}; if (!aiReady) throw {code:"noai"}; if (!TOKEN) throw {code:"unauthorized"}; return (await api("ai",{prompt})).text; }
 function runAI(outBox, body, prompt){
   outBox.hidden=false; body.innerHTML=`<p class="thinking">Menganalisis… (biasanya 10–40 detik)</p>`; body.dataset.raw="";
-  return aiText(prompt).then(t=>{ body.dataset.raw=t; body.innerHTML=md(t); }).catch(e=>{ body.innerHTML=`<p class="note">${esc(errText(e))}</p>`; });
+  return aiText(prompt).then(t=>{ body.dataset.raw=t; body.innerHTML=md(t); }).catch(e=>{
+    body.innerHTML = mode==="demo"
+      ? `<p class="note"><b>Belum tersambung ke Claude.</b> Fitur ini memanggil Claude API lewat Apps Script milikmu: pasang <code>Code.gs</code>, isi <code>ANTHROPIC_API_KEY</code> di Script Properties, lalu tempel URL Apps Script di Pengaturan. Effort bawaan: low.</p><p><button class="btn sm" data-open-settings>Buka Pengaturan</button></p>`
+      : `<p class="note">${esc(errText(e))}</p>`; });
 }
+document.addEventListener("click", e => { if (e.target.closest("[data-open-settings]")) $("#btnSettings").click(); });
 const compBrief = c => ({developer:c.developer, proyek:c.project, cluster:c.cluster, tier:c.tier, milik_kita:!!c.isOwn, LT:c.lt, LB:c.lb, harga:c.price, harga_m2_LB:pm2(c)===null?null:Math.round(pm2(c)), stok:c.stock??null, terjual:c.sold??null, serapan_per_bln:absorb(c)===null?null:+absorb(c).toFixed(2), sell_through_pct:sell(c)===null?null:Math.round(sell(c)*100), promo:c.promo, sumber:c.source, tanggal_sumber:c.sourceDate, dasar_harga:c.priceBasis});
 
 $("#btnInsight").onclick = () => {

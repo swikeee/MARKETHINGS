@@ -38,6 +38,7 @@ Tanpa backend, `index.html` jalan dalam **mode demo** dengan data contoh (13 pro
    | `ANTHROPIC_API_KEY` | API key dari console.anthropic.com (untuk AI & ekstraksi harga) |
    | `READ_TOKEN` | *(opsional)* isi agar data tidak bisa dibaca tanpa token |
    | `MODEL` | *(opsional)* default `claude-sonnet-5-5`; bisa `claude-haiku-4-5-20251001` agar lebih hemat |
+   | `EFFORT` | *(opsional)* effort untuk Insight AI & Ringkasan AI. Default `low`; bisa `medium`, `high`, `xhigh`, `max`, atau `off` (bawaan model). Ekstraksi harga tidak terpengaruh |
 4. Di editor, pilih fungsi **`setup`** lalu **Run**. Izinkan akses saat diminta. Fungsi ini membuat sheet Competitors, Plots, Offers, Sources, PriceHistory, SyncLog, Sales, Leads, Files, dan Settings (aman dijalankan ulang; kolom baru ditambahkan di ujung kanan), mengisi daftar sumber awal Summarecon & KBP, dan memasang trigger mingguan (Rabu 07.00–08.00 WIB).
 5. **Deploy → New deployment → Web app**
    - Execute as: **Me**

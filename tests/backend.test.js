@@ -83,8 +83,17 @@ env.setFetch((url, o) => { if (!url.includes('api.anthropic.com')) return {code:
 env.props.ANTHROPIC_API_KEY = 'sk-benar'; r = post('ai', {prompt:'Ringkas penjualan'});
 ok('aksi ai: jawaban Claude diteruskan ke dashboard', r.ok && /Penjualan naik/.test(r.text));
 ok('permintaan ke Claude API berformat benar', seen.url === 'https://api.anthropic.com/v1/messages' && seen.o.method === 'post' && seen.o.headers['anthropic-version'] === '2023-06-01' && seen.o.contentType === 'application/json' && seen.body.model === 'claude-sonnet-5-5' && seen.body.max_tokens > 0 && seen.body.messages[0].role === 'user' && seen.body.messages[0].content[0].text === 'Ringkas penjualan', seen.body.model);
+ok('Insight/Ringkasan AI: effort low secara bawaan', seen.body.output_config && seen.body.output_config.effort === 'low' && r.effort === 'low', JSON.stringify(seen.body.output_config));
+env.props.EFFORT = 'high'; post('ai', {prompt:'x'}); ok('properti EFFORT mengganti effort', seen.body.output_config.effort === 'high');
+env.props.EFFORT = 'off'; post('ai', {prompt:'x'}); ok('EFFORT=off → tanpa output_config', !('output_config' in seen.body)); delete env.props.EFFORT;
+{ let calls = []; const prev = seen; env.setFetch((url, o) => { const b = JSON.parse(o.payload); calls.push(b);
+    return b.output_config ? {code:400, type:'application/json', body:JSON.stringify({type:'error', error:{type:'invalid_request_error', message:'output_config.effort is not supported by this model'}})} : {code:200, type:'application/json', body:JSON.stringify({content:[{type:'text', text:'jawaban tanpa effort'}]})}; });
+  const rr = post('ai', {prompt:'x'}); ok('model tanpa dukungan effort → diulang sekali tanpa effort', rr.ok && rr.text === 'jawaban tanpa effort' && calls.length === 2 && calls[0].output_config.effort === 'low' && !calls[1].output_config, rr.error);
+  env.setFetch((url, o) => { if (!url.includes('api.anthropic.com')) return {code:204, body:'', type:'text/plain'}; seen = {url, o, body:JSON.parse(o.payload)};
+    return o.headers['x-api-key'] === 'sk-benar' ? {code:200, type:'application/json', body:JSON.stringify({content:[{type:'text', text:'## Ringkasan\n- Penjualan naik'}]})} : {code:401, type:'application/json', body:JSON.stringify({type:'error', error:{type:'authentication_error', message:'invalid x-api-key'}})}; }); }
+seen = null; post('extract', {text:'Cluster Uji LT 100 LB 80 Rp 2 M'}); ok('ekstraksi brosur tidak mengirim effort', seen && /Cluster Uji LT 100/.test(JSON.stringify(seen.body.messages)) && !('output_config' in seen.body));
 env.props.MODEL = 'claude-haiku-4-5-20251001'; post('ai', {prompt:'x'}); ok('properti MODEL mengganti model', seen.body.model === 'claude-haiku-4-5-20251001'); delete env.props.MODEL;
-r = post('selfTest', {}); ok('selfTest: kunci benar → AI ✓', r.ai === true && r.aiTest && r.aiTest.ok === true, r.aiTest && r.aiTest.msg);
+r = post('selfTest', {}); ok('selfTest: kunci benar → AI ✓, effort tercantum', r.ai === true && r.aiTest && r.aiTest.ok === true && /effort low/.test(r.aiTest.msg), r.aiTest && r.aiTest.msg);
 env.props.ANTHROPIC_API_KEY = 'sk-salah'; r = post('selfTest', {}); ok('selfTest: kunci salah → AI ✗ dengan pesan dari Claude', r.aiTest && r.aiTest.ok === false && /invalid x-api-key/.test(r.aiTest.msg), r.aiTest && r.aiTest.msg);
 r = post('ai', {prompt:'x'}); ok('aksi ai dengan kunci salah → pesan jelas, tidak crash', r.ok === false && /Claude API: invalid x-api-key/.test(r.error), r.error);
 delete env.props.ANTHROPIC_API_KEY; r = post('ai', {prompt:'x'}); ok('aksi ai tanpa kunci → pesan jelas', /ANTHROPIC_API_KEY belum diisi/.test(r.error || ''), r.error);

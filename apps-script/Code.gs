@@ -8,6 +8,7 @@
  *   WRITE_TOKEN        wajib: kata sandi untuk menyimpan/sinkron dari dashboard
  *   READ_TOKEN         opsional: bila diisi, dashboard harus mengirim token untuk membaca data
  *   MODEL              opsional: default "claude-sonnet-5-5"
+ *   EFFORT             opsional: effort untuk Insight AI & Ringkasan AI. Default "low"; bisa medium | high | xhigh | max | off
  *
  * Jalankan setup() sekali, lalu Deploy → New deployment → Web app
  * (Execute as: Me, Who has access: Anyone). Setelah mengganti kode, jalankan setup() lagi
@@ -139,7 +140,7 @@ function handle(action, p) {
       case 'deleteFile':     return out({ ok: deleteFile(p.id) });
       case 'syncNow':        return out({ ok: true, ...syncAll('manual', true) });
       case 'fetchUrl':       return out({ ok: true, ...fetchOne(p.url, p.note, p.developer) });
-      case 'ai':             return out({ ok: true, text: claudeText([{ type: 'text', text: String(p.prompt || '').slice(0, 180000) }], 2500) });
+      case 'ai':             return out({ ok: true, text: claudeText([{ type: 'text', text: String(p.prompt || '').slice(0, 180000) }], 2500, aiEffort()), effort: aiEffort() || 'default' });
       case 'extract':        return out({ ok: true, data: extractBrochure(p) });
       default:               return out({ ok: false, error: 'unknown action' });
     }
@@ -170,7 +171,7 @@ function selfTest() {
   } catch (e) { r.fetch = { ok: false, msg: String(e.message || e) }; }
   if (r.ai) {   // kunci terisi: coba satu panggilan kecil ke Claude API supaya ketahuan kuncinya benar, saldo ada, dan nama model valid
     const model = prop('MODEL') || 'claude-sonnet-5-5';
-    try { const t = claudeText([{ type: 'text', text: 'Balas hanya dengan satu kata: OK' }], 20); r.aiTest = { ok: !!t, msg: 'Claude API menjawab · model ' + model }; }
+    try { const t = claudeText([{ type: 'text', text: 'Balas hanya dengan satu kata: OK' }], 20, aiEffort()); r.aiTest = { ok: !!t, msg: 'Claude API menjawab · model ' + model + ' · effort ' + (aiEffort() || 'default') }; }
     catch (e) { r.aiTest = { ok: false, msg: String(e.message || e) + ' · model ' + model }; }
   }
   Logger.log(JSON.stringify(r, null, 2));
@@ -329,17 +330,34 @@ ${String(p.text || '(lihat gambar)').slice(0, MAX_TEXT)}` });
   return parseJson(claudeText(content, 1500));
 }
 
-function claudeText(content, maxTokens) {
+/** Effort untuk Insight AI & Ringkasan AI (Script property EFFORT). Default low: jawaban lebih cepat dan hemat token. */
+function aiEffort() {
+  const e = String(prop('EFFORT') || 'low').toLowerCase();
+  return ['low', 'medium', 'high', 'xhigh', 'max'].indexOf(e) >= 0 ? e : '';   // "off" / nilai lain: pakai bawaan model
+}
+
+/**
+ * Panggil Claude API. effort (opsional) dikirim sebagai output_config.effort.
+ * Ekstraksi harga/brosur tidak mengirim effort (pakai bawaan model).
+ */
+function claudeText(content, maxTokens, effort) {
   const key = prop('ANTHROPIC_API_KEY');
   if (!key) throw new Error('ANTHROPIC_API_KEY belum diisi di Script Properties');
-  const res = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
-    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
-    headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-    payload: JSON.stringify({ model: prop('MODEL') || 'claude-sonnet-5-5', max_tokens: maxTokens || 2000, messages: [{ role: 'user', content }] }),
-  });
-  const json = JSON.parse(res.getContentText() || '{}');
-  if (res.getResponseCode() >= 300) throw new Error('Claude API: ' + ((json.error && json.error.message) || res.getResponseCode()));
-  return (json.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+  const call = withEffort => {
+    const body = { model: prop('MODEL') || 'claude-sonnet-5-5', max_tokens: maxTokens || 2000, messages: [{ role: 'user', content }] };
+    if (withEffort) body.output_config = { effort: effort };
+    const res = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      payload: JSON.stringify(body),
+    });
+    return { code: res.getResponseCode(), json: JSON.parse(res.getContentText() || '{}') };
+  };
+  let r = call(!!effort);
+  // model yang belum mendukung effort (mis. Haiku 4.5) menolak dengan 400: ulangi sekali tanpa effort
+  if (effort && r.code === 400 && /effort|output_config/i.test((r.json.error && r.json.error.message) || '')) r = call(false);
+  if (r.code >= 300) throw new Error('Claude API: ' + ((r.json.error && r.json.error.message) || r.code));
+  return (r.json.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
 }
 
 function parseJson(text) {
