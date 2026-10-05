@@ -718,7 +718,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
           <div class="rp-presets" id="trPresets"><button data-n="3">3 bln</button><button data-n="6">6 bln</button><button data-n="12">12 bln</button><button data-n="ytd">Tahun ini</button><button data-n="all">Semua</button></div>
         </div>
         <div class="chartbox" style="height:300px"><canvas id="chRev" aria-label="Nilai penjualan dan unit per periode"></canvas></div>
-        <div class="legend"><span><i style="background:var(--c1);border-radius:2px"></i>Nilai (Rp M)</span><span><i style="background:var(--c2)"></i>Unit</span><span id="trSum" style="margin-left:auto;font-family:var(--f-mono)"></span></div>
+        <div class="legend"><span><i style="background:var(--c1);border-radius:2px"></i>Nilai (Rp M)</span><span><i style="background:var(--c2)"></i>Unit (angka di dasar batang)</span><span id="trSum" style="margin-left:auto;font-family:var(--f-mono)"></span></div>
       </div>
       <div class="panel">
         <h3><span id="funnelTitle">Funnel penjualan</span></h3><p class="desc" id="funnelDesc">Dari leads sampai akad kredit / lunas.</p>
@@ -751,7 +751,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
     <div class="sec-h" id="s-komposisi"><h2>Komposisi pembelian</h2></div>
     <div class="g4 reveal">
       <div class="panel"><h3>Standard vs Hook</h3><div class="chartbox pie"><canvas id="chAnaHook" aria-label="Standard vs hook"></canvas></div></div>
-      <div class="panel"><h3>Kategori bayar</h3><div class="chartbox pie"><canvas id="chAnaPay" aria-label="Kategori bayar"></canvas></div></div>
+      <div class="panel"><h3>Cara bayar</h3><div class="chartbox pie"><canvas id="chAnaPay" aria-label="Cara bayar"></canvas></div></div>
       <div class="panel"><h3>Tujuan pembelian</h3><div class="chartbox pie"><canvas id="chAnaPurp" aria-label="Tujuan pembelian"></canvas></div></div>
       <div class="panel"><h3>Tipe terlaris</h3><div class="chartbox pie"><canvas id="chAnaType" aria-label="Tipe unit terlaris"></canvas></div></div>
     </div>
@@ -1434,6 +1434,9 @@ const dlPlugin = { id:"dl",
           else if (horiz){ it.x = Math.max(el.x, el.base) + 6; it.y = el.y; it.align = "left"; it.vb = "middle"; }
           else if (v < 0){ it.x = el.x; it.y = el.y + 4; it.vb = "top"; }
           else { it.x = el.x; it.y = Math.min(el.y, el.base) - 4; } }
+        else if (opt.lineAtBase){ const bm = chart.data.datasets.map((d, j) => chart.getDatasetMeta(j)).find(m => m.type === "bar" && chart.isDatasetVisible(m.index)), be = bm && bm.data[i], area = chart.chartArea;
+          it.x = be ? be.x : el.x; it.y = area.bottom - 4; const bh = be ? Math.abs(be.base - be.y) : 0, bds = bm && chart.data.datasets[bm.index], bg = bds && (Array.isArray(bds.backgroundColor) ? bds.backgroundColor[i] : bds.backgroundColor);
+          if (bh >= base + 8){ it.inside = true; it.fitW = Infinity; it.fitH = bh; it.color = dlIsDark(bg) ? "#fff" : "#111"; } else it.y = area.bottom - bh - 4 - (bh ? base + 5 : 0); }
         else { it.x = el.x; it.y = el.y - (el.options?.radius || 0) - 5; if (type === "line" && typeof ds.borderColor === "string") it.color = ds.borderColor; }
         if (isNaN(it.x) || isNaN(it.y)) return; items.push(it); }); });
     let moving = false;
@@ -3515,7 +3518,7 @@ function renderTrend(){
   o.plugins.tooltip.callbacks = {label: ctx => ctx.datasetIndex===0 ? `Nilai: Rp ${nf(ctx.raw,2)} M` : `Unit: ${ctx.raw}`};
   mk("chRev", {data:{labels:periods.map(k => year ? k : keyLabel(k)), datasets:[
     {type:"bar", data:vals, backgroundColor:seriesColor(0), borderRadius:5, maxBarThickness:year ? 64 : 28, order:2},
-    {type:"line", data:uts, yAxisID:"y1", borderColor:seriesColor(1), backgroundColor:seriesColor(1), borderWidth:2, pointRadius:2.5, tension:.35, order:1}]}, options:o}, {fmt:(v, c) => c.datasetIndex === 0 ? nf(v,1) : nf(v)});
+    {type:"line", data:uts, yAxisID:"y1", borderColor:seriesColor(1), backgroundColor:seriesColor(1), borderWidth:2, pointRadius:2.5, tension:.35, order:1}]}, options:o}, {lineAtBase:true, fmt:(v, c) => c.datasetIndex === 0 ? nf(v,1) : nf(v)});
   $("#trSum").textContent = `${keyLabel(trend.from)} – ${keyLabel(trend.to)} · ${rp(vals.reduce((a,v)=>a+v,0)*1e9)} · ${nf(uts.reduce((a,v)=>a+v,0))} unit`;
 }
 $("#trGran").onclick = e => { const b = e.target.closest("button"); if (!b) return; trend.gran = b.dataset.g; renderTrend(); };
