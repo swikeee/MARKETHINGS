@@ -379,6 +379,13 @@ table.sched{width:100%;min-width:0;table-layout:auto} .sched td{white-space:norm
 .heat .hseg{font:600 11px var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px 0 2px;border-top:1px solid var(--line);margin-top:4px}
 .heat .hseg.first{border-top:0;margin-top:0}
 .heat .hm.yr{color:var(--ink);font-weight:600}
+/* kepala kalender heatmap bulanan: pita tahun + nama bulan, garis batas tiap pergantian tahun */
+.heat .hyb{font:600 11px var(--f-mono);letter-spacing:.08em;color:var(--ink);background:var(--surface-2);border-radius:6px;padding:5px 8px;white-space:nowrap;overflow:hidden;display:flex;align-items:center;gap:8px}
+.heat .hyb::after{content:"";flex:1;height:1px;background:var(--line)}
+.heat .hmo{font:600 12px var(--f-body);color:var(--ink);padding:3px 0 6px;border-bottom:2px solid var(--line);line-height:1.2}
+.heat .hmo .hev{display:flex;justify-content:center;gap:2px;height:7px;margin-top:2px} .heat .hmo .hev .evdot{margin:0}
+.heat .yb{position:relative}
+.heat .yb::before{content:"";position:absolute;left:-3px;top:-3px;bottom:-3px;width:2px;border-radius:1px;background:color-mix(in srgb,var(--ink) 38%,var(--line));pointer-events:none}
 .heat .ht{font:600 12px var(--f-body);text-align:center;font-variant-numeric:tabular-nums}
 /* sales report */
 .ph{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start}
@@ -3805,11 +3812,16 @@ function renderHeat(){
   const cols = `grid-template-columns:minmax(110px,150px) repeat(${ks.length}, minmax(${minW}px,1fr)) 54px`;
   $("#heat").style.minWidth = (150 + ks.length*(minW+4) + 60) + "px";
   const colTot = ks.map(k => clNames.reduce((a,cl)=>a+cell(cl,k),0));
-  $("#heat").innerHTML = `<div class="hr" style="${cols}"><div></div>${ks.map(()=>"<div></div>").join("")}<div class="hm">Total</div></div>`
+  const yrs = []; ks.forEach(k => { const y = k.slice(0,4); if (yrs.length && yrs[yrs.length-1].y === y) yrs[yrs.length-1].n++; else yrs.push({y, n:1}); });
+  const yb = (k, i) => i > 0 && k.endsWith("-01") ? " yb" : "";            // garis batas pergantian tahun
+  const evOf = k => events.filter(e => e.start.slice(0,7) <= k && e.end.slice(0,7) >= k);
+  $("#heat").innerHTML = `<div class="hr" style="${cols}"><div></div>${yrs.map(g => `<div class="hyb" style="grid-column:span ${g.n}" title="${g.y}">${g.n === 1 ? "’" + g.y.slice(2) : g.y}</div>`).join("")}<div></div></div>`
+    + `<div class="hr" style="${cols}"><div class="hm" style="text-align:left">Bulan</div>${ks.map((k,i) => { const evs = evOf(k);
+        return `<div class="hm hmo${yb(k,i)}" title="${esc(keyLabel(k) + (evs.length ? " · " + evs.map(e=>e.name+" ("+fmtDay(e.start)+")").join(", ") : ""))}">${MONTHS_ID[+k.slice(5,7)-1]}<span class="hev">${evs.map(e=>`<span class="evdot" style="background:${evColor(e.type)}"></span>`).join("")}</span></div>`; }).join("")}<div class="hm">Total</div></div>`
     + clNames.map((cl,ci) => { const tot = ks.reduce((a,k)=>a+cell(cl,k),0), sg = segOf(cl), newSeg = ci===0 || segOf(clNames[ci-1]) !== sg;
-      return (newSeg ? `<div class="hseg${ci===0?" first":""}">${esc(sg)}</div>` : "") + `<div class="hr" style="${cols}"><div class="hl" title="${esc(cl)}">${esc(cl)}</div>${ks.map(k => { const v = cell(cl,k), t = v/mx;
-        return `<div class="hc" title="${esc(cl)} · ${keyLabel(k)}: ${v} unit" style="background:color-mix(in srgb, var(--accent) ${v ? Math.round(12 + t*80) : 0}%, var(--surface-2));color:${t>.55?"var(--accent-ink)":"var(--ink)"}">${v||""}</div>`; }).join("")}<div class="ht">${tot}</div></div>`; }).join("")
-    + `<div class="hr" style="${cols}"><div class="hm" style="text-align:left">Total</div>${colTot.map(v=>`<div class="ht" style="color:var(--muted)">${v}</div>`).join("")}<div class="ht">${colTot.reduce((a,b)=>a+b,0)}</div></div>`
+      return (newSeg ? `<div class="hseg${ci===0?" first":""}">${esc(sg)}</div>` : "") + `<div class="hr" style="${cols}"><div class="hl" title="${esc(cl)}">${esc(cl)}</div>${ks.map((k,i) => { const v = cell(cl,k), t = v/mx;
+        return `<div class="hc${yb(k,i)}" title="${esc(cl)} · ${keyLabel(k)}: ${v} unit" style="background:color-mix(in srgb, var(--accent) ${v ? Math.round(12 + t*80) : 0}%, var(--surface-2));color:${t>.55?"var(--accent-ink)":"var(--ink)"}">${v||""}</div>`; }).join("")}<div class="ht">${tot}</div></div>`; }).join("")
+    + `<div class="hr" style="${cols}"><div class="hm" style="text-align:left">Total</div>${colTot.map((v,i)=>`<div class="ht${yb(ks[i],i)}" style="color:var(--muted)">${v}</div>`).join("")}<div class="ht">${colTot.reduce((a,b)=>a+b,0)}</div></div>`
     + `<div class="hr" style="${cols}"><div></div>${ks.map((k,i)=>{ const yr = i===0 || k.endsWith("-01"), evs = events.filter(e => e.start.slice(0,7) <= k && e.end.slice(0,7) >= k);
         return `<div class="hm${yr?" yr":""}" ${evs.length?`title="${esc(evs.map(e=>e.name+" ("+fmtDay(e.start)+")").join(", "))}"`:""}>${MONTHS_ID[+k.slice(5,7)-1]}${evs.map(e=>`<span class="evdot" style="background:${evColor(e.type)}"></span>`).join("")}${yr?"<br>"+k.slice(0,4):""}</div>`; }).join("")}<div></div></div>`;
   $("#heatLeg").innerHTML = `0 ${[12,40,68,92].map(p=>`<i style="background:color-mix(in srgb, var(--accent) ${p}%, var(--surface-2))"></i>`).join("")} ${mx} unit`;
