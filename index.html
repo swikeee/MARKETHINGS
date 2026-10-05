@@ -1237,13 +1237,33 @@ async function load(silent){
     lastSnapSig = sig;
     comps = j.competitors || []; plots = j.plots || []; offers = j.offers || []; sources = j.sources || []; history = j.history || [];
     lastSync = j.lastSync; aiReady = !!j.ai; dbState = "ready"; loadError = ""; remoteFiles = j.files || [];
+    seedDone = !!j.settings?.seedComps;
     if (j.settings?.kom){ try { KOM = {...KOM_DEFAULT, ...JSON.parse(j.settings.kom)}; } catch {} }   // ketentuan sewa & jual dipakai bersama lewat Sheet
     if (salesSource !== "sheet"){
       salesDemo = !(j.sales && j.sales.length); salesSource = salesDemo ? "demo" : "api";
       sales = salesDemo ? DEMO_SALES.sales : j.sales; leads = salesDemo ? DEMO_SALES.leads : (j.leads || []); }
   } catch(e){ if (silent && dbState === "ready") return false;   // gangguan sesaat saat cek otomatis: pertahankan data yang ada
     dbState = "error"; loadError = errText(e.code ? e : {code:"network"}); }
-  renderAll(); return true;
+  renderAll(); seedDefaults(); return true;
+}
+// Data bawaan Market Research. Saat pertama tersambung dan sheet Competitors belum berisi input manual,
+// kirim produk Pororo Land + data publik Summarecon Bandung & Kota Baru Parahyangan yang sudah ada di dashboard.
+// Hanya sekali: penandanya disimpan di sheet Settings (seedComps), jadi data yang sengaja dihapus tidak muncul lagi.
+const SEED_DEVS = ["Pororo Land", "Summarecon Bandung", "Kota Baru Parahyangan"];
+let seedDone = false, seedBusy = false, seedRetryAt = 0;
+async function seedDefaults(){
+  if (mode !== "live" || !TOKEN || dbState !== "ready" || seedDone || seedBusy || Date.now() < seedRetryAt) return;
+  if (comps.some(c => !c.auto)) return;                        // sudah ada input manual: jangan diisi otomatis
+  const have = new Set(comps.map(c => String(c.id)));           // baris hasil sinkron yang lebih baru tidak ditimpa
+  const rows = DEMO.competitors.filter(c => SEED_DEVS.includes(c.developer) && !have.has(String(c.id)));
+  seedBusy = true;
+  try {
+    if (rows.length) await api("import", {sheet:"Competitors", rows});
+    await api("saveSetting", {id:"seedComps", value:new Date().toISOString()});
+    seedDone = true; await load();
+    if (rows.length) toast(`Data bawaan Market Research ditambahkan ke Google Sheet (${rows.length} produk)`);
+  } catch { seedRetryAt = Date.now() + 30000; }                // mis. sinkron sedang berjalan: coba lagi nanti
+  finally { seedBusy = false; }
 }
 function renderAll(){
   renderMode(); renderComp(); renderLand(); renderSync(); renderHist();
@@ -3615,6 +3635,7 @@ async function autoSync(force){
     const slow = autoTick % 4 === 0;      // sumber yang sedang bermasalah / tidak ada cukup dicek tiap putaran ke-4
     if (SALES_SHEET){ if (!sheetError || slow || force) await loadSheetSales(true); if ($("#modal").hidden && (evSheetOk || slow)) await loadEvents(true); }
     if (mode === "live" && dbState !== "loading" && (force || autoPending || autoTick % 2 === 0)) await checkBackend();
+    if (mode === "live" && !seedDone) seedDefaults();
   } catch {} finally { autoBusy = false; }
 }
 async function checkBackend(){

@@ -70,6 +70,10 @@ Yang perlu diingat:
 
 `node tests/backend.test.js` menjalankan `apps-script/Code.gs` apa adanya di atas tiruan layanan Google (Sheet, Drive, UrlFetch, Properties), termasuk kebiasaan Sheets mengubah teks jadi angka/tanggal. 43 pemeriksaan: setup, token, simpan/edit/hapus, impor massal, file ke Drive, pengaturan bersama, sinkron sumber, riwayat harga. Ini menguji logika kode; izin dan kuota akun Google yang asli tetap perlu dicek dengan **Tes koneksi** / `selfTest` setelah deploy.
 
+## Data bawaan Market Research
+
+Saat dashboard pertama kali tersambung ke backend dan sheet `Competitors` belum berisi input manual, dashboard otomatis mengirim data bawaannya ke Sheet: 13 produk Pororo Land (dummy), 8 produk Kota Baru Parahyangan dan 5 produk Summarecon Bandung (dari sumber publik). Ini terjadi sekali saja; penandanya `seedComps` di sheet `Settings`. Baris yang kemudian dihapus tidak muncul lagi, dan baris hasil sinkron yang lebih baru tidak ditimpa. Grand Sharon dan Citraland (dummy) tidak ikut; keduanya masih bisa dikirim lewat **Pengaturan → Kirim data contoh ke Google Sheet**.
+
 ## Lampu sambungan sumber kompetitor
 
 Di panel **Sinkron data publik** (Market Research) tiap sumber punya lampu, diambil dari hasil baca terakhir oleh backend:
