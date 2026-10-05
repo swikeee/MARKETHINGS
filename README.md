@@ -69,6 +69,24 @@ Yang perlu diingat:
 
 `node tests/backend.test.js` menjalankan `apps-script/Code.gs` apa adanya di atas tiruan layanan Google (Sheet, Drive, UrlFetch, Properties), termasuk kebiasaan Sheets mengubah teks jadi angka/tanggal. 43 pemeriksaan: setup, token, simpan/edit/hapus, impor massal, file ke Drive, pengaturan bersama, sinkron sumber, riwayat harga. Ini menguji logika kode; izin dan kuota akun Google yang asli tetap perlu dicek dengan **Tes koneksi** / `selfTest` setelah deploy.
 
+## Sinkron otomatis dengan Google Sheet
+
+Perubahan di Google Sheet tampil sendiri di dashboard, tanpa memuat ulang halaman:
+
+| Data | Cara cek | Jeda |
+|---|---|---|
+| Rekap penjualan & tab EVENT (sheet publik) | dibaca langsung dari sheet | tiap 15 detik |
+| Kompetitor, kavling, penawaran, file, ketentuan (backend Apps Script) | cek penanda perubahan yang ringan; data lengkap hanya diambil bila penandanya berubah | tiap 30 detik |
+
+- Tampilan hanya digambar ulang bila isinya benar-benar berubah, dan muncul pemberitahuan singkat "Data diperbarui dari Google Sheet".
+- Kalau form sedang terbuka, pembaruan ditunda sampai form ditutup supaya ketikan tidak hilang.
+- Pengecekan berhenti saat tab browser tidak terlihat dan langsung jalan lagi saat tab dibuka.
+- Penanda perubahan di backend naik saat: sel diedit langsung di Sheet (`onEdit`), baris ditambah/dihapus (`onSheetChange`, dipasang oleh `setup()`), dashboard menyimpan, atau file sheet berubah lewat jalur lain.
+- Backend versi lama (sebelum ada penanda) tetap jalan, tetapi tiap cek mengambil data lengkap. Tempel ulang `Code.gs`, jalankan `setup()`, lalu buat versi deployment baru.
+- Jeda bisa diubah per browser lewat `localStorage` kunci `li.syncMs` (milidetik, minimal 3000).
+
+Kuota: tiap cek penanda adalah satu eksekusi Apps Script singkat. Satu dashboard yang terbuka seharian kerja memakai kira-kira 10 menit dari jatah eksekusi harian akun Google (90 menit untuk akun gratis, 6 jam untuk Workspace). Kalau banyak orang membukanya seharian di akun gratis, naikkan jedanya.
+
 ## Cara kerja sinkron
 
 - Daftar sumber ada di sheet **Sources**. Tambah, edit, atau nonaktifkan sumber dari dashboard (tombol **Sumber**) atau langsung di Sheet.

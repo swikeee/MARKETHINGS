@@ -54,6 +54,10 @@ function setup() {
   // trigger mingguan: Senin 07:00-08:00 (zona waktu project)
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'weeklySync').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('weeklySync').timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(7).create();
+  // penanda perubahan untuk sinkron otomatis dashboard: tambah/hapus baris, tempel, dll. (edit sel biasa ditangani onEdit di bawah)
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'onSheetChange').forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('onSheetChange').forSpreadsheet(ss).onChange().create();
+  bumpRev();
   if (readTable('Sources').length === 0) seedSources();
   Logger.log('Setup selesai. Isi Script Properties lalu deploy sebagai Web app.');
 }
@@ -81,8 +85,23 @@ function doGet(e) {
     const p = e.parameter || {};
     const readTok = prop('READ_TOKEN');
     if (readTok && p.token !== readTok && p.token !== prop('WRITE_TOKEN')) return out({ ok: false, error: 'unauthorized' });
+    if (p.rev) return out({ ok: true, rev: revision() });   // cek ringan: dashboard hanya mengambil data lengkap bila angka ini berubah
     return out({ ok: true, ...snapshot() });
   } catch (err) { return out({ ok: false, error: String(err && err.message || err) }); }
+}
+
+/* ======================= PENANDA PERUBAHAN (sinkron otomatis) ======================= */
+
+/** Dipanggil otomatis oleh Google Sheets setiap ada sel yang diedit langsung di Sheet (simple trigger, tanpa pemasangan). */
+function onEdit(e) { bumpRev(); }
+/** Dipasang oleh setup(): perubahan struktur seperti tambah/hapus baris atau tempel banyak sel. */
+function onSheetChange(e) { bumpRev(); }
+function bumpRev() { try { PropertiesService.getScriptProperties().setProperty('REV', String(Date.now())); } catch (e) {} }
+/** Penanda keadaan data. Gabungan penanda di atas dan waktu ubah file di Drive, supaya perubahan dari jalur mana pun (termasuk API) tetap terdeteksi. */
+function revision() {
+  let d = '';
+  try { d = DriveApp.getFileById(SpreadsheetApp.getActive().getId()).getLastUpdated().getTime(); } catch (e) {}
+  return prop('REV') + '.' + d;
 }
 
 function doPost(e) {
@@ -94,7 +113,7 @@ function doPost(e) {
     // satu penulis dalam satu waktu, supaya dua orang yang menyimpan bersamaan tidak saling menimpa baris
     const lock = WRITE_ACTIONS.indexOf(body.action) >= 0 ? LockService.getScriptLock() : null;
     if (lock) lock.waitLock(25000);
-    try { return handle(body.action, p); } finally { if (lock) lock.releaseLock(); }
+    try { const res = handle(body.action, p); if (lock && body.action !== 'selfTest') bumpRev(); return res; } finally { if (lock) lock.releaseLock(); }
   } catch (err) { return out({ ok: false, error: String(err && err.message || err) }); }
 }
 
@@ -168,6 +187,7 @@ function snapshot() {
     lastSync: log.length ? log[log.length - 1] : null,
     ai: !!prop('ANTHROPIC_API_KEY'),
     serverTime: now(),
+    rev: revision(),
   };
 }
 
@@ -195,6 +215,7 @@ function syncAll(trigger, force) {
     }
     const summary = `${updated} produk diperbarui · ${changes} perubahan harga · ${unchanged} sumber tidak berubah`;
     appendRow('SyncLog', { at: now(), trigger, status: failed.length && !updated ? 'error' : 'ok', summary, log: failed.length ? 'Gagal: ' + failed.join('; ') : '' });
+    bumpRev();
     return { status: 'ok', summary, failed };
   } finally { lock.releaseLock(); }
 }

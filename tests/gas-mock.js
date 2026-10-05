@@ -20,7 +20,8 @@ function makeEnv(codePath){
         setValues(vals){ if (vals.length !== nr || vals.some(v => v.length !== nc)) throw new Error('The number of rows/columns in the data does not match the range.');
           vals.forEach((row, i) => { const t = sh.rows[r-1+i] || (sh.rows[r-1+i] = []); row.forEach((v, j) => t[c-1+j] = coerce(v, sh.fmt[c+j])); }); for (let i = 0; i < sh.rows.length; i++) if (!sh.rows[i]) sh.rows[i] = []; return api; },
         setFontWeight(){ return api; }, setNumberFormat(f){ for (let j = 0; j < nc; j++) sh.fmt[c+j] = f; return api; } }; return api; } }
-  const ss = { getName: () => 'MARKETHINGS DB (simulasi)', getSheetByName: n => sheets[n] || null, insertSheet: n => (sheets[n] = new Sheet(n)) };
+  const ss = { getId: () => 'ss-simulasi', getName: () => 'MARKETHINGS DB (simulasi)', getSheetByName: n => sheets[n] || null, insertSheet: n => (sheets[n] = new Sheet(n)) };
+  const state = { modTime: 1 };   // waktu ubah file di Drive (dinaikkan uji untuk meniru edit lewat jalur lain)
   const blobOf = (bytes, type, name) => ({ getBytes: () => bytes, getContentType: () => type, getName: () => name, getDataAsString: () => Buffer.from(bytes).toString('utf8') });
   const mkFile = (blob, folder) => { const id = 'drv' + crypto.randomBytes(6).toString('hex'); const f = {id, name:blob.getName(), type:blob.getContentType(), bytes:Buffer.from(blob.getBytes()), folder:folder.id, trashed:false, desc:''};
     drive.files[id] = f; return { getId: () => id, getUrl: () => 'https://drive.google.com/file/d/' + id + '/view', getName: () => f.name, setDescription: d => { f.desc = d; }, setTrashed: t => { f.trashed = t; } }; };
@@ -31,20 +32,20 @@ function makeEnv(codePath){
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = String(v); } }) },
     LockService: { getScriptLock: () => ({ tryLock: () => true, waitLock: () => {}, releaseLock: () => {} }) },
     ScriptApp: { WeekDay: {MONDAY:'MONDAY'}, getProjectTriggers: () => triggers.map(t => ({ getHandlerFunction: () => t })), deleteTrigger: t => { const i = triggers.indexOf(t.getHandlerFunction()); if (i >= 0) triggers.splice(i, 1); },
-      newTrigger: fn => { const b = { timeBased: () => b, onWeekDay: () => b, atHour: () => b, create: () => { triggers.push(fn); } }; return b; } },
+      newTrigger: fn => { const b = { timeBased: () => b, onWeekDay: () => b, atHour: () => b, forSpreadsheet: () => b, onChange: () => b, onEdit: () => b, create: () => { triggers.push(fn); } }; return b; } },
     Utilities: { getUuid: () => crypto.randomUUID(), base64Encode: b => Buffer.from(b).toString('base64'), base64Decode: s => [...Buffer.from(s, 'base64')], newBlob: (data, type, name) => blobOf(typeof data === 'string' ? [...Buffer.from(data)] : data, type, name),
       DigestAlgorithm: {MD5:'md5'}, computeDigest: (alg, bytes) => [...crypto.createHash('md5').update(Buffer.from(bytes)).digest()],
       formatDate: (d, tz, f) => { const z = new Date(d.getTime() + 7*3600e3).toISOString(); return f === 'yyyy-MM' ? z.slice(0,7) : z.slice(0,10); } },
     DriveApp: { createFolder: name => { const f = {id:'fld' + crypto.randomBytes(5).toString('hex'), name}; drive.folders[f.id] = f; return mkFolder(f); },
       getFolderById: id => { if (!drive.folders[id]) throw new Error('No item with the given ID could be found'); return mkFolder(drive.folders[id]); },
-      getFileById: id => { const f = drive.files[id]; if (!f) throw new Error('not found'); return { setTrashed: t => { f.trashed = t; } }; } },
+      getFileById: id => { if (id === 'ss-simulasi') return { getLastUpdated: () => new Date(state.modTime) }; const f = drive.files[id]; if (!f) throw new Error('not found'); return { setTrashed: t => { f.trashed = t; } }; } },
     ContentService: { MimeType: {JSON:'application/json'}, createTextOutput: t => ({ text: t, setMimeType(){ return this; } }) },
     UrlFetchApp: { fetch: (url, o) => { const r = fetchImpl(url, o); return { getResponseCode: () => r.code, getContentText: () => r.body, getBlob: () => blobOf([...Buffer.from(r.body)], r.type, 'x') }; } },
     Logger: { log: m => log.push(String(m)) }, console,
   };
   const ctx = vm.createContext(g);
-  vm.runInContext(fs.readFileSync(codePath, 'utf8') + '\n;this.__api = {setup, doGet, doPost, selfTest, readTable, SHEETS};', ctx, {filename:'Code.gs'});
-  return { api: ctx.__api, sheets, props, drive, triggers, log, setFetch: f => { fetchImpl = f; } };
+  vm.runInContext(fs.readFileSync(codePath, 'utf8') + '\n;this.__api = {setup, doGet, doPost, selfTest, readTable, SHEETS, onEdit, onSheetChange, revision};', ctx, {filename:'Code.gs'});
+  return { api: ctx.__api, sheets, props, drive, triggers, log, state, setFetch: f => { fetchImpl = f; } };
 }
 function serve(env, port){
   const srv = http.createServer((req, res) => { const cors = {'Access-Control-Allow-Origin':'*', 'Content-Type':'application/json'};

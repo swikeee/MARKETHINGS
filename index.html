@@ -1118,6 +1118,8 @@ const store = {
 
 // ---------- state & API ----------
 let API_URL = store.get("li.api") || DEFAULT_API_URL;
+const SYNC_MS = Math.max(3000, +store.get("li.syncMs") || 15000);   // jeda cek otomatis ke Google Sheet (ms)
+let autoBusy = false, autoPending = false, autoTick = 0, autoAt = 0;
 let SALES_SHEET = (store.get("li.salesSheet2") ?? DEFAULT_SALES_SHEET).trim();
 let SALES_TAB = (store.get("li.salesTab2") ?? DEFAULT_SALES_TAB).trim();
 let TOKEN = store.get("li.token") || "";
@@ -1166,7 +1168,8 @@ function errText(e){
     network: "Tidak bisa menghubungi server. Cek koneksi dan URL Apps Script.",
   })[e?.code] || ("Gagal: " + (e?.message || "coba lagi"));
 }
-async function load(){
+let lastRev = "", lastSnapSig = "";     // penanda & sidik data terakhir dari backend (untuk sinkron otomatis)
+async function load(silent){
   if (mode === "demo"){
     if (dbState === "loading"){
       const lc = readJson("li.comps"), lp = readJson("li.plots"), lo = readJson("li.offers");
@@ -1184,16 +1187,21 @@ async function load(){
   }
   try {
     const url = API_URL + (API_URL.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(TOKEN);
-    const j = await (await fetch(url)).json();
+    const j = await (await fetch(url, {cache:"no-store"})).json();
     if (!j.ok) throw {code: j.error==="unauthorized" ? "unauthorized" : "server", message:j.error};
+    const sig = JSON.stringify([j.competitors, j.plots, j.offers, j.sources, j.history, j.files, j.settings, j.lastSync, j.sales, j.leads, !!j.ai]);
+    if (j.rev !== undefined) lastRev = j.rev;
+    if (silent && sig === lastSnapSig && dbState === "ready") return false;      // tidak ada yang berubah: jangan gambar ulang
+    lastSnapSig = sig;
     comps = j.competitors || []; plots = j.plots || []; offers = j.offers || []; sources = j.sources || []; history = j.history || [];
     lastSync = j.lastSync; aiReady = !!j.ai; dbState = "ready"; loadError = ""; remoteFiles = j.files || [];
     if (j.settings?.kom){ try { KOM = {...KOM_DEFAULT, ...JSON.parse(j.settings.kom)}; } catch {} }   // ketentuan sewa & jual dipakai bersama lewat Sheet
     if (salesSource !== "sheet"){
       salesDemo = !(j.sales && j.sales.length); salesSource = salesDemo ? "demo" : "api";
       sales = salesDemo ? DEMO_SALES.sales : j.sales; leads = salesDemo ? DEMO_SALES.leads : (j.leads || []); }
-  } catch(e){ dbState = "error"; loadError = errText(e.code ? e : {code:"network"}); }
-  renderAll();
+  } catch(e){ if (silent && dbState === "ready") return false;   // gangguan sesaat saat cek otomatis: pertahankan data yang ada
+    dbState = "error"; loadError = errText(e.code ? e : {code:"network"}); }
+  renderAll(); return true;
 }
 function renderAll(){
   renderMode(); renderComp(); renderLand(); renderSync(); renderHist();
@@ -2156,7 +2164,7 @@ function openForm(title, fields, vals, onSave, onDelete, okMsg){
     s.disabled=true; s.textContent="Menyimpan…"; try{ await onSave(out); closeModal(); toast(okMsg || (mode==="demo"?"Tersimpan otomatis di browser ini":"Tersimpan ke Google Sheet")); }catch(e){ s.disabled=false; s.textContent="Simpan"; toast(errText(e)); } };
   act.append(c,s); $("#modal").hidden=false; setTimeout(()=>$("#mBody input,#mBody select")?.focus(),0);
 }
-function closeModal(){ $("#modal").hidden=true; }
+function closeModal(){ $("#modal").hidden=true; if (autoPending) setTimeout(() => autoSync(true), 400); }
 $("#modal").addEventListener("click", e=>{ if(e.target.id==="modal") closeModal(); });
 document.addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("#modal").hidden) closeModal(); });
 
@@ -3383,7 +3391,7 @@ function renderProfile(A){
 }
 
 // ---------- Google Sheet "REKAP ALL TIME" sebagai sumber penjualan ----------
-let salesSource = "demo", sheetLoadedAt = null, sheetError = "";
+let salesSource = "demo", sheetLoadedAt = null, sheetError = "", lastSalesSig = "";
 function sheetCsvUrl(link, tab){
   const id = (String(link).match(/\/d\/([a-zA-Z0-9_-]{20,})/) || [])[1];
   if (!id) return "";
@@ -3456,17 +3464,21 @@ async function loadSheetSales(silent){
   const url = sheetCsvUrl(SALES_SHEET, SALES_TAB);
   if (!url){ sheetError = "Link Google Sheet tidak valid."; renderSalesSource(); return false; }
   try {
-    let table;
+    let table, sig;
     try {
-      const res = await fetch(url); const txt = await res.text();
+      const res = await fetch(url, {cache:"no-store"}); const txt = await res.text();
       if (!res.ok || /^\s*<(!doctype|html)/i.test(txt)) throw new Error("Sheet belum bisa dibaca publik. Buka Share → General access → Anyone with the link (Viewer).");
-      table = parseCsv(txt);
-    } catch (fe) { table = await sheetRowsJsonp(SALES_SHEET, SALES_TAB); }   // jalur cadangan
+      table = parseCsv(txt); sig = txt;
+    } catch (fe) { table = await sheetRowsJsonp(SALES_SHEET, SALES_TAB); sig = JSON.stringify(table); }   // jalur cadangan
+    if (silent && sig === lastSalesSig && salesSource === "sheet"){ sheetLoadedAt = new Date(); sheetError = ""; renderSalesSource(); return true; }   // isi sheet sama: cukup perbarui jam cek
     const rows = rekapToSales(table);
     if (!rows.length) throw new Error("Tidak ada baris penjualan yang terbaca.");
+    const first = !lastSalesSig, prevLast = salesSource === "sheet" ? allSalesMonths().at(-1) : null; lastSalesSig = sig;
     sales = rows; leads = []; salesDemo = false; salesSource = "sheet"; sheetLoadedAt = new Date(); sheetError = "";
+    try { const newLast = allSalesMonths().at(-1);      // rentang yang sedang menempel di bulan terakhir ikut maju bila ada bulan baru
+      if (prevLast && newLast && newLast !== prevLast) for (const st of [trend, ana]) if (st.to === prevLast && st.from){ st.from = monthKeys(monthDiff(st.from, prevLast) + 1, newLast)[0]; st.to = newLast; } } catch {}
     if (!$("#tab-sales").hidden) renderSales();
-    renderSalesSource(); if (!silent) toast(`${rows.length} baris penjualan dimuat dari Google Sheet`);
+    renderSalesSource(); if (!silent) toast(`${rows.length} baris penjualan dimuat dari Google Sheet`); else if (!first) toast(`Data penjualan diperbarui dari Google Sheet · ${rows.length} baris`);
     return true;
   } catch(e){ sheetError = e.message || "Gagal membaca Google Sheet."; renderSalesSource(); return false; }
 }
@@ -3475,12 +3487,34 @@ function renderSalesSource(){
   const url = (String(SALES_SHEET).match(/^https:\/\/docs\.google\.com\/spreadsheets\/d\/[a-zA-Z0-9_-]+/) || [])[0];
   $("#btnOpenSheet").hidden = !url;
   el.innerHTML = salesSource === "sheet"
-    ? `<span class="dot ok"></span><span title="Dibaca dari Google Sheet rekap penjualan. Diperbarui otomatis tiap 5 menit.">Google Sheet · ${sales.length} baris · ${sheetLoadedAt.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})}</span>`
+    ? `<span class="dot ok"></span><span title="Dibaca dari Google Sheet rekap penjualan. Dicek otomatis tiap ${Math.round(SYNC_MS/1000)} detik; tampilan berubah sendiri bila isi sheet berubah.">Google Sheet · ${sales.length} baris · ${sheetLoadedAt.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})}</span>`
     : sheetError ? `<span class="dot err"></span>${esc(sheetError)} Sementara memakai data dummy.`
     : SALES_SHEET ? `<span class="dot run"></span>Memuat Google Sheet…` : `<span class="dot"></span>Data dummy`;
 }
-setInterval(() => { if (SALES_SHEET && document.visibilityState === "visible") loadSheetSales(true); }, 5*60*1000);
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && SALES_SHEET && (!sheetLoadedAt || Date.now() - sheetLoadedAt > 60000)) loadSheetSales(true); });
+// ---------- sinkron otomatis: perubahan di Google Sheet tampil sendiri di dashboard, tanpa muat ulang halaman ----------
+// Rekap penjualan & event dicek langsung ke sheet; data backend (kompetitor, kavling, penawaran, file, ketentuan) dicek lewat penanda
+// perubahan yang ringan, dan data lengkap hanya diambil bila penandanya berubah. Hanya berjalan saat tab terlihat.
+async function autoSync(force){
+  if (autoBusy || document.visibilityState !== "visible" || document.querySelector("#splash")) return;
+  if (!force && Date.now() - autoAt < 2500) return;
+  autoBusy = true; autoAt = Date.now(); autoTick++;
+  try {
+    const slow = autoTick % 4 === 0;      // sumber yang sedang bermasalah / tidak ada cukup dicek tiap putaran ke-4
+    if (SALES_SHEET){ if (!sheetError || slow || force) await loadSheetSales(true); if ($("#modal").hidden && (evSheetOk || slow)) await loadEvents(true); }
+    if (mode === "live" && dbState !== "loading" && (force || autoPending || autoTick % 2 === 0)) await checkBackend();
+  } catch {} finally { autoBusy = false; }
+}
+async function checkBackend(){
+  let j; try { j = await (await fetch(API_URL + (API_URL.includes("?") ? "&" : "?") + "rev=1&token=" + encodeURIComponent(TOKEN), {cache:"no-store"})).json(); } catch { return; }
+  if (!j || !j.ok) return;
+  if (j.rev !== undefined && j.rev === lastRev && !autoPending && dbState === "ready") return;   // tidak ada perubahan di Sheet
+  if (!$("#modal").hidden || !$("#cadv").hidden){ autoPending = true; return; }                   // sedang mengisi form / membuka gambar: tunda sampai ditutup
+  autoPending = false;
+  if (await load(true)) toast("Data diperbarui dari Google Sheet");
+}
+setInterval(autoSync, SYNC_MS);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") autoSync(true); });
+addEventListener("focus", () => autoSync());
 
 
 // ---------- analisis unit per cluster (rentang, bulanan/tahunan) ----------
@@ -3679,7 +3713,7 @@ function parseEventRows(rows){
 async function readSheetEvents(){
   if (!SALES_SHEET) return null;
   const url = sheetCsvUrl(SALES_SHEET, "EVENT");
-  try { const res = await fetch(url); const txt = await res.text(); if (!res.ok || /^\s*<(!doctype|html)/i.test(txt)) throw 0; return parseEventRows(parseCsv(txt)); }
+  try { const res = await fetch(url, {cache:"no-store"}); const txt = await res.text(); if (!res.ok || /^\s*<(!doctype|html)/i.test(txt)) throw 0; return parseEventRows(parseCsv(txt)); }
   catch { try { return parseEventRows(await sheetRowsJsonp(SALES_SHEET, "EVENT")); } catch { return null; } }
 }
 async function postEvent(action, ev){
@@ -3694,9 +3728,12 @@ async function syncPending(){
   for (const ev of events.filter(e => !e.synced && !e.demo)){ if (await postEvent("upsert", ev)){ ev.synced = true; changed = true; } }
   if (changed){ evSyncMsg = ""; saveLocalEvents(); renderEvents(); }
 }
-async function loadEvents(){
+let lastEvSig = "";
+async function loadEvents(silent){
+  const sheet = await readSheetEvents(), sig = JSON.stringify(sheet);
+  if (silent && sig === lastEvSig) return;      // tab EVENT tidak berubah
+  lastEvSig = sig;
   const local = readLocalEvents();
-  const sheet = await readSheetEvents();
   evSheetOk = !!sheet;
   if (sheet){
     const ids = new Set(sheet.map(e=>e.id));

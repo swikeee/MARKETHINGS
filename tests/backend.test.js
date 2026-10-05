@@ -8,7 +8,7 @@ let n = 0; const ok = (name, cond, extra) => { n++; console.log((cond ? '✓' : 
 ok('sebelum setup(): pesan jelas', /Jalankan setup/.test(get().error || ''), get().error);
 A.setup(); A.setup();   // dua kali: aman diulang
 ok('setup membuat semua sheet', Object.keys(A.SHEETS).every(s => env.sheets[s] && env.sheets[s].rows[0].join() === A.SHEETS[s].join()));
-ok('trigger mingguan tepat satu', env.triggers.length === 1 && env.triggers[0] === 'weeklySync');
+ok('trigger: sinkron mingguan + penanda perubahan, masing-masing satu', env.triggers.length === 2 && env.triggers.filter(x => x === 'weeklySync').length === 1 && env.triggers.filter(x => x === 'onSheetChange').length === 1, env.triggers.join(','));
 ok('sumber awal terisi', A.readTable('Sources').length === 9);
 // token
 ok('tanpa WRITE_TOKEN semua tulis ditolak', post('ping', {}).error === 'unauthorized');
@@ -74,4 +74,16 @@ ok('import ke sheet tidak valid ditolak', /tidak valid/.test(post('import', {she
 // volume: 300 baris penjualan
 r = post('import', {sheet:'Sales', rows:Array.from({length:300}, (_, i) => ({id:'s'+i, date:'2026-0'+(1+i%9)+'-15', cluster:'Padmagriya', price:1.1e9, status:'Akad'}))});
 ok('import 300 baris Sales, tanggal tetap teks', r.count === 300 && get().sales.length === 300 && get().sales[5].date === '2026-06-15', get().sales[5].date);
+// penanda perubahan untuk sinkron otomatis
+const rev = () => JSON.parse(A.doGet({parameter:{rev:'1'}}).text);
+let r0 = rev(); ok('cek revisi ringan: hanya mengembalikan penanda, bukan data', r0.ok && typeof r0.rev === 'string' && !('competitors' in r0), r0.rev);
+ok('tanpa perubahan penanda tetap', rev().rev === r0.rev);
+const wait = ms => { const t = Date.now(); while (Date.now() - t < ms); };
+wait(3); A.onEdit({}); let r1 = rev(); ok('edit sel di Sheet (onEdit) mengubah penanda', r1.rev !== r0.rev);
+wait(3); A.onSheetChange({}); let r2 = rev(); ok('tambah/hapus baris (onChange) mengubah penanda', r2.rev !== r1.rev);
+env.state.modTime += 5000; let r3 = rev(); ok('perubahan lewat jalur lain (waktu ubah file Drive) mengubah penanda', r3.rev !== r2.rev);
+wait(3); post('saveOffer', {plotCode:'E5A', tenant:'Uji Rev', type:'Sewa', priceM2:90000}); let r4 = rev(); ok('simpan dari dashboard mengubah penanda', r4.rev !== r3.rev);
+ok('snapshot membawa penanda yang sama', get().rev === rev().rev);
+wait(3); post('ping', {}); ok('aksi baca (ping) tidak mengubah penanda', rev().rev === r4.rev);
+env.props.READ_TOKEN = 'baca1'; ok('cek revisi ikut aturan READ_TOKEN', JSON.parse(A.doGet({parameter:{rev:'1'}}).text).error === 'unauthorized' && JSON.parse(A.doGet({parameter:{rev:'1', token:'baca1'}}).text).ok); delete env.props.READ_TOKEN;
 console.log(process.exitCode ? '\nADA YANG GAGAL' : `\nSemua ${n} uji backend lulus`);
