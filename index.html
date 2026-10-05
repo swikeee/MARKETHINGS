@@ -166,6 +166,14 @@ textarea{min-height:80px;resize:vertical}
 .sync-t{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
 .dot.ok{background:var(--ok)} .dot.run{background:var(--warn)} .dot.err{background:var(--bad)}
+/* lampu berkedip: situs sumber benar-benar terbaca pada pengecekan terakhir */
+.dot.live{background:var(--ok);position:relative;animation:dotBlink 1.4s ease-in-out infinite}
+.dot.live::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:1.5px solid var(--ok);opacity:0;animation:dotPing 1.4s ease-out infinite}
+@keyframes dotBlink{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes dotPing{0%{transform:scale(.6);opacity:.75}100%{transform:scale(1.9);opacity:0}}
+.sync-devs{display:inline-flex;flex-wrap:wrap;gap:4px 12px;align-items:center} .sync-devs .dv{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.sync-src .srow{display:flex;gap:8px;flex-wrap:wrap;align-items:center} .sync-src .srow .dot{margin:0 2px}
+.sync-leg{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;font-size:12px;color:var(--muted);margin-bottom:4px} .sync-leg span{display:inline-flex;align-items:center;gap:6px}
 .sync-src{flex-basis:100%;border-top:1px dashed var(--line);padding-top:10px;display:grid;gap:4px;font-size:13px;min-width:0}
 .sync-src a,.src a{color:var(--accent);overflow-wrap:anywhere}
 .src{font-size:12px;white-space:normal;min-width:150px;max-width:220px}
@@ -885,7 +893,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
     </div>
     <div class="panel sync" id="syncPanel">
       <div class="sync-main">
-        <div class="sync-t"><span class="dot" id="syncDot"></span><b>Sinkron data publik</b> <span class="note" id="syncDevs">Summarecon Bandung · Kota Baru Parahyangan</span></div>
+        <div class="sync-t"><span class="dot" id="syncDot"></span><b>Sinkron data publik</b> <span class="note sync-devs" id="syncDevs">Summarecon Bandung · Kota Baru Parahyangan</span></div>
         <div class="note" id="syncStatus">Memuat status sinkron…</div>
       </div>
       <div class="grp">
@@ -2232,19 +2240,40 @@ $("#btnAddPlot").onclick = () => editPlot(null);
 function applyWrite(){ document.querySelectorAll("[data-w]").forEach(el=>el.hidden = !canWrite()); }
 
 // ---------- sinkron sumber publik (via Apps Script) ----------
+// Lampu tiap sumber, dari hasil baca terakhir oleh backend: live = situs terbaca (berkedip), err = gagal dibaca,
+// old = sudah lewat jadwal mingguan tanpa dicek lagi, wait = belum pernah dibaca, off = nonaktif.
+const SRC_STALE = 8*864e5;
+function srcState(s){
+  if (!s.active) return "off"; if (!s.lastFetched) return "wait";
+  if (/^(HTTP \d|gagal)/i.test(s.lastStatus||"")) return "err";
+  return Date.now() - new Date(s.lastFetched) > SRC_STALE ? "old" : "live";
+}
+const SRC_DOT = {live:"dot live", err:"dot err", old:"dot run", wait:"dot", off:"dot"};
+const SRC_TIP = {live:"Tersambung: situs terbaca pada pengecekan terakhir", err:"Situs tidak bisa dibaca", old:"Belum dicek lagi lebih dari seminggu", wait:"Belum pernah dibaca", off:"Nonaktif"};
+// Jadwal backend: tiap Rabu 07.00–08.00 WIB (07.00 WIB = 00.00 UTC di tanggal yang sama)
+function nextSyncDate(){
+  const w = new Date(Date.now() + 7*36e5); let d = (3 - w.getUTCDay() + 7) % 7; if (d === 0 && w.getUTCHours() >= 8) d = 7;
+  return new Date(Date.UTC(w.getUTCFullYear(), w.getUTCMonth(), w.getUTCDate() + d));
+}
 function renderSync(){
   const dot=$("#syncDot"), st=$("#syncStatus");
+  const act = sources.filter(s => s.active), states = act.map(srcState), nLive = states.filter(x => x==="live").length, nErr = states.filter(x => x==="err").length;
+  const sched = `Otomatis tiap Rabu ±07.00 WIB · berikutnya ${nextSyncDate().toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"short",timeZone:"Asia/Jakarta"})}`;
+  const conn = act.length ? `<b>${nLive}/${act.length}</b> sumber tersambung${nErr?` · <span class="up">${nErr} gagal</span>`:""}` : "";
   if (busy){ dot.className="dot run"; st.textContent = busy; }
   else if (mode==="demo"){ dot.className="dot"; st.innerHTML = "Belum tersambung backend · data tersimpan di browser ini"; }
   else if (dbState==="error"){ dot.className="dot err"; st.textContent = loadError; }
-  else if (!lastSync){ dot.className="dot"; st.textContent = "Belum pernah sinkron. Klik “Sinkron sekarang” atau tunggu jadwal mingguan (Senin pagi)."; }
-  else { dot.className = "dot " + (lastSync.status==="error" ? "err" : "ok");
-    st.innerHTML = `Terakhir: <b>${esc(fmtDT(lastSync.at))}</b> (${esc(lastSync.trigger)}) · ${esc(lastSync.summary||"")}${aiReady?"":" · <span class='up'>AI belum aktif</span>"}`; }
+  else if (!lastSync){ dot.className = nLive ? "dot live" : "dot"; st.innerHTML = `${conn?conn+" · ":""}Belum pernah sinkron penuh. Klik “Sinkron sekarang” atau tunggu jadwal. ${sched}`; }
+  else { dot.className = nLive ? "dot live" : "dot " + (lastSync.status==="error" || nErr ? "err" : "ok");
+    st.innerHTML = `${conn?conn+" · ":""}Terakhir: <b>${esc(fmtDT(lastSync.at))}</b> (${esc(lastSync.trigger)}) · ${esc(lastSync.summary||"")}${aiReady?"":" · <span class='up'>AI belum aktif</span>"}<br>${sched}`; }
+  dot.title = mode==="demo" ? "Belum tersambung" : nLive ? `${nLive} dari ${act.length} sumber tersambung` : "Belum ada sumber yang tersambung";
   const devs = [...new Set(sources.map(s=>s.developer).filter(Boolean))];
-  if (devs.length) $("#syncDevs").textContent = devs.join(" · ");
-  $("#syncSources").innerHTML = (mode==="demo" ? `<div class="note">Daftar sumber disimpan di sheet <b>Sources</b> setelah terhubung.</div>` :
-    (sources.length ? sources.map(s=>{ const u=safeUrl(s.url);
-      return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:baseline"><span class="chip">${esc(s.developer||"–")}</span>${u?`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(s.label||u)}</a>`:esc(s.label||"")}
+  if (devs.length) $("#syncDevs").innerHTML = devs.map(d => { const ss = sources.filter(s => s.developer===d && s.active).map(srcState);
+    const k = ss.includes("live") ? "live" : ss.includes("err") ? "err" : ss.includes("old") ? "old" : ss.includes("wait") ? "wait" : "off";
+    return `<span class="dv" title="${esc(SRC_TIP[k])}"><i class="${SRC_DOT[k]}"></i>${esc(d)}</span>`; }).join("");
+  $("#syncSources").innerHTML = (mode==="demo" ? `<div class="note">Daftar sumber disimpan di sheet <b>Sources</b> setelah terhubung. Lampu hijau berkedip di tiap sumber menandakan situsnya berhasil dibaca; sinkron otomatis tiap Rabu pagi.</div>` :
+    (sources.length ? `<div class="sync-leg"><span><i class="dot live"></i>tersambung</span><span><i class="dot err"></i>gagal dibaca</span><span><i class="dot run"></i>belum dicek &gt; 1 minggu</span><span><i class="dot"></i>belum dibaca / nonaktif</span></div>` + sources.map(s=>{ const u=safeUrl(s.url), k=srcState(s);
+      return `<div class="srow"><i class="${SRC_DOT[k]}" title="${esc(SRC_TIP[k])}"></i><span class="chip">${esc(s.developer||"–")}</span>${u?`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(s.label||u)}</a>`:esc(s.label||"")}
         <span class="note">${s.active?"":"nonaktif · "}${esc(s.lastStatus||"belum dibaca")}${s.lastFetched?" · "+esc(fmtDate(s.lastFetched)):""}</span>
         ${TOKEN?`<button class="btn sm" data-edit-src="${esc(s.id)}">Edit</button>`:""}</div>`; }).join("") : `<div class="note">Belum ada sumber.</div>`)
     + (TOKEN ? `<div><button class="btn sm" id="btnAddSrc">+ Tambah sumber</button></div>` : ""))

@@ -66,6 +66,8 @@ r = post('fetchUrl', {url:'https://contoh.test/pricelist', developer:'Summarecon
 ok('fetchUrl: ambil halaman → ekstrak → simpan kompetitor', r.ok && r.rows === 1 && get().competitors.some(c => c.id === 'auto-summarecon-bandung-cluster-uji' && c.price === 2500000000 && c.auto === true && c.tier === 'Deluxe'), r.summary || r.error);
 ok('fetchUrl: sumber baru tercatat', A.readTable('Sources').some(s => s.url === 'https://contoh.test/pricelist' && /tipe unit/.test(s.lastStatus)));
 r = post('fetchUrl', {url:'https://contoh.test/gagal'}); ok('fetchUrl 404 → pesan jelas', /HTTP 404/.test(r.error || ''), r.error);
+ok('sumber 404 ditandai tidak terjangkau', A.readTable('Sources').some(x => x.url === 'https://contoh.test/gagal' && x.lastStatus === 'HTTP 404' && x.lastFetched));
+ok('jadwal sinkron mingguan: hari Rabu', env.weekdays.weeklySync === 'WEDNESDAY', env.weekdays.weeklySync);
 r = post('syncNow', {}); ok('syncNow berjalan & mencatat log', r.ok && r.status === 'ok' && A.readTable('SyncLog').length === 1 && get().lastSync.summary === r.summary, r.summary);
 env.setFetch((url) => url.includes('api.anthropic.com') ? {code:200, type:'application/json', body:JSON.stringify({content:[{type:'text', text:'[{"developer":"Summarecon Bandung","cluster":"Cluster Uji","lb":100,"price":2600000000}]'}]})} : {code:200, type:'text/html', body:'<p>berubah</p>'});
 post('syncNow', {}); ok('perubahan harga masuk PriceHistory', get().history.some(h => h.competitorId === 'auto-summarecon-bandung-cluster-uji' && h.oldPrice === 2500000000 && h.newPrice === 2600000000 && h.changePct === 4));
@@ -88,6 +90,12 @@ r = post('ai', {prompt:'x'}); ok('aksi ai dengan kunci salah → pesan jelas, ti
 delete env.props.ANTHROPIC_API_KEY; r = post('ai', {prompt:'x'}); ok('aksi ai tanpa kunci → pesan jelas', /ANTHROPIC_API_KEY belum diisi/.test(r.error || ''), r.error);
 r = post('selfTest', {}); ok('selfTest tanpa kunci: tidak memanggil AI', r.ai === false && !r.aiTest);
 ok('kunci API tidak pernah ikut terkirim ke dashboard', !JSON.stringify(get()).includes('sk-') && !JSON.stringify(post('selfTest', {})).includes('sk-'));
+// status tiap sumber (dibaca dashboard untuk lampu sambungan)
+env.setFetch(() => { throw new Error('DNS error'); }); r = post('fetchUrl', {url:'https://mati.test/x'});
+ok('situs tak terjangkau → status "gagal", tidak crash', /DNS error/.test(r.error || '') && A.readTable('Sources').some(x => x.url === 'https://mati.test/x' && /^gagal: /.test(x.lastStatus) && x.lastFetched), r.error);
+env.setFetch(() => ({code:200, type:'text/html', body:'<p>harga</p>'})); r = post('fetchUrl', {url:'https://hidup.test/x'});
+ok('situs terbaca tapi AI belum aktif → ditandai terbaca, dicoba lagi nanti', /ANTHROPIC_API_KEY belum diisi/.test(r.error || '') && A.readTable('Sources').some(x => x.url === 'https://hidup.test/x' && /^terbaca, ekstraksi AI gagal/.test(x.lastStatus) && !x.lastHash), r.error);
+r = post('syncNow', {}); ok('syncNow tetap jalan walau ada sumber gagal', r.ok && Array.isArray(r.failed) && r.failed.length > 0, r.summary);
 // penanda perubahan untuk sinkron otomatis
 const rev = () => JSON.parse(A.doGet({parameter:{rev:'1'}}).text);
 let r0 = rev(); ok('cek revisi ringan: hanya mengembalikan penanda, bukan data', r0.ok && typeof r0.rev === 'string' && !('competitors' in r0), r0.rev);

@@ -2,7 +2,7 @@
 // Meniru juga kebiasaan Sheets mengubah teks menjadi angka/tanggal di sel yang tidak diformat teks.
 const fs = require('fs'), vm = require('vm'), http = require('http'), crypto = require('crypto');
 function makeEnv(codePath){
-  const sheets = {}, props = {}, drive = {folders:{}, files:{}}, triggers = [], log = [];
+  const sheets = {}, props = {}, drive = {folders:{}, files:{}}, triggers = [], weekdays = {}, log = [];
   const coerce = (v, fmt) => { if (fmt === '@' || typeof v !== 'string') return v; const t = v.trim();
     if (/^[+-]?\d+([.,]\d+)?([eE][+-]?\d+)?$/.test(t)) return Number(t.replace(',', '.'));
     if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return new Date(t + 'T00:00:00+07:00');
@@ -31,8 +31,8 @@ function makeEnv(codePath){
     SpreadsheetApp: { getActive: () => ss },
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = String(v); } }) },
     LockService: { getScriptLock: () => ({ tryLock: () => true, waitLock: () => {}, releaseLock: () => {} }) },
-    ScriptApp: { WeekDay: {MONDAY:'MONDAY'}, getProjectTriggers: () => triggers.map(t => ({ getHandlerFunction: () => t })), deleteTrigger: t => { const i = triggers.indexOf(t.getHandlerFunction()); if (i >= 0) triggers.splice(i, 1); },
-      newTrigger: fn => { const b = { timeBased: () => b, onWeekDay: () => b, atHour: () => b, forSpreadsheet: () => b, onChange: () => b, onEdit: () => b, create: () => { triggers.push(fn); } }; return b; } },
+    ScriptApp: { WeekDay: {MONDAY:'MONDAY', WEDNESDAY:'WEDNESDAY'}, getProjectTriggers: () => triggers.map(t => ({ getHandlerFunction: () => t })), deleteTrigger: t => { const i = triggers.indexOf(t.getHandlerFunction()); if (i >= 0) triggers.splice(i, 1); },
+      newTrigger: fn => { const b = { timeBased: () => b, onWeekDay: d => { if (!d) throw new Error('WeekDay tidak dikenal'); weekdays[fn] = d; return b; }, atHour: () => b, forSpreadsheet: () => b, onChange: () => b, onEdit: () => b, create: () => { triggers.push(fn); } }; return b; } },
     Utilities: { getUuid: () => crypto.randomUUID(), base64Encode: b => Buffer.from(b).toString('base64'), base64Decode: s => [...Buffer.from(s, 'base64')], newBlob: (data, type, name) => blobOf(typeof data === 'string' ? [...Buffer.from(data)] : data, type, name),
       DigestAlgorithm: {MD5:'md5'}, computeDigest: (alg, bytes) => [...crypto.createHash('md5').update(Buffer.from(bytes)).digest()],
       formatDate: (d, tz, f) => { const z = new Date(d.getTime() + 7*3600e3).toISOString(); return f === 'yyyy-MM' ? z.slice(0,7) : z.slice(0,10); } },
@@ -44,8 +44,8 @@ function makeEnv(codePath){
     Logger: { log: m => log.push(String(m)) }, console,
   };
   const ctx = vm.createContext(g);
-  vm.runInContext(fs.readFileSync(codePath, 'utf8') + '\n;this.__api = {setup, doGet, doPost, selfTest, readTable, SHEETS, onEdit, onSheetChange, revision};', ctx, {filename:'Code.gs'});
-  return { api: ctx.__api, sheets, props, drive, triggers, log, state, setFetch: f => { fetchImpl = f; } };
+  vm.runInContext(fs.readFileSync(codePath, 'utf8') + '\n;this.__api = {setup, doGet, doPost, selfTest, readTable, SHEETS, onEdit, onSheetChange, revision, syncAll, weeklySync, upsert};', ctx, {filename:'Code.gs'});
+  return { api: ctx.__api, sheets, props, drive, triggers, weekdays, log, state, setFetch: f => { fetchImpl = f; } };
 }
 function serve(env, port){
   const srv = http.createServer((req, res) => { const cors = {'Access-Control-Allow-Origin':'*', 'Content-Type':'application/json'};

@@ -51,9 +51,9 @@ function setup() {
     }
     (TEXT_COLS[name] || []).forEach(k => { if (h.indexOf(k) >= 0) sh.getRange(1, h.indexOf(k) + 1, sh.getMaxRows(), 1).setNumberFormat('@'); });
   });
-  // trigger mingguan: Senin 07:00-08:00 (zona waktu project)
+  // trigger mingguan: Rabu 07:00-08:00 (zona waktu project, Asia/Jakarta)
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'weeklySync').forEach(t => ScriptApp.deleteTrigger(t));
-  ScriptApp.newTrigger('weeklySync').timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(7).create();
+  ScriptApp.newTrigger('weeklySync').timeBased().onWeekDay(ScriptApp.WeekDay.WEDNESDAY).atHour(7).create();
   // penanda perubahan untuk sinkron otomatis dashboard: tambah/hapus baris, tempel, dll. (edit sel biasa ditangani onEdit di bawah)
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'onSheetChange').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('onSheetChange').forSpreadsheet(ss).onChange().create();
@@ -225,14 +225,24 @@ function syncAll(trigger, force) {
   } finally { lock.releaseLock(); }
 }
 
+/**
+ * lastStatus dibaca dashboard untuk lampu tiap sumber:
+ *   "HTTP 4xx/5xx" atau "gagal: ..."  -> situs tujuan TIDAK terjangkau (lampu merah)
+ *   selain itu                        -> situs terjangkau (lampu hijau berkedip)
+ */
 function processSource(s, force) {
-  const res = UrlFetchApp.fetch(s.url, { muteHttpExceptions: true, followRedirects: true, headers: { 'User-Agent': 'Mozilla/5.0 (LandIntel; Apps Script)' } });
+  let res;
+  try { res = UrlFetchApp.fetch(s.url, { muteHttpExceptions: true, followRedirects: true, headers: { 'User-Agent': 'Mozilla/5.0 (LandIntel; Apps Script)' } }); }
+  catch (err) { const msg = 'gagal: ' + String(err.message || err).slice(0, 80); upsert('Sources', { id: s.id, lastFetched: now(), lastStatus: msg }); return { skipped: true, rows: 0, priceChanges: 0, error: msg }; }
   const code = res.getResponseCode();
   if (code >= 400) { upsert('Sources', { id: s.id, lastFetched: now(), lastStatus: 'HTTP ' + code }); return { skipped: true, rows: 0, priceChanges: 0, error: 'HTTP ' + code }; }
   const blob = res.getBlob();
   const hash = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, blob.getBytes()));
   if (!force && hash === s.lastHash) { upsert('Sources', { id: s.id, lastFetched: now(), lastStatus: 'tidak berubah' }); return { skipped: true, rows: 0, priceChanges: 0 }; }
-  const units = extractUnits(blob, s.url, s.developer, s.note);
+  let units;
+  // situs terbaca tapi AI gagal: hash tidak disimpan supaya sumber ini dicoba lagi di sinkron berikutnya
+  try { units = extractUnits(blob, s.url, s.developer, s.note); }
+  catch (err) { const msg = String(err.message || err).slice(0, 80); upsert('Sources', { id: s.id, lastFetched: now(), lastStatus: 'terbaca, ekstraksi AI gagal: ' + msg }); return { skipped: true, rows: 0, priceChanges: 0, error: msg, ai: true }; }
   const r = upsertUnits(units, s);
   upsert('Sources', { id: s.id, lastHash: hash, lastFetched: now(), lastStatus: units.length ? units.length + ' tipe unit' : 'tidak ada data harga' });
   return { skipped: false, rows: r.rows, priceChanges: r.priceChanges };
@@ -244,7 +254,7 @@ function fetchOne(url, note, developer) {
   const existing = readTable('Sources').find(s => s.url === url);
   const src = existing || upsert('Sources', { id: 'src-' + uid(), developer: developer || '', label: url.replace(/^https?:\/\//, '').slice(0, 80), url, active: true, note: note || '' });
   const r = processSource({ ...src, note: note || src.note }, true);
-  if (r.error) throw new Error('Sumber tidak bisa dibaca: ' + r.error);
+  if (r.error) throw new Error(r.ai ? r.error : 'Sumber tidak bisa dibaca: ' + r.error);
   return { rows: r.rows, priceChanges: r.priceChanges, summary: r.rows ? `${r.rows} tipe unit ditambahkan/diperbarui` : 'Tidak ditemukan data harga di halaman ini' };
 }
 

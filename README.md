@@ -7,7 +7,7 @@ index.html  ──fetch──▶  Google Apps Script (Web App)  ──▶  Googl
                                │
                                ├─ UrlFetchApp: baca pricelist PDF / halaman / berita
                                ├─ Claude API: ekstrak harga + insight + proposal
-                               └─ Trigger mingguan: sinkron otomatis tiap Senin pagi
+                               └─ Trigger mingguan: sinkron otomatis tiap Rabu pagi
 ```
 
 ## Isi paket
@@ -38,7 +38,7 @@ Tanpa backend, `index.html` jalan dalam **mode demo** dengan data contoh (13 pro
    | `ANTHROPIC_API_KEY` | API key dari console.anthropic.com (untuk AI & ekstraksi harga) |
    | `READ_TOKEN` | *(opsional)* isi agar data tidak bisa dibaca tanpa token |
    | `MODEL` | *(opsional)* default `claude-sonnet-5-5`; bisa `claude-haiku-4-5-20251001` agar lebih hemat |
-4. Di editor, pilih fungsi **`setup`** lalu **Run**. Izinkan akses saat diminta. Fungsi ini membuat sheet Competitors, Plots, Offers, Sources, PriceHistory, SyncLog, Sales, Leads, Files, dan Settings (aman dijalankan ulang; kolom baru ditambahkan di ujung kanan), mengisi daftar sumber awal Summarecon & KBP, dan memasang trigger mingguan (Senin 07.00–08.00 WIB).
+4. Di editor, pilih fungsi **`setup`** lalu **Run**. Izinkan akses saat diminta. Fungsi ini membuat sheet Competitors, Plots, Offers, Sources, PriceHistory, SyncLog, Sales, Leads, Files, dan Settings (aman dijalankan ulang; kolom baru ditambahkan di ujung kanan), mengisi daftar sumber awal Summarecon & KBP, dan memasang trigger mingguan (Rabu 07.00–08.00 WIB).
 5. **Deploy → New deployment → Web app**
    - Execute as: **Me**
    - Who has access: **Anyone**
@@ -68,6 +68,17 @@ Yang perlu diingat:
 ## Uji backend tanpa akun Google
 
 `node tests/backend.test.js` menjalankan `apps-script/Code.gs` apa adanya di atas tiruan layanan Google (Sheet, Drive, UrlFetch, Properties), termasuk kebiasaan Sheets mengubah teks jadi angka/tanggal. 43 pemeriksaan: setup, token, simpan/edit/hapus, impor massal, file ke Drive, pengaturan bersama, sinkron sumber, riwayat harga. Ini menguji logika kode; izin dan kuota akun Google yang asli tetap perlu dicek dengan **Tes koneksi** / `selfTest` setelah deploy.
+
+## Lampu sambungan sumber kompetitor
+
+Di panel **Sinkron data publik** (Market Research) tiap sumber punya lampu, diambil dari hasil baca terakhir oleh backend:
+
+- hijau berkedip: situsnya terbaca pada pengecekan terakhir (maksimal 8 hari lalu)
+- merah: gagal dibaca (`HTTP 4xx/5xx` atau `gagal: ...`)
+- kuning: sudah lebih dari seminggu tidak dicek (jadwal terlewat)
+- abu: belum pernah dibaca, nonaktif, atau dashboard belum tersambung backend
+
+Lampu di judul panel berkedip bila minimal satu sumber tersambung. Sinkron otomatis berjalan tiap **Rabu 07.00–08.00 WIB**; setelah mengganti `Code.gs`, jalankan `setup` sekali lagi supaya jadwalnya ikut pindah.
 
 ## Sinkron otomatis dengan Google Sheet
 
