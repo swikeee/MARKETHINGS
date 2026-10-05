@@ -1158,6 +1158,28 @@ const store = {
   set(k,v){ try { v ? localStorage.setItem(k,v) : localStorage.removeItem(k); } catch {} },
 };
 
+// ---------- link sambungan: pindah browser / laptop tanpa mengisi Pengaturan lagi ----------
+// Bentuk: <alamat dashboard>#sambung=<kode>. Kode = base64url dari {a: URL Apps Script, t: token, e: URL Apps Script event}.
+// Bagian setelah # tidak ikut terkirim ke server mana pun, dan token tidak pernah ditulis ke file ini.
+const b64u = { enc: t => btoa(unescape(encodeURIComponent(t))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""),
+               dec: t => decodeURIComponent(escape(atob(t.replace(/-/g,"+").replace(/_/g,"/")))) };
+const okScriptUrl = u => /^https:\/\/script\.google\.com\/(a\/macros\/[\w.-]+|macros)\/s\/[\w-]+\/exec$/.test(String(u||""));
+function parseLinkCode(text){   // menerima link utuh atau kodenya saja; hanya URL Apps Script Google yang diterima
+  const m = String(text||"").trim().match(/(?:sambung=)?([A-Za-z0-9_-]{24,})\s*$/); if (!m) return null;
+  try { const o = JSON.parse(b64u.dec(m[1])); if (!okScriptUrl(o.a)) return null; return {api:o.a, token:String(o.t||""), eventApi: okScriptUrl(o.e) ? o.e : ""}; } catch { return null; }
+}
+const makeLinkCode = (a, t, e) => b64u.enc(JSON.stringify({a, t, ...(okScriptUrl(e) ? {e} : {})}));
+(function applyLinkFromHash(){
+  const m = location.hash.match(/[#&]sambung=([A-Za-z0-9_-]+)/); if (!m) return;
+  try { window.history.replaceState(null, "", location.pathname + location.search); } catch {}   // buang kode dari kolom alamat & riwayat (window.history: "history" di file ini = riwayat harga)
+  const c = parseLinkCode(m[1]); if (!c) return;
+  const cur = store.get("li.api") || "";
+  if (cur === c.api && (store.get("li.token") || "") === c.token) return;                     // sudah sama: tidak perlu apa-apa
+  const tail = c.api.match(/\/s\/([\w-]+)\/exec$/)[1].slice(-8);
+  if (!confirm(`Pakai pengaturan sambungan dari link ini di browser ini?\n\nApps Script: …${tail}\n${cur && cur !== c.api ? "Sambungan yang sekarang akan diganti.\n" : ""}\nLanjutkan hanya kalau link ini kamu buat sendiri.`)) return;
+  store.set("li.api", c.api); store.set("li.token", c.token); if (c.eventApi) store.set("li.eventApi", c.eventApi);
+})();
+
 // ---------- state & API ----------
 let API_URL = store.get("li.api") || DEFAULT_API_URL;
 const SYNC_MS = Math.max(3000, +store.get("li.syncMs") || 15000);   // jeda cek otomatis ke Google Sheet (ms)
@@ -3119,6 +3141,8 @@ $("#btnSettings").onclick = () => {
     <div class="sep"></div>
     <div class="field"><label for="cfgTok">Token (WRITE_TOKEN di Script Properties)</label><input type="password" id="cfgTok" value="${esc(TOKEN)}" placeholder="kosongkan untuk akses baca saja"></div>
     <p class="note" id="cfgMsg">Tersimpan di browser ini saja. Tanpa token, dashboard hanya bisa membaca data.</p>
+    <div class="field"><label>Pindah browser / laptop</label><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" id="cfgLinkCopy" type="button">Salin link sambungan</button><button class="btn sm" id="cfgLinkPaste" type="button">Tempel link sambungan</button></div></div>
+    <p class="note" style="margin:0">Buka link itu di browser lain: URL dan token langsung terisi, tidak perlu mengetik lagi. Link berisi token, jadi simpan untuk diri sendiri (catatan pribadi / pengelola sandi) dan jangan dibagikan.</p>
     ${mode==="live" && TOKEN ? `<div class="sep"></div><div class="field"><label>Isi Sheet dengan data contoh dashboard</label><div><button class="btn sm" id="cfgImport">Kirim data contoh ke Google Sheet</button></div></div>` : ""}
   </div>`;
   const act=$("#mActions"); act.innerHTML="";
@@ -3144,6 +3168,15 @@ $("#btnSettings").onclick = () => {
     dbState="loading"; closeModal(); load().then(() => loadSheetSales(false)); toast(mode==="live"?"Terhubung ke Google Sheet":"Pengaturan disimpan"); };
   act.append(demo,test,save); $("#modal").hidden=false;
   $("#cfgPass").onclick = changeSheetPass;
+  $("#cfgLinkCopy").onclick = () => { const a = $("#cfgUrl").value.trim(), m = $("#cfgMsg");
+    if (!okScriptUrl(a)) return m.textContent = "Isi dulu URL Apps Script yang benar (https://script.google.com/…/exec).";
+    const code = "#sambung=" + makeLinkCode(a, $("#cfgTok").value.trim(), $("#cfgEvApi").value.trim()), web = /^https?:$/.test(location.protocol);
+    copyText(web ? location.origin + location.pathname + code : code);
+    m.textContent = web ? "Link sambungan tersalin. Buka di browser lain, lalu setujui." : "Kode sambungan tersalin. Dashboard ini dibuka dari file, jadi di browser tujuan pakai tombol “Tempel link sambungan”."; };
+  $("#cfgLinkPaste").onclick = () => { const t = prompt("Tempel link atau kode sambungan:"); if (t === null) return; const c = parseLinkCode(t), m = $("#cfgMsg");
+    if (!c) return m.textContent = "Link / kode sambungan tidak dikenali.";
+    $("#cfgUrl").value = c.api; $("#cfgTok").value = c.token; if (c.eventApi) $("#cfgEvApi").value = c.eventApi;
+    m.textContent = "Terisi dari link. Klik “Simpan & hubungkan”."; };
   const live = mode === "live", wr = live && TOKEN;
   const R = (a,b,c) => `<tr><td><b>${a}</b></td><td>${b}</td><td>${c}</td></tr>`;
   $("#storRows").innerHTML =

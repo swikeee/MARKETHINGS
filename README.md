@@ -70,6 +70,16 @@ Yang perlu diingat:
 
 `node tests/backend.test.js` menjalankan `apps-script/Code.gs` apa adanya di atas tiruan layanan Google (Sheet, Drive, UrlFetch, Properties), termasuk kebiasaan Sheets mengubah teks jadi angka/tanggal. 43 pemeriksaan: setup, token, simpan/edit/hapus, impor massal, file ke Drive, pengaturan bersama, sinkron sumber, riwayat harga. Ini menguji logika kode; izin dan kuota akun Google yang asli tetap perlu dicek dengan **Tes koneksi** / `selfTest` setelah deploy.
 
+## Pindah browser / laptop (link sambungan)
+
+URL Apps Script dan token tersimpan per browser. Supaya tidak perlu mengisi lagi di perangkat lain: **Pengaturan → Salin link sambungan**, lalu buka link itu di browser tujuan dan setujui konfirmasinya. Dashboard langsung tersambung, dan kodenya otomatis dibuang dari kolom alamat.
+
+- Bentuk link: `<alamat dashboard>#sambung=<kode>`. Bagian setelah `#` tidak dikirim ke server mana pun.
+- Link berisi token (hanya disandikan, bukan dienkripsi). Simpan untuk diri sendiri; kalau link bocor, ganti `WRITE_TOKEN` di Script Properties.
+- Hanya URL `https://script.google.com/.../exec` yang diterima; link ke server lain diabaikan.
+- Kalau dashboard dibuka dari file (bukan dari alamat web), yang tersalin adalah kodenya saja: tempel lewat **Pengaturan → Tempel link sambungan** di browser tujuan.
+- Kavling, penawaran, dan password "Buka data sheet" tidak ikut link ini; pindahkan dengan **Unduh cadangan / Pulihkan dari cadangan**.
+
 ## Data bawaan Market Research
 
 Saat dashboard pertama kali tersambung ke backend dan sheet `Competitors` belum berisi input manual, dashboard otomatis mengirim data bawaannya ke Sheet: 13 produk Pororo Land (dummy), 8 produk Kota Baru Parahyangan dan 5 produk Summarecon Bandung (dari sumber publik). Ini terjadi sekali saja; penandanya `seedComps` di sheet `Settings`. Baris yang kemudian dihapus tidak muncul lagi, dan baris hasil sinkron yang lebih baru tidak ditimpa. Grand Sharon dan Citraland (dummy) tidak ikut; keduanya masih bisa dikirim lewat **Pengaturan → Kirim data contoh ke Google Sheet**.
