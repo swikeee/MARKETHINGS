@@ -3429,20 +3429,20 @@ $("#simCopy").onclick=()=>copyText($("#simBody").dataset.raw||"");
 
 // ---------- sales report ----------
 let sales = [], leads = [], salesDemo = true, salesP = 12;
-const CLUSTERS = [   // cluster Pororo Land (data penjualan dummy)
-  {name:"Padmagriya", seg:"Milenial", price:1.10e9, base:2.6},
-  {name:"Patragriya", seg:"Milenial", price:1.45e9, base:3.2},
-  {name:"Patragriya Shimizu", seg:"Milenial", price:1.65e9, base:2.0},
-  {name:"Wangsagriya", seg:"Deluxe", price:2.35e9, base:2.4},
-  {name:"Sadyagriya", seg:"Deluxe", price:2.60e9, base:1.9},
-  {name:"Arunagriya", seg:"Deluxe", price:2.90e9, base:1.2},
-  {name:"Brahmapuri", seg:"Premium", price:4.90e9, base:.9},
-  {name:"Anapuri", seg:"Premium", price:4.30e9, base:.9},
-  {name:"Dharmapuri", seg:"Premium", price:6.10e9, base:.4},
-  {name:"La Plaza", seg:"Shophouse", price:3.20e9, base:.9},
-  {name:"Neo Plaza", seg:"Shophouse", price:3.60e9, base:.7},
-  {name:"The Plaza", seg:"Shophouse", price:4.40e9, base:.4},
-  {name:"Naragriya", seg:"Student House", price:2.70e9, base:.5},
+const CLUSTERS = [   // cluster (nama samaran, data penjualan dummy)
+  {name:"Pastigriya", seg:"Milenial", price:1.10e9, base:2.6},
+  {name:"Petrogriya", seg:"Milenial", price:1.45e9, base:3.2},
+  {name:"Jepungriya", seg:"Milenial", price:1.65e9, base:2.0},
+  {name:"Ascogriya", seg:"Deluxe", price:2.35e9, base:2.4},
+  {name:"Sayagriya", seg:"Deluxe", price:2.60e9, base:1.9},
+  {name:"Serugriya", seg:"Deluxe", price:2.90e9, base:1.2},
+  {name:"Khrisnapuri", seg:"Premium", price:4.90e9, base:.9},
+  {name:"Entepuri", seg:"Premium", price:4.30e9, base:.9},
+  {name:"Daripuri", seg:"Premium", price:6.10e9, base:.4},
+  {name:"Uhuy Plaza", seg:"Shophouse", price:3.20e9, base:.9},
+  {name:"Uno Plaza", seg:"Shophouse", price:3.60e9, base:.7},
+  {name:"Esthe Plaza", seg:"Shophouse", price:4.40e9, base:.4},
+  {name:"Cikonengraya", seg:"Student House", price:2.70e9, base:.5},
 ];
 const SEGMENTS = ["Milenial","Deluxe","Premium","Shophouse","Student House"];
 // Segmen tiap cluster, berurutan: (1) kolom SEGMEN di sheet, (2) nama cluster bawaan, (3) perkiraan dari nama & harga.
@@ -3471,23 +3471,23 @@ function segInfo(){
 const segOf = name => segInfo()[name]?.seg || CLUSTERS.find(c=>c.name===name)?.seg || "Lainnya";
 const segGuessed = () => Object.entries(segInfo()).filter(e => e[1].src === "guess").map(e => e[0]);
 // ---------- katalog tipe rumah per cluster: "Nama LEBARxPANJANG" (meter). "(Kavling)" = dijual tanah saja. "|alias" = ejaan lain di data ----------
-const TYPE_CATALOG = {
-  "Anapuri":            ["Darmaraja 8x20", "Wanayasa 8x22", "Jayagiri 9x22"],
-  "Brahmapuri":         ["Tanaya 7x20", "Askara 8x22", "Sagara 9x22", "Nawasena 5x20"],
-  "Fashagriya":         ["Jasmine 6x15", "Aster 6x16", "Varda 7x16", "Edelweis 7x18"],
-  "Neo Plaza":          ["Standard 5x15", "Hook 6x15"],
-  "Wangsagriya":        ["Arana Eka 6x12", "Arna Dwi 6x14|Arana Dwi", "Vetra 6x16", "Calya 7x16", "Grand Calya 7x18"],
-  "La Plaza":           ["Reguler 5x15", "Hook 6x15", "Accent 5x15", "Hook B 7x15"],
-  "Sadyagriya":         ["Amala Eka 6x15", "Amala Tri 6x17", "Amala Catur 8x20", "Asha Deluxe 6x17",
-                         ...["Eka","Dwi","Tri","Catur","Panca","Sad","Sapta","Asta","Nava"].map(n => "Ananta " + n + " (Kavling)")],
-  "Patragriya":         ["Ishara Eka 6x11", "Ishara Dwi 6x12", "Warsa Eka 6x15", "Asasta 5x12", "Avanya 5x14", "Avega 5x12"],
-  "Patragriya Shimizu": ["Hanami 5x14", "Hinoki 5x12", "Kyabin"],
-  "Padmagriya":         ["Ayana 7x12", "Asoka 6x11", "Akasha 5.5x10.5", "Akasha 5.5x10", "Arsana 6x15", "Arsana 6x14"],
-  "Dharmapuri":         [],
-  "Naragriya":          ["Vasa 5x14", "Nava 5x15", "Nava 5x18"],
-  "Arunagriya":         ["Svara Eka 5x12", "Svara Dwi 5x14"],
+const TYPE_CATALOG = {     // nama cluster dan tipe di sini nama samaran (plesetan), mengikuti isi sheet
+  "Entepuri":     ["Darmawisata 8x20", "Wanabisa 8x22", "Jayagaring 9x22"],
+  "Khrisnapuri":  ["Tanyaya 7x20", "Asmara 8x22", "Segera 9x22", "Nawasenam 5x20"],
+  "Fesyengriya":  ["Jasmani 6x15", "Asterik 6x16", "Pardon 7x16", "Edelweh 7x18"],
+  "Uno Plaza":    ["Standard 5x15", "Hook 6x15"],
+  "Ascogriya":    ["Arena Eka 6x12", "Arena Dwi 6x14", "Vespa 6x16", "Cilok 7x16", "Grand Cilok 7x18"],
+  "Uhuy Plaza":   ["Reguler 5x15", "Hook 6x15", "Accent 5x15", "Hook B 7x15"],
+  "Sayagriya":    ["Ambyar Eka 6x15", "Ambyar Tri 6x17", "Ambyar Catur 8x20", "Asik Deluxe 6x17",
+                   ...["Eka","Dwi","Tri","Catur","Panca","Sad","Sapta","Asta","Nava"].map(n => "Antena " + n + " (Kavling)")],
+  "Petrogriya":   ["Isyarat Eka 6x11", "Isyarat Dwi 6x12", "Warteg Eka 6x15", "Asisten 5x12", "Apanya 5x14", "Apegel 5x12"],
+  "Jepungriya":   ["Hanamie 5x14", "Pinokio 5x12", "Kabin"],
+  "Pastigriya":   ["Ayamna 7x12", "Asoy 6x11", "Akasih 5.5x10.5", "Akasih 5.5x10", "Arisan 6x15", "Arisan 6x14"],
+  "Daripuri":     [],
+  "Cikonengraya": ["Visa 5x14", "Nawar 5x15", "Nawar 5x18"],
+  "Serugriya":    ["Suara Eka 5x12", "Suara Dwi 5x14"],
 };
-const CLUSTER_NOTE = {"Arunagriya":"2 lantai", "Neo Plaza":"Shophouse", "La Plaza":"Shophouse"};
+const CLUSTER_NOTE = {"Serugriya":"2 lantai", "Uno Plaza":"Shophouse", "Uhuy Plaza":"Shophouse"};
 const tnorm = v => String(v||"").toUpperCase().replace(/[^A-Z0-9]/g, "");
 const parseSize = v => { const m = String(v||"").match(/(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)/i); return m ? {w:+m[1].replace(",","."), d:+m[2].replace(",",".")} : null; };
 const sizeTxt = z => z ? `${String(z.w).replace(".",",")} × ${String(z.d).replace(".",",")}` : "";
