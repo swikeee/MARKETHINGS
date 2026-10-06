@@ -1142,7 +1142,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
    agar semua pengguna langsung terhubung. Bisa juga diisi lewat
    tombol "Pengaturan" (tersimpan di browser masing-masing).
    ============================================================ */
-const DEFAULT_API_URL = "";
+const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycby4HB69FLcvI6_LYD5hcKOXqcz3p-XY4H1La-AdMeRoCQV8mvWiOQi_D9CpPcdgIudv/exec";   // semua browser langsung tersambung (baca saja). Token TIDAK ditaruh di sini.
 // Link Google Sheet rekap penjualan (format "REKAP ALL TIME"). Sheet harus bisa dibuka "Anyone with the link".
 const DEFAULT_SALES_SHEET = "https://docs.google.com/spreadsheets/d/1hhNae8lElfS56LDrDIE_85weuI1pCqfmLIzmRaQoddo/edit";
 const DEFAULT_SALES_TAB = "REKAP ALL TIME";
@@ -1202,11 +1202,11 @@ const makeLinkCode = (a, t, e) => b64u.enc(JSON.stringify({a, t, ...(okScriptUrl
   if (cur === c.api && (store.get("li.token") || "") === c.token) return;                     // sudah sama: tidak perlu apa-apa
   const tail = c.api.match(/\/s\/([\w-]+)\/exec$/)[1].slice(-8);
   if (!confirm(`Pakai pengaturan sambungan dari link ini di browser ini?\n\nApps Script: …${tail}\n${cur && cur !== c.api ? "Sambungan yang sekarang akan diganti.\n" : ""}\nLanjutkan hanya kalau link ini kamu buat sendiri.`)) return;
-  store.set("li.api", c.api); store.set("li.token", c.token); if (c.eventApi) store.set("li.eventApi", c.eventApi);
+  store.set("li.api", c.api); store.set("li.token", c.token); store.set("li.forceDemo", ""); if (c.eventApi) store.set("li.eventApi", c.eventApi);
 })();
 
 // ---------- state & API ----------
-let API_URL = store.get("li.api") || DEFAULT_API_URL;
+let API_URL = store.get("li.forceDemo") ? "" : (store.get("li.api") || DEFAULT_API_URL);   // li.forceDemo: pengguna sengaja memilih mode demo
 const SYNC_MS = Math.max(3000, +store.get("li.syncMs") || 15000);   // jeda cek otomatis ke Google Sheet (ms)
 let autoBusy = false, autoPending = false, autoTick = 0, autoAt = 0;
 let SALES_SHEET = (store.get("li.salesSheet2") ?? DEFAULT_SALES_SHEET).trim();
@@ -1320,7 +1320,8 @@ async function load(silent){
       salesDemo = !(j.sales && j.sales.length); salesSource = salesDemo ? "demo" : "api";
       sales = salesDemo ? DEMO_SALES.sales : j.sales; leads = salesDemo ? DEMO_SALES.leads : (j.leads || []); }
   } catch(e){ if (silent && dbState === "ready") return false;   // gangguan sesaat saat cek otomatis: pertahankan data yang ada
-    dbState = "error"; loadError = errText(e.code ? e : {code:"network"}); }
+    dbState = "error"; loadError = errText(e.code ? e : {code:"network"});
+    if (!comps.length){ comps = clone(DEMO.competitors); loadError += " Menampilkan data contoh."; } }
   renderAll(); seedDefaults(); migrateAliasLive(); return true;
 }
 // Data bawaan Market Research. Saat pertama tersambung dan sheet Competitors belum berisi input manual,
@@ -1352,7 +1353,7 @@ function renderMode(){
   const c = $("#modeChip");
   c.textContent = mode === "live" ? (dbState==="error" ? "Terputus" : "Live · Google Sheet") : "Demo";
   c.className = "chip " + (mode==="live" ? (dbState==="error" ? "bad" : "ok") : "warn");
-  c.title = $("#footNote").textContent = mode==="live" ? (TOKEN ? "Terhubung ke Google Sheet. Bisa membaca dan menyimpan." : "Terhubung (baca saja). Isi token untuk menyimpan.") : "Data contoh. Hubungkan Google Sheet lewat Pengaturan.";
+  c.title = $("#footNote").textContent = mode==="live" ? (dbState==="error" ? loadError : TOKEN ? "Terhubung ke Google Sheet. Bisa membaca dan menyimpan." : "Terhubung (baca saja). Isi token di Pengaturan untuk menyimpan dan memakai AI.") : "Data contoh. Hubungkan Google Sheet lewat Pengaturan.";
   document.querySelectorAll("[data-live]").forEach(b => b.hidden = mode !== "live" || !TOKEN);
   applyWrite();
 }
@@ -1700,7 +1701,6 @@ const XL_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7
 const offerChip = st => `<span class="chip ${({Baru:"info",Negosiasi:"warn",Diterima:"ok"})[st]||""}">${esc(st)}</span>`;
 const offerDiff = c => c.diff === null ? "" : Math.abs(c.diff) < .05 ? `<span class="note">sama</span>` : `<span class="${c.diff > 0 ? "pos-t" : "neg-t"}">${c.diff > 0 ? "+" : "−"}${nf(Math.abs(c.diff),1)}%</span>`;
 function editOffer(o, plotCode){
-  if (!canWrite()) return;
   const codes = plots.filter(p => p.status === "Available" || (o && p.code === o.plotCode)).map(p => String(p.code)).sort((a,b) => a.localeCompare(b, "id", {numeric:true}));
   if (!codes.length) return toast("Belum ada kavling berstatus Available");
   const F = [["plotCode","Kavling","select",codes],["tenant","Nama tenant / brand","text"],["type","Jenis penawaran","select",["Sewa","Beli"]],["status","Status","select",OFFER_STATUS],
@@ -2418,7 +2418,7 @@ function editSource(s){
 }
 $("#btnAddComp").onclick = () => editComp(null);
 $("#btnAddPlot").onclick = () => editPlot(null);
-function applyWrite(){ document.querySelectorAll("[data-w]").forEach(el=>el.hidden = !canWrite()); }
+function applyWrite(){ document.querySelectorAll("[data-w]").forEach(el => el.hidden = !canWrite() && !el.closest("#tab-land")); }   // kavling & penawaran tersimpan di browser: selalu bisa diubah
 
 // ---------- sinkron sumber publik (via Apps Script) ----------
 // Lampu tiap sumber, dari hasil baca terakhir oleh backend: live = situs terbaca (berkedip), err = gagal dibaca,
@@ -3081,7 +3081,7 @@ function cvSide(){
         : `<div class="empty" style="padding:16px">${det.nText ? "Ada teks, tapi tidak ada yang berpola kode kavling (mis. E5A, C-2, KAV. B1)." : d.kind === "img" ? "Gambar/foto tidak punya lapisan teks." : d.kind === "pdf" ? "Halaman ini tidak punya teks yang bisa dibaca (hasil scan, atau teks dijadikan garis saat ekspor). Tandai kavling dengan “Gambar kavling”." : "Tidak ada teks di gambar ini."}</div>`);
   }
   $("#cvPane").innerHTML = h;
-  const b = $("#cvImport"); b.disabled = !sel.length || !canWrite(); b.textContent = sel.length ? `Impor ${sel.length} kavling ke daftar` : "Impor kavling terpilih";
+  const b = $("#cvImport"); b.disabled = !sel.length; b.textContent = sel.length ? `Impor ${sel.length} kavling ke daftar` : "Impor kavling terpilih";
 }
 const candById = id => cad.doc?.cands.find(c => c.id === id);
 $("#cvScale").addEventListener("change", e => { const d = cad.doc; if (!d) return; const t = e.target, P = pm(d);
@@ -3273,7 +3273,7 @@ $("#btnSettings").onclick = () => {
   </div>`;
   const act=$("#mActions"); act.innerHTML="";
   const demo=document.createElement("button"); demo.className="btn"; demo.textContent="Pakai mode demo"; demo.style.marginRight="auto";
-  demo.onclick=()=>{ API_URL=""; TOKEN=""; store.set("li.api",""); store.set("li.token",""); mode="demo"; dbState="loading"; closeModal(); load(); };
+  demo.onclick=()=>{ API_URL=""; TOKEN=""; store.set("li.api",""); store.set("li.token",""); store.set("li.forceDemo","1"); mode="demo"; dbState="loading"; closeModal(); load(); };
   const test=document.createElement("button"); test.className="btn"; test.textContent="Tes koneksi";
   const save=document.createElement("button"); save.className="btn primary"; save.textContent="Simpan & hubungkan";
   const apply=()=>{ API_URL=$("#cfgUrl").value.trim(); TOKEN=$("#cfgTok").value.trim(); mode=API_URL?"live":"demo"; };
@@ -3286,7 +3286,7 @@ $("#btnSettings").onclick = () => {
         m.textContent = ["Terhubung. Token benar.", line("Google Sheet", r.sheet), line("Google Drive", r.drive), line("Ambil data dari internet", r.fetch), r.aiTest ? line("AI (Claude API)", r.aiTest) : "AI: " + (r.ai ? "aktif" : "belum aktif (isi ANTHROPIC_API_KEY di Script Properties)"), r.sheet ? "" : "Backend versi lama: tempel ulang Code.gs untuk tes lengkap."].filter(Boolean).join("\n"); }
       else { const j=await (await fetch(API_URL)).json(); m.textContent = j.ok ? "Terhubung (baca saja)." : "Server menolak: " + j.error; } }
     catch(e){ m.textContent = errText(e); } };
-  save.onclick=()=>{ apply(); store.set("li.api",API_URL); store.set("li.token",TOKEN);
+  save.onclick=()=>{ apply(); store.set("li.api",API_URL); store.set("li.token",TOKEN); store.set("li.forceDemo", API_URL ? "" : "1");
     const ns = $("#cfgSheet").disabled ? SALES_SHEET : $("#cfgSheet").value.trim(), nt = $("#cfgTab").value.trim(), changed = ns !== SALES_SHEET || nt !== SALES_TAB;
     EVENT_API = $("#cfgEvApi").value.trim(); store.set("li.eventApi", EVENT_API);
     SALES_SHEET = ns; SALES_TAB = nt; store.set("li.salesSheet2", ns || " "); store.set("li.salesTab2", nt || " ");
@@ -3865,7 +3865,7 @@ async function autoSync(force){
   try {
     const slow = autoTick % 4 === 0;      // sumber yang sedang bermasalah / tidak ada cukup dicek tiap putaran ke-4
     if (SALES_SHEET){ if (!sheetError || slow || force) await loadSheetSales(true); if ($("#modal").hidden && (evSheetOk || slow)) await loadEvents(true); }
-    if (mode === "live" && dbState !== "loading" && (force || autoPending || autoTick % 2 === 0)) await checkBackend();
+    if (mode === "live" && dbState !== "loading" && (force || autoPending || autoTick % (TOKEN ? 2 : 4) === 0)) await checkBackend();
     if (mode === "live" && !seedDone) seedDefaults();
   } catch {} finally { autoBusy = false; }
 }
