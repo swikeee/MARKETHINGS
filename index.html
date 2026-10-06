@@ -156,7 +156,7 @@ textarea{min-height:80px;resize:vertical}
 table.proj{width:100%;min-width:520px} .proj td small{display:block;font-size:11px;font-weight:400;color:var(--muted)} .proj td,.proj th{white-space:nowrap;padding:9px 6px;font-size:12.5px;font-family:var(--f-body)} .proj th{font-size:11.5px} .proj td:first-child,.proj th:first-child{padding-left:12px} .proj td:last-child,.proj th:last-child{padding-right:12px} .proj td.n,.proj th.n{text-align:right;font-variant-numeric:tabular-nums}
 .proj td.neg{color:var(--bad)} .proj tr.tot td{border-top:2px solid var(--line);font-weight:700} .proj tr.now td{background:var(--accent-soft);font-weight:600} .proj tr.pre td{color:var(--muted)}
 .proj-scroll{max-height:380px;overflow:auto;margin-top:12px} .proj-scroll thead th{position:sticky;top:0;background:var(--surface);z-index:1}
-#projLegA{background:color-mix(in srgb,var(--info) 38%,transparent)}
+#projLegA,#rentLegA{background:color-mix(in srgb,var(--info) 38%,transparent)}
 .cmp td{white-space:normal}
 .cmp{min-width:0}
 .note{font-size:12px;color:var(--muted)}
@@ -1067,6 +1067,10 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
           <div class="kpis proj-kpis" id="projKpis"></div>
           <div class="chartbox" style="height:260px"><canvas id="chProj" aria-label="Proyeksi omzet dan laba per periode"></canvas></div>
           <div class="legend"><span><i id="projLegA"></i>Omzet</span><span><i style="background:var(--accent)"></i>Laba bersih (setelah opex &amp; bayar lahan)</span><span><i style="background:var(--bad)"></i>Rugi</span></div>
+          <h4 class="tp-h" style="margin-top:18px">Pendapatan vs <span id="rentTitle">sewa lahan</span></h4>
+          <div class="chartbox" style="height:240px"><canvas id="chRent" aria-label="Pendapatan dibanding biaya lahan per periode"></canvas></div>
+          <div class="legend"><span><i id="rentLegA"></i>Omzet</span><span><i style="background:var(--info)"></i>Laba operasional</span><span><i style="background:var(--warn)"></i><span id="rentLegC">Sewa + IPL</span></span></div>
+          <p class="note" id="rentNote" style="margin:8px 0 0"></p>
           <div class="tablewrap proj-scroll"><table class="proj" id="projTable"></table></div>
           <h4 class="tp-h" style="margin-top:18px">Kalau omzet per bulan berubah</h4>
           <div class="tablewrap"><table class="proj" id="scenTable"></table></div>
@@ -2209,12 +2213,12 @@ let projBy = "y";
 const rpS = v => (v < 0 ? "−" : "") + rp(Math.abs(v)).replace(/^−/, "");
 const hexA = (c, a) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(c).trim()); if (!m) return c; const n = parseInt(m[1], 16); return `rgba(${n>>16},${(n>>8)&255},${n&255},${a})`; };
 /** Jumlahkan komponen arus kas per periode. Tahun 1 mencakup bulan 0 (LOI / booking).
- *  Per bulan: satu baris gabungan "sebelum buka" (masa bangun), lalu 36 bulan pertama operasional. */
+ *  Per bulan: satu baris gabungan "sebelum buka" (masa bangun), lalu 48 bulan pertama operasional (cukup untuk melihat kondisi setelah cicilan lunas). */
 function simPeriods(r, by){
   const out = [], add = (label, m0, m1, pre, agg) => { const o = {label, m0, m1, pre, agg, rev:0, opx:0, land:0, cap:0};
     for (let m=m0; m<=m1; m++){ o.rev += r.rev[m]; o.opx += r.opx[m]; o.land += r.land[m]; o.cap += r.cap[m]; }
     o.op = o.rev - o.opx; o.laba = o.op - o.land; o.cum = r.cum[m1]; out.push(o); };
-  if (by === "m"){ const N = Math.min(r.H, r.open + 36); add(r.open > 0 ? "Sebelum buka" : "Saat LOI / booking", 0, r.open, true, true);
+  if (by === "m"){ const N = Math.min(r.H, r.open + 48); add(r.open > 0 ? "Sebelum buka" : "Saat LOI / booking", 0, r.open, true, true);
     for (let m=r.open+1; m<=N; m++) add("Bln " + m, m, m, false); }
   else for (let y=1; (y-1)*12 < r.H; y++){ const m1 = Math.min(r.H, y*12), part = m1 - (y-1)*12; add("Thn " + y + (part < 12 ? ` (${part} bln)` : ""), y === 1 ? 0 : (y-1)*12 + 1, m1, y*12 <= r.open); }
   return out;
@@ -2242,6 +2246,24 @@ function renderProj(cur){
     {label:"Omzet", data:C.map(x => Math.round(x.rev)), backgroundColor:hexA(css("--info"), .38), borderRadius:3, categoryPercentage:.8, barPercentage:.9},
     {label:"Laba bersih", data:C.map(x => Math.round(x.laba)), backgroundColor:C.map(x => x.laba < 0 ? badc : acc), borderRadius:3, categoryPercentage:.8, barPercentage:.9}]}, options:o},
     {filter:c => c.datasetIndex === 1 && c.dataIndex % every === 0, fmt:v => short(v), size:10});
+  // pendapatan vs biaya lahan: omzet, laba operasional (uang yang tersedia untuk bayar lahan), dan sewa / angsuran per periode
+  const costLbl = beli ? "Angsuran lahan" : "Sewa + IPL", costLow = beli ? "angsuran lahan" : "sewa + IPL", pctOf = (a, b) => b > 0 ? a/b*100 : null;
+  $("#rentTitle").textContent = beli ? "angsuran lahan" : "sewa lahan"; $("#rentLegC").textContent = costLbl;
+  const o2 = chartBase(); o2.scales.y.beginAtZero = true; o2.scales.x.grid = {display:false}; o2.scales.y.ticks.callback = v => short(v); o2.interaction = {mode:"index", intersect:false};
+  if (mo){ o2.scales.x.ticks.autoSkip = false; o2.scales.x.ticks.maxRotation = 0; o2.scales.x.ticks.callback = (v, i) => i % 6 === 0 ? C[i].m0 : ""; o2.scales.x.title = o.scales.x.title; }
+  o2.plugins.tooltip.callbacks = {label:c => `${c.dataset.label}: ${rpS(c.raw)}`, afterBody:it => { const x = C[it[0].dataIndex], r = pctOf(x.land, x.rev); return r === null ? "" : `${costLbl} = ${nf(r, 0)}% dari omzet`; }};
+  const rentDl = {filter:c => c.datasetIndex === 2 && c.dataIndex % every === 0, text:c => { const x = C[c.dataIndex], r = pctOf(x.land, x.rev); return r === null ? short(x.land) : nf(r, 0) + "%"; }, size:10};
+  const bar3 = {borderRadius:3, categoryPercentage:.82, barPercentage:.92}, ln = c => ({borderColor:c, backgroundColor:c, borderWidth:2.5, pointRadius:0, pointHoverRadius:4, tension:.2});
+  if (mo) mk("chRent", {type:"line", data:{labels:C.map(x => x.label), datasets:[     // per bulan: garis lebih mudah dibaca daripada ratusan batang
+    {label:"Omzet", data:C.map(x => Math.round(x.rev)), ...ln(hexA(css("--info"), .55)), fill:true, backgroundColor:hexA(css("--info"), .12)},
+    {label:"Laba operasional", data:C.map(x => Math.round(x.op)), ...ln(css("--info"))},
+    {label:costLbl, data:C.map(x => Math.round(x.land)), ...ln(css("--warn")), stepped:true}]}, options:o2}, rentDl);
+  else mk("chRent", {type:"bar", data:{labels:C.map(x => x.label), datasets:[
+    {label:"Omzet", data:C.map(x => Math.round(x.rev)), backgroundColor:hexA(css("--info"), .38), ...bar3},
+    {label:"Laba operasional", data:C.map(x => Math.round(x.op)), backgroundColor:css("--info"), ...bar3},
+    {label:costLbl, data:C.map(x => Math.round(x.land)), backgroundColor:css("--warn"), ...bar3}]}, options:o2}, rentDl);
+  { const during = pctOf(cur.monthlyCost, stab), aft = pctOf(cur.afterInst, stab), all = P.reduce((t, x) => ({rev:t.rev + x.rev, land:t.land + x.land, op:t.op + x.op}), {rev:0, land:0, op:0}), tot = pctOf(all.land, all.rev);
+    $("#rentNote").innerHTML = `Persen di grafik = ${costLow} dibanding omzet. Pada omzet stabil, ${costLow} ${rp(cur.monthlyCost)}/bln = <b>${during === null ? "–" : nf(during, 0) + "%"}</b> dari omzet selama ${beli?"angsuran":"cicilan"}${cur.instEnd < H ? `, lalu <b>${aft === null ? "–" : nf(aft, aft < 10 ? 1 : 0) + "%"}</b> setelah lunas` : ""}. ${mo ? `Sampai bulan ke-${nf(P[P.length-1].m1)}` : `Selama ${yrs} tahun`}: total ${costLow} ${rp(all.land)} dari omzet ${rp(all.rev)}${tot === null ? "" : ` (<b>${nf(tot, 0)}%</b>)`}, laba operasional ${rp(all.op)}. ${cur.monthlyCost > op ? `Selama ${beli?"angsuran":"cicilan"}, ${costLow} lebih besar dari laba operasional, jadi selisihnya perlu ditutup modal.` : `Laba operasional menutup ${costLow} sejak omzet stabil.`}`; }
   const T = P.reduce((t, x) => ({rev:t.rev+x.rev, opx:t.opx+x.opx, op:t.op+x.op, land:t.land+x.land, laba:t.laba+x.laba, cap:t.cap+x.cap}), {rev:0, opx:0, op:0, land:0, laba:0, cap:0});
   const cell = (v, neg) => `<td class="n${neg && v < 0 ? " neg" : ""}">${v ? rpS(v) : "–"}</td>`;
   $("#projTable").innerHTML = `<thead><tr><th>${mo ? "Bulan" : "Tahun"}</th><th class="n">Omzet</th><th class="n">Laba operasional</th><th class="n">Bayar lahan</th><th class="n">Laba bersih</th><th class="n">Kas kumulatif</th></tr></thead><tbody>${

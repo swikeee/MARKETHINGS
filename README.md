@@ -75,7 +75,8 @@ Yang perlu diingat:
 Panel **Proyeksi omzet & laba** di Simulator Investor menerjemahkan isian "Omzet / bulan" menjadi proyeksi laba:
 
 - Empat angka per bulan: omzet stabil, laba operasional (omzet − opex), laba selama angsuran/cicilan lahan, dan laba setelah lunas.
-- Grafik dan tabel **Per tahun** (sejak booking / LOI sampai akhir periode) atau **Per bulan** (36 bulan pertama operasional; masa bangun dirangkum satu baris).
+- Grafik dan tabel **Per tahun** (sejak booking / LOI sampai akhir periode) atau **Per bulan** (48 bulan pertama operasional; masa bangun dirangkum satu baris).
+- Grafik **Pendapatan vs sewa lahan** (atau vs angsuran lahan di opsi jual): omzet, laba operasional, dan sewa + IPL per periode, dengan persentase sewa terhadap omzet. Per tahun berbentuk batang, per bulan berbentuk garis.
 - Tabel **Kalau omzet per bulan berubah**: omzet −40%, −20%, isian sekarang, +20%, +50% beserta laba, BEP, dan kas akhir periode.
 - Dua ambang: omzet minimal supaya tidak nombok selama cicilan, dan omzet minimal supaya balik modal dalam periode.
 - Isian baru **Kenaikan omzet per tahun (%)** (bawaan 0). Omzet tetap mulai 50% saat buka dan penuh dalam 6 bulan.
