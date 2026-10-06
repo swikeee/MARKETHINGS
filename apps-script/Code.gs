@@ -8,6 +8,7 @@
  *   WRITE_TOKEN        wajib: kata sandi untuk menyimpan/sinkron dari dashboard
  *   READ_TOKEN         opsional: bila diisi, dashboard harus mengirim token untuk membaca data
  *   MODEL              opsional: default "claude-sonnet-5-5"
+ *   AI_DAILY_LIMIT     opsional: batas jumlah panggilan AI per hari (default 150; 0 = tanpa batas). Pengaman saldo API.
  *   EFFORT             opsional: effort untuk Insight AI & Ringkasan AI. Default "low"; bisa medium | high | xhigh | max | off
  *
  * Jalankan setup() sekali, lalu Deploy → New deployment → Web app
@@ -171,7 +172,7 @@ function selfTest() {
   } catch (e) { r.fetch = { ok: false, msg: String(e.message || e) }; }
   if (r.ai) {   // kunci terisi: coba satu panggilan kecil ke Claude API supaya ketahuan kuncinya benar, saldo ada, dan nama model valid
     const model = prop('MODEL') || 'claude-sonnet-5-5';
-    try { const t = claudeText([{ type: 'text', text: 'Balas hanya dengan satu kata: OK' }], 20, aiEffort()); r.aiTest = { ok: !!t, msg: 'Claude API menjawab · model ' + model + ' · effort ' + (aiEffort() || 'default') }; }
+    try { const t = claudeText([{ type: 'text', text: 'Balas hanya dengan satu kata: OK' }], 20, aiEffort()); const q = aiQuota(); r.aiTest = { ok: !!t, msg: 'Claude API menjawab · model ' + model + ' · effort ' + (aiEffort() || 'default') + ' · AI hari ini ' + q.used + (q.limit ? '/' + q.limit : '') }; }
     catch (e) { r.aiTest = { ok: false, msg: String(e.message || e) + ' · model ' + model }; }
   }
   Logger.log(JSON.stringify(r, null, 2));
@@ -340,9 +341,23 @@ function aiEffort() {
  * Panggil Claude API. effort (opsional) dikirim sebagai output_config.effort.
  * Ekstraksi harga/brosur tidak mengirim effort (pakai bawaan model).
  */
+/** Hitung panggilan AI per hari (WIB). Melewati batas → ditolak, supaya saldo API tidak bisa dihabiskan lewat dashboard. */
+function aiQuota() {
+  const lim = prop('AI_DAILY_LIMIT') === '' ? 150 : Number(prop('AI_DAILY_LIMIT'));
+  const day = Utilities.formatDate(new Date(), 'Asia/Jakarta', 'yyyy-MM-dd');
+  const cur = String(prop('AI_COUNT')).split(':'), used = cur[0] === day ? Number(cur[1]) || 0 : 0;
+  return { day, used, limit: isFinite(lim) && lim > 0 ? lim : 0 };
+}
+function aiSpend() {
+  const q = aiQuota();
+  if (q.limit && q.used >= q.limit) throw new Error('Batas pemakaian AI hari ini tercapai (' + q.limit + ' panggilan). Coba lagi besok, atau naikkan AI_DAILY_LIMIT di Script Properties.');
+  PropertiesService.getScriptProperties().setProperty('AI_COUNT', q.day + ':' + (q.used + 1));
+}
+
 function claudeText(content, maxTokens, effort) {
   const key = prop('ANTHROPIC_API_KEY');
   if (!key) throw new Error('ANTHROPIC_API_KEY belum diisi di Script Properties');
+  aiSpend();
   const call = withEffort => {
     const body = { model: prop('MODEL') || 'claude-sonnet-5-5', max_tokens: maxTokens || 2000, messages: [{ role: 'user', content }] };
     if (withEffort) body.output_config = { effort: effort };

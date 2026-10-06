@@ -1142,7 +1142,11 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
    agar semua pengguna langsung terhubung. Bisa juga diisi lewat
    tombol "Pengaturan" (tersimpan di browser masing-masing).
    ============================================================ */
-const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycby4HB69FLcvI6_LYD5hcKOXqcz3p-XY4H1La-AdMeRoCQV8mvWiOQi_D9CpPcdgIudv/exec";   // semua browser langsung tersambung (baca saja). Token TIDAK ditaruh di sini.
+const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycby4HB69FLcvI6_LYD5hcKOXqcz3p-XY4H1La-AdMeRoCQV8mvWiOQi_D9CpPcdgIudv/exec";   // semua browser langsung tersambung
+// Token bawaan: sengaja ditanam oleh pemilik supaya semua browser langsung bisa menyimpan & memakai AI tanpa mengisi Pengaturan.
+// Karena file ini publik, token ini BUKAN rahasia: isinya harus token khusus dashboard (acak), sama dengan WRITE_TOKEN di Script Properties,
+// dan jangan pernah memakai kata sandi pribadi. Kunci API Claude tetap hanya di Script Properties, tidak pernah di sini.
+const DEFAULT_TOKEN = "mkt-w-zo7td59nt4u535r185i17d";
 // Link Google Sheet rekap penjualan (format "REKAP ALL TIME"). Sheet harus bisa dibuka "Anyone with the link".
 const DEFAULT_SALES_SHEET = "https://docs.google.com/spreadsheets/d/1hhNae8lElfS56LDrDIE_85weuI1pCqfmLIzmRaQoddo/edit";
 const DEFAULT_SALES_TAB = "REKAP ALL TIME";
@@ -1211,7 +1215,7 @@ const SYNC_MS = Math.max(3000, +store.get("li.syncMs") || 15000);   // jeda cek 
 let autoBusy = false, autoPending = false, autoTick = 0, autoAt = 0;
 let SALES_SHEET = (store.get("li.salesSheet2") ?? DEFAULT_SALES_SHEET).trim();
 let SALES_TAB = (store.get("li.salesTab2") ?? DEFAULT_SALES_TAB).trim();
-let TOKEN = store.get("li.token") || "";
+let TOKEN = store.get("li.token") || DEFAULT_TOKEN;
 let mode = API_URL ? "live" : "demo";
 let comps = [], plots = [], offers = [], sources = [], history = [], lastSync = null, aiReady = false;
 let dbState = "loading", loadError = "", busy = "";
@@ -1245,10 +1249,12 @@ function persistLocal(){ if (mode === "demo") store.set("li.comps", JSON.stringi
 
 async function api(action, payload){
   if (mode !== "live") throw {code:"demo"};
-  let res;
-  try { res = await fetch(API_URL, {method:"POST", body: JSON.stringify({action, token:TOKEN, payload})}); }
-  catch { throw {code:"network"}; }
-  let j; try { j = await res.json(); } catch { throw {code:"server", message:"Respons server tidak valid"}; }
+  const call = async tok => { let res;
+    try { res = await fetch(API_URL, {method:"POST", body: JSON.stringify({action, token:tok, payload})}); } catch { throw {code:"network"}; }
+    try { return await res.json(); } catch { throw {code:"server", message:"Respons server tidak valid"}; } };
+  let j = await call(TOKEN);
+  if (!j.ok && j.error === "unauthorized" && DEFAULT_TOKEN && TOKEN !== DEFAULT_TOKEN){   // token lama di browser ini sudah tidak berlaku: pakai token bawaan
+    const k = await call(DEFAULT_TOKEN); if (k.ok || k.error !== "unauthorized"){ TOKEN = DEFAULT_TOKEN; store.set("li.token", ""); j = k; } }
   if (!j.ok) throw {code: j.error==="unauthorized" ? "unauthorized" : "server", message: j.error};
   return j;
 }
@@ -1305,8 +1311,9 @@ async function load(silent){
   }
   loadLocalLand();
   try {
-    const url = API_URL + (API_URL.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(TOKEN);
-    const j = await (await fetch(url, {cache:"no-store"})).json();
+    const get = async tok => (await fetch(API_URL + (API_URL.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(tok), {cache:"no-store"})).json();
+    let j = await get(TOKEN);
+    if (!j.ok && j.error === "unauthorized" && DEFAULT_TOKEN && TOKEN !== DEFAULT_TOKEN){ const k = await get(DEFAULT_TOKEN); if (k.ok){ TOKEN = DEFAULT_TOKEN; store.set("li.token", ""); j = k; } }
     if (!j.ok) throw {code: j.error==="unauthorized" ? "unauthorized" : "server", message:j.error};
     const sig = JSON.stringify([j.competitors, j.sources, j.history, j.files, j.settings, j.lastSync, j.sales, j.leads, !!j.ai]);
     if (j.rev !== undefined) lastRev = j.rev;
@@ -3265,7 +3272,7 @@ $("#btnSettings").onclick = () => {
     <div class="field"><label>Password tombol “Buka data sheet”</label><div><button class="btn sm" id="cfgPass" type="button">Ganti password sheet</button></div></div>
     <div class="field"><label for="cfgEvApi">URL Apps Script event (untuk simpan event ke tab EVENT)</label><input type="url" id="cfgEvApi" value="${esc(EVENT_API)}" placeholder="https://script.google.com/macros/s/…/exec"></div>
     <div class="sep"></div>
-    <div class="field"><label for="cfgTok">Token (WRITE_TOKEN di Script Properties)</label><input type="password" id="cfgTok" value="${esc(TOKEN)}" placeholder="kosongkan untuk akses baca saja"></div>
+    <div class="field"><label for="cfgTok">Token (WRITE_TOKEN di Script Properties)</label><input type="password" id="cfgTok" value="${esc(TOKEN || DEFAULT_TOKEN)}" placeholder="kosongkan untuk akses baca saja"></div>
     <p class="note" id="cfgMsg">Tersimpan di browser ini saja. Tanpa token, dashboard hanya bisa membaca data.</p>
     <div class="field"><label>Pindah browser / laptop</label><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" id="cfgLinkCopy" type="button">Salin link sambungan</button><button class="btn sm" id="cfgLinkPaste" type="button">Tempel link sambungan</button></div></div>
     <p class="note" style="margin:0">Buka link itu di browser lain: URL dan token langsung terisi, tidak perlu mengetik lagi. Link berisi token, jadi simpan untuk diri sendiri (catatan pribadi / pengelola sandi) dan jangan dibagikan.</p>

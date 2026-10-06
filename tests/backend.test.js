@@ -105,6 +105,16 @@ ok('situs tak terjangkau → status "gagal", tidak crash', /DNS error/.test(r.er
 env.setFetch(() => ({code:200, type:'text/html', body:'<p>harga</p>'})); r = post('fetchUrl', {url:'https://hidup.test/x'});
 ok('situs terbaca tapi AI belum aktif → ditandai terbaca, dicoba lagi nanti', /ANTHROPIC_API_KEY belum diisi/.test(r.error || '') && A.readTable('Sources').some(x => x.url === 'https://hidup.test/x' && /^terbaca, ekstraksi AI gagal/.test(x.lastStatus) && !x.lastHash), r.error);
 r = post('syncNow', {}); ok('syncNow tetap jalan walau ada sumber gagal', r.ok && Array.isArray(r.failed) && r.failed.length > 0, r.summary);
+// batas pemakaian AI harian (pengaman saldo API bila token dashboard diketahui orang lain)
+env.props.ANTHROPIC_API_KEY = 'sk-benar'; delete env.props.AI_COUNT; env.props.AI_DAILY_LIMIT = '3';
+env.setFetch((url) => url.includes('api.anthropic.com') ? {code:200, type:'application/json', body:JSON.stringify({content:[{type:'text', text:'ok'}]})} : {code:200, type:'text/html', body:'x'});
+{ const rs = [1,2,3,4].map(() => post('ai', {prompt:'x'}));
+  ok('AI harian: 3 panggilan pertama jalan, yang ke-4 ditolak dengan pesan jelas', rs.slice(0,3).every(x => x.ok) && rs[3].ok === false && /Batas pemakaian AI hari ini tercapai \(3/.test(rs[3].error), rs[3].error);
+  ok('hitungan tersimpan per tanggal', /^\d{4}-\d\d-\d\d:3$/.test(env.props.AI_COUNT), env.props.AI_COUNT);
+  env.props.AI_COUNT = '2000-01-01:99'; ok('hari berganti → hitungan mulai lagi', post('ai', {prompt:'x'}).ok === true && /:1$/.test(env.props.AI_COUNT));
+  env.props.AI_DAILY_LIMIT = '0'; env.props.AI_COUNT = env.props.AI_COUNT.replace(/:\d+$/, ':9999'); ok('AI_DAILY_LIMIT=0 → tanpa batas', post('ai', {prompt:'x'}).ok === true);
+  delete env.props.AI_DAILY_LIMIT; ok('bawaan 150 per hari', post('ai', {prompt:'x'}).ok === false); delete env.props.AI_COUNT; ok('di bawah batas bawaan → jalan', post('ai', {prompt:'x'}).ok === true); }
+delete env.props.ANTHROPIC_API_KEY; delete env.props.AI_COUNT;
 // penanda perubahan untuk sinkron otomatis
 const rev = () => JSON.parse(A.doGet({parameter:{rev:'1'}}).text);
 let r0 = rev(); ok('cek revisi ringan: hanya mengembalikan penanda, bukan data', r0.ok && typeof r0.rev === 'string' && !('competitors' in r0), r0.rev);
