@@ -1261,7 +1261,7 @@ async function api(action, payload){
 function errText(e){
   return ({
     demo: "Mode demo: hubungkan Apps Script lewat Pengaturan untuk fitur ini.",
-    noai: "Fitur AI belum aktif: isi ANTHROPIC_API_KEY di Script Properties Apps Script.",
+    noai: "Fitur AI belum aktif: isi GEMINI_API_KEY (atau ANTHROPIC_API_KEY) di Script Properties Apps Script.",
     unauthorized: "Token salah atau belum diisi. Buka Pengaturan.",
     network: "Tidak bisa menghubungi server. Cek koneksi dan URL Apps Script.",
   })[e?.code] || ("Gagal: " + (e?.message || "coba lagi"));
@@ -3290,7 +3290,7 @@ $("#btnSettings").onclick = () => {
     try { if (TOKEN){ let r; try { r = await api("selfTest",{}); } catch(e){ if (e.code !== "server" || !/unknown action/.test(e.message||"")) throw e; r = await api("ping",{}); }   // backend lama belum punya selfTest
         const line = (l, t) => t ? `${t.ok ? "✓" : "✗"} ${l}: ${t.msg || (t.ok ? "ok" : "gagal")}` : "";
         m.style.whiteSpace = "pre-line";
-        m.textContent = ["Terhubung. Token benar.", line("Google Sheet", r.sheet), line("Google Drive", r.drive), line("Ambil data dari internet", r.fetch), r.aiTest ? line("AI (Claude API)", r.aiTest) : "AI: " + (r.ai ? "aktif" : "belum aktif (isi ANTHROPIC_API_KEY di Script Properties)"), r.sheet ? "" : "Backend versi lama: tempel ulang Code.gs untuk tes lengkap."].filter(Boolean).join("\n"); }
+        m.textContent = ["Terhubung. Token benar.", line("Google Sheet", r.sheet), line("Google Drive", r.drive), line("Ambil data dari internet", r.fetch), r.aiTest ? line(r.provider === "gemini" ? "AI (Gemini)" : "AI (Claude API)", r.aiTest) : "AI: " + (r.ai ? "aktif" : "belum aktif (isi GEMINI_API_KEY atau ANTHROPIC_API_KEY di Script Properties)"), r.sheet ? "" : "Backend versi lama: tempel ulang Code.gs untuk tes lengkap."].filter(Boolean).join("\n"); }
       else { const j=await (await fetch(API_URL)).json(); m.textContent = j.ok ? "Terhubung (baca saja)." : "Server menolak: " + j.error; } }
     catch(e){ m.textContent = errText(e); } };
   save.onclick=()=>{ apply(); store.set("li.api",API_URL); store.set("li.token",TOKEN); store.set("li.forceDemo", API_URL ? "" : "1");
@@ -3335,13 +3335,13 @@ $("#btnSettings").onclick = () => {
     catch(err){ b.disabled=false; b.textContent="Kirim data contoh ke Google Sheet"; toast(errText(err)); } });
 };
 
-// ---------- AI (lewat Apps Script → Claude API) ----------
+// ---------- AI (lewat Apps Script → Gemini atau Claude API) ----------
 async function aiText(prompt){ if (mode!=="live") throw {code:"demo"}; if (!aiReady) throw {code:"noai"}; if (!TOKEN) throw {code:"unauthorized"}; return (await api("ai",{prompt})).text; }
 function runAI(outBox, body, prompt){
   outBox.hidden=false; body.innerHTML=`<p class="thinking">Menganalisis… (biasanya 10–40 detik)</p>`; body.dataset.raw="";
   return aiText(prompt).then(t=>{ body.dataset.raw=t; body.innerHTML=md(t); }).catch(e=>{
     body.innerHTML = mode==="demo"
-      ? `<p class="note"><b>Belum tersambung ke Claude.</b> Fitur ini memanggil Claude API lewat Apps Script milikmu: pasang <code>Code.gs</code>, isi <code>ANTHROPIC_API_KEY</code> di Script Properties, lalu tempel URL Apps Script di Pengaturan. Effort bawaan: low.</p><p><button class="btn sm" data-open-settings>Buka Pengaturan</button></p>`
+      ? `<p class="note"><b>Belum tersambung ke AI.</b> Fitur ini memanggil AI (Gemini atau Claude) lewat Apps Script milikmu: pasang <code>Code.gs</code>, isi <code>GEMINI_API_KEY</code> atau <code>ANTHROPIC_API_KEY</code> di Script Properties, lalu tempel URL Apps Script di Pengaturan.</p><p><button class="btn sm" data-open-settings>Buka Pengaturan</button></p>`
       : `<p class="note">${esc(errText(e))}</p>`; });
 }
 document.addEventListener("click", e => { if (e.target.closest("[data-open-settings]")) $("#btnSettings").click(); });

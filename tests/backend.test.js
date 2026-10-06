@@ -115,6 +115,28 @@ env.setFetch((url) => url.includes('api.anthropic.com') ? {code:200, type:'appli
   env.props.AI_DAILY_LIMIT = '0'; env.props.AI_COUNT = env.props.AI_COUNT.replace(/:\d+$/, ':9999'); ok('AI_DAILY_LIMIT=0 → tanpa batas', post('ai', {prompt:'x'}).ok === true);
   delete env.props.AI_DAILY_LIMIT; ok('bawaan 150 per hari', post('ai', {prompt:'x'}).ok === false); delete env.props.AI_COUNT; ok('di bawah batas bawaan → jalan', post('ai', {prompt:'x'}).ok === true); }
 delete env.props.ANTHROPIC_API_KEY; delete env.props.AI_COUNT;
+// Gemini sebagai penyedia AI (kuota gratis); Claude tetap bisa dipakai
+{ let g = null; const gem = (text, code) => (url, o) => { if (url.includes('generativelanguage.googleapis.com')) { g = {url, o, body:JSON.parse(o.payload)}; return {code:code || 200, type:'application/json', body:JSON.stringify(code ? {error:{code, message:text, status:'X'}} : {candidates:[{content:{parts:[{text:'pikir dulu', thought:true}, {text}]}, finishReason:'STOP'}]})}; }
+    if (url.includes('api.anthropic.com')) return {code:200, type:'application/json', body:JSON.stringify({content:[{type:'text', text:'dari claude'}]})}; return {code:200, type:'text/html', body:'<p>Cluster Uji Rp 2,5 M</p>'}; };
+  env.props.GEMINI_API_KEY = 'AIza-uji'; delete env.props.AI_COUNT; env.setFetch(gem('## Ringkasan\n- dari gemini'));
+  r = post('ai', {prompt:'Ringkas penjualan'});
+  ok('GEMINI_API_KEY terisi → fitur AI memakai Gemini', r.ok && /dari gemini/.test(r.text) && r.provider === 'gemini' && !/pikir dulu/.test(r.text), r.text || r.error);
+  ok('permintaan ke Gemini berformat benar', g.url === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent' && g.o.headers['x-goog-api-key'] === 'AIza-uji' && g.o.method === 'post' && g.body.contents[0].role === 'user' && g.body.contents[0].parts[0].text === 'Ringkas penjualan' && g.body.generationConfig.maxOutputTokens >= 2048 && g.body.generationConfig.thinkingConfig.thinkingLevel === 'low' && !g.url.includes('AIza'), g.url);
+  ok('snapshot & ping: AI aktif walau kunci Claude kosong', get().ai === true && post('ping', {}).ai === true);
+  env.setFetch(gem('{"developer":"Grand Uji","cluster":"Melati","tier":"Deluxe","lt":120,"lb":98,"price":2150000000,"promo":"","notes":""}'));
+  r = post('extract', {text:'brosur', imageBase64:'QUJD', mediaType:'image/jpeg'});
+  ok('ekstrak brosur lewat Gemini: gambar dikirim sebagai inline_data, JSON terbaca', r.ok && r.data.price === 2150000000 && g.body.contents[0].parts.some(x => x.inline_data && x.inline_data.mime_type === 'image/jpeg' && x.inline_data.data === 'QUJD') && !g.body.generationConfig.thinkingConfig, r.error);
+  r = post('selfTest', {}); ok('selfTest menyebut Gemini dan modelnya', r.provider === 'gemini' && r.aiTest.ok && /Gemini menjawab · model gemini-3\.8-flash/.test(r.aiTest.msg), r.aiTest && r.aiTest.msg);
+  env.props.GEMINI_MODEL = 'gemini-3.5-flash-lite'; post('ai', {prompt:'x'}); ok('GEMINI_MODEL mengganti model', /models\/gemini-3\.5-flash-lite:generateContent$/.test(g.url)); delete env.props.GEMINI_MODEL;
+  env.setFetch(gem('Resource has been exhausted', 429)); r = post('ai', {prompt:'x'}); ok('kuota Gemini habis → pesan jelas', r.ok === false && /kuota gratis/.test(r.error), r.error);
+  env.setFetch(gem('API key not valid. Please pass a valid API key.', 400)); r = post('ai', {prompt:'x'}); ok('kunci Gemini salah → pesan dari Google diteruskan', r.ok === false && /Gemini: API key not valid/.test(r.error), r.error);
+  { let n2 = 0; env.setFetch((url, o) => { n2++; const b = JSON.parse(o.payload); return b.generationConfig.thinkingConfig ? {code:400, type:'application/json', body:JSON.stringify({error:{message:'Unknown name "thinkingLevel" at generation_config.thinking_config'}})} : {code:200, type:'application/json', body:JSON.stringify({candidates:[{content:{parts:[{text:'tanpa thinking'}]}}]})}; });
+    r = post('ai', {prompt:'x'}); ok('model menolak thinkingLevel → diulang sekali tanpa itu', r.ok && r.text === 'tanpa thinking' && n2 === 2, r.error); }
+  env.setFetch((url) => ({code:200, type:'application/json', body:JSON.stringify({candidates:[{content:{parts:[]}, finishReason:'MAX_TOKENS'}]})})); r = post('ai', {prompt:'x'}); ok('jawaban kosong → pesan jelas, bukan teks kosong', r.ok === false && /tidak memberi jawaban \(MAX_TOKENS\)/.test(r.error), r.error);
+  env.props.ANTHROPIC_API_KEY = 'sk-benar'; env.props.AI_PROVIDER = 'claude'; env.setFetch(gem('dari gemini')); r = post('ai', {prompt:'x'}); ok('AI_PROVIDER=claude memaksa Claude walau kunci Gemini ada', r.ok && r.text === 'dari claude' && r.provider === 'claude', r.text);
+  delete env.props.AI_PROVIDER; r = post('ai', {prompt:'x'}); ok('dua kunci terisi, tanpa AI_PROVIDER → Gemini', r.provider === 'gemini');
+  ok('kunci Gemini tidak pernah ikut terkirim ke dashboard', !JSON.stringify(get()).includes('AIza') && !JSON.stringify(post('selfTest', {})).includes('AIza'));
+  delete env.props.GEMINI_API_KEY; delete env.props.ANTHROPIC_API_KEY; delete env.props.AI_COUNT; }
 // penanda perubahan untuk sinkron otomatis
 const rev = () => JSON.parse(A.doGet({parameter:{rev:'1'}}).text);
 let r0 = rev(); ok('cek revisi ringan: hanya mengembalikan penanda, bukan data', r0.ok && typeof r0.rev === 'string' && !('competitors' in r0), r0.rev);
