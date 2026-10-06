@@ -779,7 +779,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
     </div>
     <div class="g3 reveal">
       <div class="panel"><h3>Total per cluster</h3><p class="meta" id="anaClDesc"></p><div class="chartbox" style="height:320px"><canvas id="chAnaCl" aria-label="Total per cluster"></canvas></div></div>
-      <div class="panel"><h3>Komposisi segmen</h3><p class="desc">Porsi unit per segmen.</p><div class="chartbox pie"><canvas id="chAnaSegPie" aria-label="Komposisi segmen"></canvas></div></div>
+      <div class="panel"><h3>Komposisi segmen</h3><p class="desc">Porsi unit per segmen.</p><div class="chartbox pie"><canvas id="chAnaSegPie" aria-label="Komposisi segmen"></canvas></div><p class="note" id="segGuessNote" style="margin:8px 0 0" hidden></p></div>
       <div class="panel"><h3>Rata-rata harga per cluster</h3><p class="desc">Rp miliar per unit.</p><div class="chartbox" style="height:320px"><canvas id="chAnaAvg" aria-label="Rata-rata harga per cluster"></canvas></div></div>
     </div>
     <div class="sec-h" id="s-tipe"><h2>Tipe rumah</h2></div>
@@ -3445,7 +3445,31 @@ const CLUSTERS = [   // cluster Pororo Land (data penjualan dummy)
   {name:"Naragriya", seg:"Student House", price:2.70e9, base:.5},
 ];
 const SEGMENTS = ["Milenial","Deluxe","Premium","Shophouse","Student House"];
-const segOf = name => CLUSTERS.find(c=>c.name===name)?.seg || "Lainnya";
+// Segmen tiap cluster, berurutan: (1) kolom SEGMEN di sheet, (2) nama cluster bawaan, (3) perkiraan dari nama & harga.
+// Jadi nama cluster di sheet boleh diganti apa saja tanpa membuat grafik kehilangan warna segmennya.
+const SEG_ALIAS = {MILENIAL:"Milenial", MILLENNIAL:"Milenial", MILLENIAL:"Milenial", DELUXE:"Deluxe", PREMIUM:"Premium", SHOPHOUSE:"Shophouse", RUKO:"Shophouse", "STUDENT HOUSE":"Student House", STUDENT:"Student House"};
+const segNorm = v => SEG_ALIAS[String(v||"").toUpperCase().replace(/\s+/g," ").trim()] || "";
+function guessSeg(name, rows){
+  if (/plaza|ruko|shop\s*house|soho|niaga/i.test(name)) return "Shophouse";
+  if (/student|mahasiswa/i.test(name)) return "Student House";
+  const pr = rows.map(x => num(x.price)).filter(v => v > 0).sort((a,b) => a-b); if (!pr.length) return "Lainnya";
+  const med = pr[Math.floor(pr.length/2)];
+  return med < 1.5e9 ? "Milenial" : med < 3e9 ? "Deluxe" : "Premium";
+}
+let segMapOf = null, segMap = {};
+function segInfo(){
+  if (segMapOf === sales) return segMap;
+  const by = {}; sales.forEach(x => (by[x.cluster] ??= []).push(x));
+  segMap = {}; segMapOf = sales;
+  for (const [name, rows] of Object.entries(by)){
+    const cnt = {}; rows.forEach(x => { const g = segNorm(x.seg); if (g) cnt[g] = (cnt[g]||0) + 1; });
+    const fromSheet = Object.entries(cnt).sort((a,b) => b[1]-a[1])[0]?.[0], builtin = CLUSTERS.find(c => c.name === name)?.seg;
+    segMap[name] = fromSheet ? {seg:fromSheet, src:"sheet"} : builtin ? {seg:builtin, src:"builtin"} : {seg:guessSeg(name, rows), src:"guess"};
+  }
+  return segMap;
+}
+const segOf = name => segInfo()[name]?.seg || CLUSTERS.find(c=>c.name===name)?.seg || "Lainnya";
+const segGuessed = () => Object.entries(segInfo()).filter(e => e[1].src === "guess").map(e => e[0]);
 // ---------- katalog tipe rumah per cluster: "Nama LEBARxPANJANG" (meter). "(Kavling)" = dijual tanah saja. "|alias" = ejaan lain di data ----------
 const TYPE_CATALOG = {
   "Anapuri":            ["Darmaraja 8x20", "Wanayasa 8x22", "Jayagiri 9x22"],
@@ -3703,10 +3727,10 @@ function parseDateID(s, fallbackMonth){
 }
 const titleCase = s => String(s||"").toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
 function rekapToSales(rows){
-  const FIELDS = {cluster:"CLUSTER", unitType:"TIPE", hook:"TIPE STD/HOOK", kavling:"UK KAVLING", unit:"UNIT", date:"TGL.", month:"BULAN", city:"DOMISILI", age:"UMUR", purpose:"TUJUAN", price:"REV.", payment:"CARA BAYAR", payCat:"KATEGORI BAYAR", job:"PEKERJAAN", agent:"SALES", channel:"SUMBER INFORMASI", status:"STATUS"};
+  const FIELDS = {cluster:"CLUSTER", unitType:"TIPE", hook:"TIPE STD/HOOK", kavling:"UK KAVLING", unit:"UNIT", date:"TGL.", month:"BULAN", city:"DOMISILI", age:"UMUR", purpose:"TUJUAN", price:"REV.", payment:"CARA BAYAR", payCat:"KATEGORI BAYAR", job:"PEKERJAAN", agent:"SALES", channel:"SUMBER INFORMASI", status:"STATUS", seg:["SEGMEN","SEGMENT","SEGMEN CLUSTER"]};
   let best = -1, bestScore = 0, map = {};
   rows.slice(0, 12).forEach((r, i) => { const m = {}; let sc = 0;
-    Object.entries(FIELDS).forEach(([k, h]) => { const j = r.findIndex(c => { const u = String(c).toUpperCase().replace(/\s+/g," ").trim(); return u === h || u.endsWith(" " + h); }); if (j >= 0){ m[k] = j; sc++; } });
+    Object.entries(FIELDS).forEach(([k, hs]) => { const j = r.findIndex(c => { const u = String(c).toUpperCase().replace(/\s+/g," ").trim(); return [].concat(hs).some(h => u === h || u.endsWith(" " + h)); }); if (j >= 0){ m[k] = j; if (k !== "seg") sc++; } });
     if (sc > bestScore){ bestScore = sc; best = i; map = m; } });
   if (best < 0 || map.cluster === undefined || map.price === undefined) throw new Error("Kolom CLUSTER / REV. tidak ditemukan. Pastikan tab yang dipilih adalah REKAP ALL TIME.");
   const known = Object.fromEntries(CLUSTERS.map(c => [c.name.toUpperCase(), c.name]));
@@ -3720,7 +3744,7 @@ function rekapToSales(rows){
     const st = g("status").toUpperCase();
     out.push({id:"r"+i, date, cluster: known[cl.toUpperCase()] || titleCase(cl), price: pr, channel: g("channel") || "Tidak tercatat", agent: g("agent") || "Tidak tercatat",
       status: /BATAL/.test(st) ? "Batal" : /BOOK/.test(st) ? "Booking" : "Akad", unitType:g("unitType"), hook:g("hook"), kavling:g("kavling"), unit:g("unit"), payment:g("payment"), payCat:g("payCat"), purpose:g("purpose").toUpperCase(),
-      job:g("job"), city:g("city"), age: num(g("age")) || null});
+      job:g("job"), city:g("city"), age: num(g("age")) || null, seg:g("seg")});
   });
   return out;
 }
@@ -3805,9 +3829,10 @@ addEventListener("focus", () => autoSync());
 // ---------- analisis unit per cluster (rentang, bulanan/tahunan) ----------
 const SEG_HUE = {Milenial:172, Deluxe:217, Premium:36, Shophouse:268, "Student House":330, Lainnya:220};
 function clusterColor(name){
-  const seg = segOf(name), list = CLUSTERS.filter(c=>c.seg===seg).map(c=>c.name), i = Math.max(0, list.indexOf(name));
+  const seg = segOf(name), info = segInfo();
+  const list = [...new Set(CLUSTERS.filter(c => c.seg === seg && (!info[c.name] || info[c.name].seg === seg)).map(c => c.name).concat(Object.keys(info).filter(n => info[n].seg === seg).sort()))], i = Math.max(0, list.indexOf(name));
   const dark = matchMedia("(prefers-color-scheme: dark)").matches && document.documentElement.dataset.theme !== "light" || document.documentElement.dataset.theme === "dark";
-  const l = dark ? [62,48,74][i%3] : [36,50,64][i%3];
+  const l = dark ? [62,48,74,55,68,42][i%6] : [36,50,64,43,57,30][i%6];
   return `hsl(${SEG_HUE[seg] ?? 220} ${seg==="Lainnya"?10:62}% ${l}%)`;
 }
 const segColor = seg => `hsl(${SEG_HUE[seg] ?? 220} ${seg==="Lainnya"?10:62}% 46%)`;
@@ -3985,6 +4010,8 @@ function renderAnalysis(){
 
   // segment pie (units)
   const segE = SEGMENTS.concat(["Lainnya"]).map(g => [g, N.filter(x=>segOf(x.cluster)===g).length]).filter(e=>e[1]);
+  { const gs = segGuessed(), el = $("#segGuessNote"); el.hidden = !gs.length;
+    if (gs.length) el.innerHTML = `Segmen ${nf(gs.length)} cluster diperkirakan dari nama dan harganya (${gs.slice(0, 4).map(esc).join(", ")}${gs.length > 4 ? ", …" : ""}). Untuk menetapkannya sendiri, tambah kolom <b>SEGMEN</b> di sheet.`; }
   pieChart("chAnaSegPie", segE, segE.map(e=>segColor(e[0])), v=>nf(v)+" unit");
 
   // avg price per cluster
