@@ -175,7 +175,7 @@ function selfTest() {
   } catch (e) { r.fetch = { ok: false, msg: String(e.message || e) }; }
   if (r.ai) {   // kunci terisi: coba satu panggilan kecil supaya ketahuan kuncinya benar, kuota/saldo ada, dan nama model valid
     const model = aiModel(), who = r.provider === 'gemini' ? 'Gemini' : 'Claude API';
-    try { const t = aiText([{ type: 'text', text: 'Balas hanya dengan satu kata: OK' }], 20, aiEffort()); const q = aiQuota(); r.aiTest = { ok: !!t, msg: who + ' menjawab · model ' + model + ' · effort ' + (aiEffort() || 'default') + ' · AI hari ini ' + q.used + (q.limit ? '/' + q.limit : '') }; }
+    try { lastAiModel = ''; const t = aiText([{ type: 'text', text: 'Balas hanya dengan satu kata: OK' }], 20, aiEffort()); const q = aiQuota(), used = lastAiModel || model; r.aiTest = { ok: !!t, msg: who + ' menjawab · model ' + used + (used !== model ? ' (pengganti, ' + model + ' sedang penuh)' : '') + ' · effort ' + (aiEffort() || 'default') + ' · AI hari ini ' + q.used + (q.limit ? '/' + q.limit : '') }; }
     catch (e) { r.aiTest = { ok: false, msg: String(e.message || e) + ' · model ' + model }; }
   }
   Logger.log(JSON.stringify(r, null, 2));
@@ -373,17 +373,23 @@ function aiText(content, maxTokens, effort) {
   return who === 'gemini' ? geminiText(content, maxTokens, effort) : claudeText(content, maxTokens, effort);
 }
 
+/** Urutan model Gemini yang dicoba: GEMINI_MODEL (atau bawaan) dulu, lalu model Flash lain bila yang pertama sedang penuh / kuotanya habis / tidak tersedia. */
+const GEMINI_FALLBACK = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+let lastAiModel = '';   // model yang benar-benar menjawab pada panggilan terakhir (untuk laporan Tes koneksi)
+
 /**
  * Panggil Gemini API (generateContent). Model Flash berpikir dulu sebelum menjawab dan itu memakan jatah token keluaran,
  * jadi jatahnya dilebihkan; effort low diterjemahkan ke thinkingLevel low (diulang tanpa itu bila modelnya menolak).
+ * Bila sebuah model membalas "sedang penuh" (503), kuota habis (429), atau tidak dikenal (404), model berikutnya dicoba.
  */
 function geminiText(content, maxTokens, effort) {
   const key = prop('GEMINI_API_KEY');
   if (!key) throw new Error('GEMINI_API_KEY belum diisi di Script Properties');
   aiSpend();
-  const model = prop('GEMINI_MODEL') || 'gemini-3.8-flash';
+  const first = prop('GEMINI_MODEL') || GEMINI_FALLBACK[0];
+  const models = [first].concat(GEMINI_FALLBACK.filter(m => m !== first));
   const parts = content.map(b => b.type === 'text' ? { text: b.text } : { inline_data: { mime_type: b.source.media_type, data: b.source.data } });
-  const call = withThinking => {
+  const call = (model, withThinking) => {
     const cfg = { maxOutputTokens: Math.max(2048, (maxTokens || 2000) * 3) };
     if (withThinking) cfg.thinkingConfig = { thinkingLevel: 'low' };
     const res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
@@ -394,15 +400,21 @@ function geminiText(content, maxTokens, effort) {
     let json = {}; try { json = JSON.parse(res.getContentText() || '{}'); } catch (e) {}
     return { code: res.getResponseCode(), json: json };
   };
-  const low = effort === 'low';
-  let r = call(low);
-  if (low && r.code === 400 && /thinking/i.test((r.json.error && r.json.error.message) || '')) r = call(false);
-  if (r.code === 429) throw new Error('Gemini: kuota gratis sedang habis atau terlalu banyak permintaan. Coba lagi beberapa menit lagi atau besok.');
-  if (r.code >= 300) throw new Error('Gemini: ' + ((r.json.error && r.json.error.message) || r.code));
-  const cand = (r.json.candidates || [])[0] || {};
-  const text = ((cand.content && cand.content.parts) || []).filter(p => typeof p.text === 'string' && !p.thought).map(p => p.text).join('\n').trim();
-  if (!text) throw new Error('Gemini tidak memberi jawaban' + (cand.finishReason ? ' (' + cand.finishReason + ')' : (r.json.promptFeedback && r.json.promptFeedback.blockReason) ? ' (' + r.json.promptFeedback.blockReason + ')' : ''));
-  return text;
+  const low = effort === 'low', errMsg = r => (r.json.error && r.json.error.message) || String(r.code);
+  let r = null, busy = 0, quota = 0;
+  for (const model of models) {
+    r = call(model, low);
+    if (low && r.code === 400 && /thinking/i.test(errMsg(r))) r = call(model, false);
+    if (r.code === 503 || r.code === 500 || r.code === 404 || r.code === 429) { if (r.code === 429) quota++; else busy++; continue; }   // coba model berikutnya
+    if (r.code >= 300) throw new Error('Gemini: ' + errMsg(r));
+    const cand = (r.json.candidates || [])[0] || {};
+    const text = ((cand.content && cand.content.parts) || []).filter(p => typeof p.text === 'string' && !p.thought).map(p => p.text).join('\n').trim();
+    if (!text) throw new Error('Gemini tidak memberi jawaban' + (cand.finishReason ? ' (' + cand.finishReason + ')' : (r.json.promptFeedback && r.json.promptFeedback.blockReason) ? ' (' + r.json.promptFeedback.blockReason + ')' : ''));
+    lastAiModel = model;
+    return text;
+  }
+  if (quota && !busy) throw new Error('Gemini: kuota gratis sedang habis atau terlalu banyak permintaan. Coba lagi beberapa menit lagi atau besok.');
+  throw new Error('Gemini: semua model Flash sedang penuh' + (quota ? ' atau kuotanya habis' : '') + '. Coba lagi beberapa menit lagi. (' + errMsg(r) + ')');
 }
 
 function claudeText(content, maxTokens, effort) {
