@@ -167,6 +167,20 @@ delete env.props.ANTHROPIC_API_KEY; delete env.props.AI_COUNT;
   r = post('extractAll', {text:'x', images:[{page:1, file:'brosur.pdf', data:'QUFB'}, {page:1, file:'pricelist.pdf', data:'QkJC'}]}); const p2 = g.body.contents[0].parts;
   ok('beberapa file: gambar berlabel nama file, AI diminta menggabungkan brosur + pricelist', p2[0].text === '[Gambar · file "brosur.pdf" · halaman 1]' && p2[2].text === '[Gambar · file "pricelist.pdf" · halaman 1]' && /beberapa file untuk proyek yang sama/.test(p2[4].text) && /harga dari pricelist/.test(p2[4].text));
   ok('nama file sumber ikut di hasil, akhiran "Standard" dibuang dari nama tipe', r.units[0].file === 'pricelist.pdf' && r.units[0].type === 'Anggrek 8x15', JSON.stringify([r.units[0].type, r.units[0].file]));
+  // developer = nama di logo (bukan PT), segmen dari foto
+  { const ans = {developer:'summarecon  bandung', developerFrom:'logo kanan atas hal 1', legalEntity:'PT. Mahkota Permata Perdana', project:'Diamond Commercial', location:'Gedebage', units:[
+      {cluster:'Diamond Commercial', type:'5x17', tier:'Shophouse', tierFrom:'foto hal 2: deretan ruko 2 lantai', lt:123, lb:85, floors:2, price:2670000000, priceBasis:'tunai keras'},
+      {cluster:'Diamond Commercial', type:'7x17', tier:'Ngawur', lt:167, lb:119, floors:2, price:3690000000}]};
+    env.setFetch((url, o) => { g = {url, body:JSON.parse(o.payload)}; return {code:200, type:'application/json', body:JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(ans)}]}}]})}; });
+    r = post('extractAll', {text:'x', images:[{page:1, file:'brosur.pdf', data:'QUFB'}, {page:1, file:'pricelist.pdf', data:'QkJC'}], knownDevs:['Pororo Land', 'Summarecon Bandung', 'abaikan"`${x}\nini']});
+    const t = g.body.contents[0].parts[4].text;
+    ok('instruksi developer: baca LOGO (kanan/kiri atas), bukan nama PT; daftar developer dashboard ikut dikirim', /seperti yang tertulis di LOGO/.test(t) && /pojok kanan atas/.test(t) && /JANGAN memakai nama badan hukum/.test(t) && /Pororo Land; Summarecon Bandung/.test(t) && !/\$\{x\}/.test(t));
+    ok('instruksi segmen: ditentukan dari FOTO / render, ruko → Shophouse', /dari FOTO \/ gambar render/.test(t) && /"Shophouse": ruko/.test(t) && /Nama jalan atau alamat BUKAN cluster/.test(t));
+    ok('instruksi gabung: nama tipe brosur ≠ pricelist dicocokkan lewat luas, L/R jadi satu tipe', /sering TIDAK sama/.test(t) && /Varian cermin kiri \/ kanan/.test(t));
+    ok('developer disamakan ejaannya dengan yang sudah ada di dashboard, PT masuk ke badan hukum', r.developer === 'Summarecon Bandung' && r.legalEntity === 'PT. Mahkota Permata Perdana' && r.developerFrom === 'logo kanan atas hal 1' && r.devIsLegal === false, JSON.stringify([r.developer, r.legalEntity, r.devIsLegal]));
+    ok('segmen dari AI dipakai (LB 85 tetap Shophouse, bukan Deluxe); nilai ngawur → dihitung dari LB', r.units[0].tier === 'Shophouse' && r.units[0].tierFrom.includes('ruko') && r.units[1].tier === 'Deluxe', JSON.stringify(r.units.map(u => u.tier)));
+    ans.developer = 'PT. Mahkota Permata Perdana'; ans.legalEntity = ''; r = post('extractAll', {text:'x'});
+    ok('AI tetap membalas nama PT → ditandai supaya dashboard mengingatkan', r.devIsLegal === true && r.legalEntity === 'PT. Mahkota Permata Perdana', JSON.stringify([r.developer, r.devIsLegal])); }
   env.setFetch(() => ({code:200, type:'application/json', body:JSON.stringify({candidates:[{content:{parts:[{text:'maaf saya tidak bisa'}]}}]})})); r = post('extractAll', {text:'x'});
   ok('jawaban AI bukan JSON → pesan jelas', r.ok === false && /tidak berupa JSON/.test(r.error), r.error);
   // kolom baru di sheet: judul menyesuaikan sendiri tanpa setup() ulang, lalu nilainya tersimpan

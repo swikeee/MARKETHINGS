@@ -152,7 +152,7 @@ textarea{min-height:80px;resize:vertical}
 .bep .big{font:700 44px/1 var(--f-display);color:var(--accent)}
 .bep .big small{font:500 15px var(--f-body);color:var(--muted);margin-left:4px}
 .rv-wrap{max-height:52vh;overflow:auto} .rv-wrap thead th{position:sticky;top:0;background:var(--surface);z-index:1} table.rv{min-width:760px} .rv td{white-space:normal;vertical-align:top} .rv td.n{white-space:nowrap}
-.miss{color:var(--warn);font-weight:600} .rv td.src{font-size:12px;color:var(--muted);max-width:150px;overflow-wrap:anywhere}
+.miss{color:var(--warn);font-weight:600} .rv-hint{display:block;margin-top:4px;font-size:12px;color:var(--muted);overflow-wrap:anywhere} .rv-hint.miss{color:var(--warn)} .rv td:nth-child(3){min-width:200px;max-width:230px;overflow-wrap:anywhere} .rv td:nth-child(3) small{max-width:230px;white-space:normal;overflow-wrap:anywhere} .rv .rv-seg{font:inherit;font-size:12.5px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:inherit;width:auto;min-width:124px;height:auto} .rv td.src{font-size:12px;color:var(--muted);max-width:150px;overflow-wrap:anywhere}
 .ex-files{display:grid;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
 .ex-file{display:grid;grid-template-columns:54px minmax(0,1fr);gap:10px;align-items:center} .ex-file b{overflow-wrap:anywhere;font-size:13px}
 .ex-file-p{width:54px;height:70px;border:1px solid var(--line);border-radius:6px;background:var(--surface);overflow:hidden;display:grid;place-items:center} .ex-file-p canvas,.ex-file-p img{max-width:100%;max-height:100%;display:block}
@@ -3386,7 +3386,7 @@ function imageToBase64(file){
 }
 // ---------- hasil baca brosur: semua cluster & tipe unit ditampilkan dulu untuk diperiksa, baru disimpan ----------
 function reviewUnits(res, fileName){
-  const units = (res.units || []).map((u, i) => ({...u, i, on:true}));
+  const units = (res.units || []).map((u, i) => ({...u, i, on:true, tier:TIERS.includes(u.tier) ? u.tier : "Deluxe"}));
   const today = new Date().toLocaleDateString("id-ID", {day:"numeric", month:"short", year:"numeric"});
   $("#mTitle").textContent = `Hasil baca brosur · ${nf(units.length)} tipe unit`; $("#modal .box").classList.toggle("wide", units.length > 0);
   if (!units.length){ $("#mBody").innerHTML = `<p class="note">AI tidak menemukan tipe unit di brosur ini. Coba unggah halaman pricelist-nya saja sebagai foto, atau tempel teksnya.</p>`;
@@ -3394,26 +3394,31 @@ function reviewUnits(res, fileName){
   const idOf = u => "bro-" + slugId([$("#rvDev").value, u.cluster, u.type].filter(Boolean).join(" "));
   const val = v => v === null || v === undefined || v === "" ? '<span class="miss">–</span>' : nf(v);
   const clusters = [...new Set(units.map(u => u.cluster || "(tanpa nama cluster)"))];
+  const devNames = [...new Set(comps.map(c => String(c.developer || "").trim()).filter(Boolean))].sort();
+  const devHint = res.devIsLegal ? "Yang terbaca nama PT, bukan nama di logo. Ganti dengan nama developer di logo brosur (pilih dari daftar bila sudah ada)."
+    : [res.developerFrom ? "Dibaca dari " + res.developerFrom : "", res.legalEntity ? "Badan hukum: " + res.legalEntity : ""].filter(Boolean).join(" · ");
   $("#mBody").innerHTML = `<div class="form">
-    <div class="row2"><div class="field"><label for="rvDev">Developer</label><input type="text" id="rvDev" value="${esc(res.developer || "")}"></div>
+    <div class="row2" style="align-items:start"><div class="field"><label for="rvDev">Developer</label><input type="text" id="rvDev" list="rvDevList" autocomplete="off" value="${esc(res.developer || "")}"><datalist id="rvDevList">${devNames.map(d => `<option value="${esc(d)}">`).join("")}</datalist>
+        <small class="rv-hint${res.devIsLegal ? " miss" : ""}" id="rvDevHint">${esc(devHint)}</small></div>
       <div class="field"><label for="rvProj">Proyek / kawasan</label><input type="text" id="rvProj" value="${esc(res.project || res.location || "")}"></div></div>
-    <p class="note" style="margin:0">${nf(clusters.length)} cluster: ${clusters.map(esc).join(", ")}. Harga = tunai keras (atau tunai 2x) untuk unit standar; cara bayarnya tertulis di bawah angka. Cocokkan dengan dokumennya dulu (kolom Sumber = file dan halaman). Tanda <span class="miss">–</span> berarti tidak tercantum, jadi tidak diisi.</p>
+    <p class="note" style="margin:0">${nf(clusters.length)} cluster: ${clusters.map(esc).join(", ")}. Developer dibaca dari logo, segmen dari foto bangunannya (bisa diganti di kolom Segmen). Harga = tunai keras (atau tunai 2x) untuk unit standar; cara bayarnya tertulis di bawah angka. Cocokkan dengan dokumennya dulu (kolom Sumber = file dan halaman). Tanda <span class="miss">–</span> berarti tidak tercantum, jadi tidak diisi.</p>
     <div class="tablewrap rv-wrap"><table class="proj rv" id="rvTable"></table></div>
     <p class="note" id="rvNote" style="margin:0"></p></div>`;
   const draw = () => { const have = new Set(comps.map(c => String(c.id)));
-    $("#rvTable").innerHTML = `<thead><tr><th><input type="checkbox" id="rvAll" ${units.every(u => u.on) ? "checked" : ""} aria-label="Pilih semua"></th><th>Cluster</th><th>Tipe</th><th class="n">LT</th><th class="n">LB</th><th class="n">KT</th><th class="n">KM</th><th class="n">Lantai</th><th class="n">Harga</th><th>Sumber</th><th>Tier</th></tr></thead><tbody>${
+    $("#rvTable").innerHTML = `<thead><tr><th><input type="checkbox" id="rvAll" ${units.every(u => u.on) ? "checked" : ""} aria-label="Pilih semua"></th><th>Cluster</th><th>Tipe</th><th>Segmen</th><th class="n">LT</th><th class="n">LB</th><th class="n">KT</th><th class="n">KM</th><th class="n">Lantai</th><th class="n">Harga</th><th>Sumber</th></tr></thead><tbody>${
       units.map(u => `<tr class="${u.on ? "" : "pre"}"><td><input type="checkbox" data-rv="${u.i}" ${u.on ? "checked" : ""} aria-label="Simpan ${esc(u.type)}"></td><td>${esc(u.cluster) || '<span class="miss">–</span>'}</td>
         <td>${esc(u.type)}${have.has(idOf(u)) ? ' <span class="chip info">memperbarui</span>' : ""}${u.promo || u.notes ? `<small>${esc([u.promo, u.notes].filter(Boolean).join(" · "))}</small>` : ""}</td>
+        <td><select class="rv-seg" data-seg="${u.i}" aria-label="Segmen ${esc(u.type)}" title="${esc(u.tierFrom || "")}">${TIERS.map(t => `<option${t === u.tier ? " selected" : ""}>${t}</option>`).join("")}</select></td>
         <td class="n">${val(u.lt)}</td><td class="n">${val(u.lb)}</td><td class="n">${val(u.kt)}</td><td class="n">${val(u.km)}</td><td class="n">${val(u.floors)}</td>
-        <td class="n">${u.price ? rp(u.price) + (u.priceBasis ? `<small>${esc(u.priceBasis)}</small>` : "") : '<span class="miss">–</span>'}</td><td class="src">${u.file || u.page ? esc([u.file, u.page ? "hal " + nf(u.page) : ""].filter(Boolean).join(" · ")) : '<span class="miss">–</span>'}</td><td><span class="chip">${esc(TIERS.includes(u.tier) ? u.tier : "Deluxe")}</span></td></tr>`).join("")}</tbody>`;
+        <td class="n">${u.price ? rp(u.price) + (u.priceBasis ? `<small>${esc(u.priceBasis)}</small>` : "") : '<span class="miss">–</span>'}</td><td class="src">${u.file || u.page ? esc([u.file, u.page ? "hal " + nf(u.page) : ""].filter(Boolean).join(" · ")) : '<span class="miss">–</span>'}</td></tr>`).join("")}</tbody>`;
     const on = units.filter(u => u.on), noPrice = on.filter(u => !u.price).length, noSize = on.filter(u => !u.lb && !u.lt).length;
     $("#rvNote").textContent = [noPrice ? `${nf(noPrice)} tipe tanpa harga` : "", noSize ? `${nf(noSize)} tipe tanpa luas` : ""].filter(Boolean).join(" · ") + (noPrice || noSize ? ". Tetap bisa disimpan, lalu dilengkapi lewat Edit." : "");
     save.textContent = `Simpan ${nf(on.length)} produk`; save.disabled = !on.length; };
   const back = document.createElement("button"); back.className = "btn"; back.textContent = "Batal"; back.onclick = closeModal;
   const save = document.createElement("button"); save.className = "btn primary";
   $("#mActions").replaceChildren(back, save);
-  $("#rvTable").onchange = e => { if (e.target.id === "rvAll") units.forEach(u => u.on = e.target.checked); else if (e.target.dataset.rv !== undefined) units[+e.target.dataset.rv].on = e.target.checked; draw(); };
-  $("#rvDev").oninput = draw;
+  $("#rvTable").onchange = e => { if (e.target.dataset.seg !== undefined){ units[+e.target.dataset.seg].tier = e.target.value; return; } if (e.target.id === "rvAll") units.forEach(u => u.on = e.target.checked); else if (e.target.dataset.rv !== undefined) units[+e.target.dataset.rv].on = e.target.checked; draw(); };
+  $("#rvDev").oninput = () => { const h = $("#rvDevHint"), pt = /^pt\.?\s/i.test($("#rvDev").value.trim()); if (res.devIsLegal){ h.hidden = !pt; } draw(); };
   save.onclick = async () => { const dev = $("#rvDev").value.trim(), proj = $("#rvProj").value.trim();
     if (!dev){ $("#rvNote").textContent = "Isi nama developer dulu."; $("#rvDev").focus(); return; }
     const rows = units.filter(u => u.on).map(u => ({id:idOf(u), developer:dev, project:proj, cluster:u.cluster || u.type, unitType:u.type, tier:TIERS.includes(u.tier) ? u.tier : "Deluxe",
@@ -3495,7 +3500,7 @@ $("#btnExtract").onclick = () => {
       const full = texts.filter(Boolean).join("\n\n"), names = okDocs.map(d => d.file.name).join(" + ");
       $("#exStatus").textContent = `AI sedang membaca ${images.length > 1 ? images.length + " halaman" : "brosur"}${many ? " dari " + okDocs.length + " file" : ""}… (bisa sampai 1–2 menit)`;
       let res;
-      try { res = await api("extractAll", {text:full, images, fileName:names}); }
+      try { res = await api("extractAll", {text:full, images, fileName:names, knownDevs:[...new Set(comps.map(c => String(c.developer || "").trim()).filter(Boolean))]}); }
       catch(e){ if (e.code !== "server" || !/unknown action/.test(e.message || "")) throw e;
         // backend versi lama: hanya bisa satu tipe per ekstraksi
         const r = (await api("extract", {text:full, ...(images[0] ? {imageBase64:images[0].data, mediaType:"image/jpeg"} : {})})).data || {};

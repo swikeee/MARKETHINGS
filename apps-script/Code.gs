@@ -343,6 +343,7 @@ ${String(p.text || '(lihat gambar)').slice(0, MAX_TEXT)}` });
  */
 function extractBrochureAll(p) {
   const content = [], files = {};
+  const known = (Array.isArray(p.knownDevs) ? p.knownDevs : []).map(d => String(d || '').replace(/[\r\n;"`$]/g, ' ').trim().slice(0, 60)).filter(Boolean).slice(0, 40);
   (p.images || []).slice(0, 24).forEach(im => {
     if (!im || !im.data) return;
     if (im.file) files[im.file] = 1;
@@ -352,13 +353,22 @@ function extractBrochureAll(p) {
   const many = Object.keys(files).length > 1;
   content.push({ type: 'text', text:
 `Kamu membaca brosur / e-brochure / pricelist perumahan atau komersial di Indonesia${content.length ? '. Di atas ada gambar tiap halaman (diberi label nama file dan nomor halaman)' : ''}${p.text ? '; di bawah ada teks hasil ekstraksi dokumennya' : ''}.
-${many ? 'Ada beberapa file untuk proyek yang sama (biasanya brosur berisi spesifikasi & denah, dan pricelist berisi harga). Gabungkan: cocokkan tiap tipe unit lewat nama tipe / cluster, ambil spesifikasi dari brosur dan harga dari pricelist.\n' : ''}Tugas: daftar SEMUA cluster dan SEMUA tipe unit yang dijual, jangan ada yang terlewat. Satu objek per tipe unit.
+${many ? 'Ada beberapa file untuk proyek yang sama (biasanya brosur berisi spesifikasi & denah, dan pricelist berisi harga). Gabungkan jadi SATU objek per tipe unit: spesifikasi dari brosur, harga dari pricelist. Nama tipe di brosur dan di pricelist sering TIDAK sama (mis. brosur menulis "5x17", pricelist menulis "Badan 5-L"); cocokkan lewat luas tanah / luas bangunan, lebar muka, dan jumlah lantai. Kalau cocok, pakai nama tipe dari brosur dan tulis nama versi pricelist di notes. Jangan membuat dua objek untuk unit yang sama.\n' : ''}Tugas: daftar SEMUA cluster dan SEMUA tipe unit yang dijual, jangan ada yang terlewat. Satu objek per tipe unit.
 Balas HANYA JSON berbentuk:
-{"developer":string,"project":string,"location":string,"units":[{"cluster":string,"type":string,"lt":number|null,"lb":number|null,"kt":number|null,"km":number|null,"floors":number|null,"price":number|null,"priceBasis":string,"promo":string,"notes":string,"file":string,"page":number|null}]}
+{"developer":string,"developerFrom":string,"legalEntity":string,"project":string,"location":string,"units":[{"cluster":string,"type":string,"tier":"Milenial"|"Deluxe"|"Premium"|"Shophouse"|"Student House","tierFrom":string,"lt":number|null,"lb":number|null,"kt":number|null,"km":number|null,"floors":number|null,"price":number|null,"priceBasis":string,"promo":string,"notes":string,"file":string,"page":number|null}]}
 Aturan pengisian:
-- cluster = nama cluster / sektor / tower. Kalau dokumen hanya memuat satu cluster, pakai nama itu untuk semua tipe. Kalau tidak ada nama cluster, isi "".
+- developer = nama BRAND developer / kawasan seperti yang tertulis di LOGO dokumen (mis. "Summarecon Bandung", "Pororo Land", "Kota Baru Parahyangan"). Periksa logo di pojok kanan atas dan kiri atas tiap halaman, sampul, dan halaman terakhir. JANGAN memakai nama badan hukum ("PT ...") sebagai developer selama ada logo / brand; nama PT biasanya hanya muncul di catatan kaki atau syarat & ketentuan, tulis di legalEntity. Hanya bila sama sekali tidak ada logo atau brand, pakai nama PT. developerFrom = dari mana nama itu dibaca (mis. "logo kanan atas hal 1").${known.length ? `
+  Developer yang sudah ada di dashboard: ${known.join('; ')}. Kalau logo / brand di dokumen adalah salah satu dari ini, tulis PERSIS sama ejaannya; kalau bukan, tulis nama di logo apa adanya (jangan memaksakan ke daftar ini).` : ''}
+- project = nama produk / proyek yang dijual di dokumen ini (mis. nama komplek ruko atau nama perumahan). location = kota / kawasan.
+- cluster = nama cluster / sektor / tower / blok komersial. Kalau dokumen hanya memuat satu cluster, pakai nama itu untuk semua tipe. Nama jalan atau alamat BUKAN cluster. Kalau tidak ada nama cluster, isi "".
+- tier = segmen produk. Tentukan dulu jenis bangunannya dari FOTO / gambar render dan denah di brosur, bukan dari nama saja:
+  * "Shophouse": ruko, rukan, shophouse, kios, atau bangunan komersial (deretan bangunan berlantai dua atau lebih dengan muka toko / kaca etalase di lantai dasar, area parkir di depan, tanpa taman dan carport rumah; denah berupa ruang usaha terbuka).
+  * "Student House": hunian / kos mahasiswa.
+  * Selain itu rumah tinggal: "Milenial" untuk rumah compact kelas pemula (LB di bawah 70 m²), "Deluxe" untuk kelas menengah (LB 70 sampai 130 m²), "Premium" untuk rumah besar / mewah (LB di atas 130 m²). Bila LB tidak tercantum, nilai dari tampilan rumah di foto dan harganya.
+  tierFrom = alasan singkat (mis. "foto hal 2: deretan ruko 2 lantai").
 - type = nama tipe unit persis seperti di dokumen (mis. "Ixora", "Tipe 8x15", "36/72"), tanpa kata "Standard".
-- POSISI UNIT: selalu ambil data unit STANDAR (standard / reguler / tengah). Abaikan varian hook, sudut, corner, atau posisi premium; jangan buat objek terpisah untuk varian itu. Kalau sebuah tipe hanya tersedia sebagai hook / sudut, tetap masukkan dan tulis "hanya ada unit hook" di notes.
+- POSISI UNIT: selalu ambil data unit STANDAR (standard / reguler / tengah / badan). Abaikan varian hook, sudut, corner, atau posisi premium dari tipe yang sama; jangan buat objek terpisah untuk varian itu. Kalau sebuah tipe hanya tersedia sebagai hook / sudut, tetap masukkan dan tulis "hanya ada unit hook" di notes.
+- Varian cermin kiri / kanan (L / R) dengan luas yang sama adalah SATU tipe: buat satu objek, pakai harga yang lebih rendah, dan tulis kedua harganya di notes bila berbeda.
 - lt = luas tanah (m²), lb = luas bangunan (m²), angka saja. "8x15" berarti lebar x panjang kavling, jadi lt = 120. "36/72" berarti LB 36 dan LT 72.
 - kt = jumlah kamar tidur, km = jumlah kamar mandi: ambil dari teks spesifikasi, atau hitung dari denah bila tidak tertulis. "3+1" berarti kt 3 dan tulis "+1 kamar ART" di notes. floors = jumlah lantai.
 - HARGA: pricelist biasanya memuat beberapa cara bayar. Ambil HANYA dengan urutan ini:
@@ -379,9 +389,16 @@ ${p.text ? 'TEKS DOKUMEN:\n' + String(p.text).slice(0, MAX_TEXT) : ''}` });
   const units = list.filter(u => u && (str(u.type) || str(u.cluster))).slice(0, 80).map(u => {
     const lb = pos(u.lb), price = pos(u.price);
     return { cluster: str(u.cluster), type: str(u.type).replace(/\s+(standard|standar|std)\s*$/i, ''), lt: pos(u.lt), lb: lb, kt: pos(u.kt), km: pos(u.km), floors: pos(u.floors), price: price,
-      priceBasis: str(u.priceBasis), promo: str(u.promo), notes: str(u.notes), file: str(u.file), page: pos(u.page), tier: tierOf(lb, price, '', str(u.cluster) + ' ' + str(u.type)) };
+      priceBasis: str(u.priceBasis), promo: str(u.promo), notes: str(u.notes), file: str(u.file), page: pos(u.page),
+      tier: tierOf(lb, price, str(u.tier), str(u.cluster) + ' ' + str(u.type)), tierFrom: str(u.tierFrom) };
   });
-  return { developer: Array.isArray(data) ? '' : str(data.developer), project: Array.isArray(data) ? '' : str(data.project), location: Array.isArray(data) ? '' : str(data.location), units: units, model: lastAiModel || aiModel() };
+  const top = Array.isArray(data) ? {} : (data || {});
+  // nama developer: bila sama dengan yang sudah ada di dashboard (beda huruf besar / spasi / tanda baca saja), pakai ejaan yang sudah ada supaya tidak jadi developer ganda
+  const key = v => String(v).toLowerCase().replace(/[^a-z0-9]/g, '');
+  let dev = str(top.developer), legal = str(top.legalEntity);
+  const same = known.filter(k => key(k) === key(dev))[0]; if (same) dev = same;
+  if (/^pt\.?\s/i.test(dev) && !legal) legal = dev;   // AI tetap membalas nama PT: tandai supaya dashboard bisa mengingatkan
+  return { developer: dev, developerFrom: str(top.developerFrom), legalEntity: legal, devIsLegal: /^pt\.?\s/i.test(dev), project: str(top.project), location: str(top.location), units: units, model: lastAiModel || aiModel() };
 }
 
 /** Effort untuk Insight AI & Ringkasan AI (Script property EFFORT). Default low: jawaban lebih cepat dan hemat token. */
