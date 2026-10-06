@@ -151,6 +151,8 @@ textarea{min-height:80px;resize:vertical}
 .bep{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end}
 .bep .big{font:700 44px/1 var(--f-display);color:var(--accent)}
 .bep .big small{font:500 15px var(--f-body);color:var(--muted);margin-left:4px}
+.ex-pdf{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,150px);gap:12px;align-items:start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+@media (max-width:520px){.ex-pdf{grid-template-columns:minmax(0,1fr)} .ex-pdf-p{max-width:180px}}
 /* proyeksi omzet & laba (Simulator Investor) */
 .proj-kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:4px 0 16px} .proj-kpis .kpi{padding:12px 14px;box-shadow:none} .proj-kpis .kpi .v{font-size:20px}
 table.proj{width:100%;min-width:520px} .proj td small{display:block;font-size:11px;font-weight:400;color:var(--muted)} .proj td,.proj th{white-space:nowrap;padding:9px 6px;font-size:12.5px;font-family:var(--f-body)} .proj th{font-size:11.5px} .proj td:first-child,.proj th:first-child{padding-left:12px} .proj td:last-child,.proj th:last-child{padding-right:12px} .proj td.n,.proj th.n{text-align:right;font-variant-numeric:tabular-nums}
@@ -3368,26 +3370,62 @@ function imageToBase64(file){
     img.src = url;
   });
 }
+// ---------- brosur PDF: dibaca di browser (pdf.js). Teks semua halaman + satu halaman sebagai gambar dikirim ke AI ----------
+const PRICE_RX = /rp\.?\s?\d|\d[\d.,]*\s?(?:juta|jt|miliar|milyar)|harga|price\s?list|\bL[TB]\b|luas (?:tanah|bangunan)|\btipe\b|\btype\b/gi;
+const isPdf = f => !!f && (f.type === "application/pdf" || /\.pdf$/i.test(f.name || ""));
+async function readBrochurePdf(file){
+  const lib = await loadPdfLib(), doc = await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise, pages = [];
+  for (let i=1; i<=Math.min(doc.numPages, 40); i++){ const tc = await (await doc.getPage(i)).getTextContent();
+    const text = tc.items.map(it => it.str + (it.hasEOL ? "\n" : " ")).join("").replace(/[ \t]+/g, " ").replace(/\n\s+/g, "\n").trim();
+    pages.push({no:i, text, score:(text.match(PRICE_RX) || []).length}); }
+  const top = pages.slice().sort((a,b) => b.score - a.score || a.no - b.no)[0];
+  return {doc, n:doc.numPages, pages, best:top && top.score ? top.no : 1, textPages:pages.filter(x => x.text.length > 40).length};
+}
+async function pdfPageCanvas(doc, no, maxSide){
+  const pg = await doc.getPage(no), v0 = pg.getViewport({scale:1}), vp = pg.getViewport({scale:maxSide/Math.max(v0.width, v0.height)});
+  const c = document.createElement("canvas"); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+  const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+  await pg.render({canvasContext:g, viewport:vp}).promise; return c;
+}
+const pdfText = (P, max) => { let out = ""; for (const x of P.pages){ if (!x.text) continue; const add = `[Halaman ${x.no}]\n${x.text}\n\n`; if (out.length + add.length > max) break; out += add; } return out.trim(); };
 $("#btnExtract").onclick = () => {
   $("#mTitle").textContent="Ekstrak data dari brosur / pricelist";
   $("#mBody").innerHTML = `<div class="form">
-    <div class="field"><label for="exText">Tempel teks brosur, pricelist, atau catatan survei</label><textarea id="exText" style="min-height:140px" placeholder="Contoh: Cluster Nara – Tipe 8x15, LT 120 LB 98, 3KT 2KM, harga mulai 2,1 M. Promo DP 0% + free BPHTB s.d. akhir bulan…"></textarea></div>
-    <div class="field"><label for="exImg">atau unggah foto brosur / pricelist</label><input type="file" id="exImg" accept="image/jpeg,image/png,image/webp"></div>
+    <div class="field"><label for="exText">Tempel teks brosur, pricelist, atau catatan survei</label><textarea id="exText" style="min-height:140px" placeholder="Contoh: Cluster Melati – Tipe 8x15, LT 120 LB 98, 3KT 2KM, harga mulai 2,1 M. Promo DP 0% + free BPHTB s.d. akhir bulan…"></textarea></div>
+    <div class="field"><label for="exImg">atau unggah foto / PDF brosur / pricelist</label><input type="file" id="exImg" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"></div>
+    <div class="ex-pdf" id="exPdf" hidden><div class="ex-pdf-i"><p class="note" id="exPdfInfo" style="margin:0"></p><div class="field" style="margin-top:8px"><label for="exPage">Halaman yang dikirim sebagai gambar</label><input type="number" id="exPage" min="1" value="1" style="max-width:110px"></div></div><div class="ex-pdf-p" id="exPdfPrev"></div></div>
     <p class="note" id="exStatus">AI akan mengisi formulir produk. Periksa hasilnya sebelum menyimpan.</p></div>`;
   const act=$("#mActions"); act.innerHTML="";
   const c=document.createElement("button"); c.className="btn"; c.textContent="Batal"; c.onclick=closeModal;
   const go=document.createElement("button"); go.className="btn primary"; go.textContent="Ekstrak dengan AI";
+  let pdf = null, pdfFor = null;         // hasil baca PDF untuk file yang sedang dipilih
+  const showPage = async () => { if (!pdf) return; const no = Math.min(pdf.n, Math.max(1, Math.round(num($("#exPage").value)) || 1)); $("#exPage").value = no;
+    try { const c = await pdfPageCanvas(pdf.doc, no, 420); c.style.cssText = "max-width:100%;height:auto;border:1px solid var(--line);border-radius:8px;display:block"; $("#exPdfPrev").replaceChildren(c); } catch { $("#exPdfPrev").textContent = ""; } };
+  $("#exImg").onchange = async () => { const f = $("#exImg").files?.[0]; pdf = null; pdfFor = null; $("#exPdf").hidden = true; delete go.dataset.archived;
+    if (!isPdf(f)) return;
+    $("#exStatus").textContent = "Membaca PDF…";
+    try { pdf = await readBrochurePdf(f); pdfFor = f;
+      $("#exPdf").hidden = false; $("#exPage").max = pdf.n; $("#exPage").value = pdf.best;
+      $("#exPdfInfo").innerHTML = `<b>${esc(f.name)}</b> · ${nf(pdf.n)} halaman · ${pdf.textPages ? `teks terbaca di ${nf(pdf.textPages)} halaman` : "tidak ada teks (PDF berupa gambar)"}.<br>${pdf.textPages ? `Semua teksnya ikut dikirim. Halaman ${nf(pdf.best)} dipilih otomatis karena paling banyak memuat harga / ukuran.` : "AI hanya membaca gambar halaman yang dipilih, jadi pilih halaman yang memuat harga."}`;
+      $("#exStatus").textContent = "AI akan mengisi formulir produk. Periksa hasilnya sebelum menyimpan."; await showPage(); }
+    catch(e){ $("#exStatus").textContent = "PDF tidak bisa dibaca: " + (e.message || "file rusak atau terkunci"); } };
+  $("#exPage").oninput = showPage;
   go.onclick = async () => {
     const text=$("#exText").value.trim(); const img=$("#exImg").files?.[0];
-    if(!text && !img) return toast("Isi teks atau pilih gambar dulu");
+    if (isPdf(img) && pdfFor !== img){ $("#exStatus").textContent = "PDF masih dibaca atau gagal dibaca. Tunggu sebentar, atau pilih ulang filenya."; return; }
+    if(!text && !img) return toast("Isi teks atau pilih foto / PDF dulu");
     // arsipkan dulu supaya brosur tidak hilang walau ekstraksi gagal
     if (!go.dataset.archived){ go.dataset.archived = 1; const stamp = new Date().toISOString().slice(0,16).replace(/[:T]/g,"-");
       go._recs = []; if (img) go._recs.push(await archiveFile(img, "Brosur untuk diekstrak"));
       if (text) go._recs.push(await archiveFile(new File([text], `brosur-teks-${stamp}.txt`, {type:"text/plain"}), "Teks brosur untuk diekstrak")); }
-    if (mode!=="live" || !aiReady || !TOKEN){ $("#exStatus").textContent = "File sudah tersimpan di Arsip file. " + errText({code: mode!=="live"?"demo":!TOKEN?"unauthorized":"noai"}); return; }
+    if (mode!=="live" || !aiReady || !TOKEN){ $("#exStatus").textContent = "File sudah tersimpan di Arsip file. " + (isPdf(img) && pdf ? `PDF-nya terbaca (${nf(pdf.n)} halaman), tapi mengisi formulir otomatis butuh AI. ` : "") + errText({code: mode!=="live"?"demo":!TOKEN?"unauthorized":"noai"}); return; }
     go.disabled=true; $("#exStatus").textContent="AI sedang membaca brosur…";
     try{
-      const payload = {text}; if (img){ payload.imageBase64 = await imageToBase64(img); payload.mediaType = "image/jpeg"; }
+      const payload = {text};
+      if (isPdf(img)){ const body = pdfText(pdf, 50000);
+        payload.text = [text, body ? `TEKS DARI PDF "${img.name}" (${pdf.n} halaman):\n${body}` : ""].filter(Boolean).join("\n\n");
+        payload.imageBase64 = (await pdfPageCanvas(pdf.doc, Math.min(pdf.n, Math.max(1, Math.round(num($("#exPage").value)) || pdf.best)), 1600)).toDataURL("image/jpeg", .85).split(",")[1]; payload.mediaType = "image/jpeg"; }
+      else if (img){ payload.imageBase64 = await imageToBase64(img); payload.mediaType = "image/jpeg"; }
       const r = (await api("extract", payload)).data || {};
       for (const rec of (go._recs||[])) if (rec) updateFileNote(rec.id, `Hasil ekstraksi: ${[r.developer, r.cluster].filter(Boolean).join(" · ") || "–"}${r.price ? " · " + rp(r.price) : ""}`);
       closeModal(); editComp(null, {...r, tier:TIERS.includes(r.tier)?r.tier:"Deluxe", stock:null, sold:null, months:null, source:"Brosur / survei"});
