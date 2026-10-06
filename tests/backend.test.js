@@ -145,6 +145,40 @@ delete env.props.ANTHROPIC_API_KEY; delete env.props.AI_COUNT;
   delete env.props.AI_PROVIDER; r = post('ai', {prompt:'x'}); ok('dua kunci terisi, tanpa AI_PROVIDER → Gemini', r.provider === 'gemini');
   ok('kunci Gemini tidak pernah ikut terkirim ke dashboard', !JSON.stringify(get()).includes('AIza') && !JSON.stringify(post('selfTest', {})).includes('AIza'));
   delete env.props.GEMINI_API_KEY; delete env.props.ANTHROPIC_API_KEY; delete env.props.AI_COUNT; }
+// baca brosur utuh: semua cluster & semua tipe unit (kamar tidur, kamar mandi, lantai ikut)
+{ let g = null; env.props.GEMINI_API_KEY = 'AIza-uji'; delete env.props.AI_COUNT;
+  const answer = {developer:'Grand Uji', project:'Timur Kota', location:'Bandung', units:[
+    {cluster:'Melati', type:'Anggrek 8x15', lt:'120', lb:98, kt:3, km:2, floors:2, price:2150000000, priceBasis:'cash keras', promo:'DP 0%', notes:'carport 2', page:5},
+    {cluster:'Melati', type:'Dahlia', lt:162, lb:140, kt:'4', km:3, floors:2, price:null, priceBasis:'', promo:'', notes:'', page:6},
+    {cluster:'Ruko Plaza', type:'R1', lt:75, lb:150, kt:0, km:2, floors:3, price:'3500000000', page:9},
+    {cluster:'', type:''}, null]};
+  env.setFetch((url, o) => { g = {url, body:JSON.parse(o.payload)}; return {code:200, type:'application/json', body:JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(answer)}]}}]})}; });
+  r = post('extractAll', {text:'[Halaman 5]\nPrice list', images:[{page:5, mediaType:'image/jpeg', data:'QUFB'}, {page:6, mediaType:'image/jpeg', data:'QkJC'}]});
+  const parts = g.body.contents[0].parts;
+  ok('extractAll: semua halaman dikirim berlabel nomor halaman + teks dokumen', parts[0].text === '[Gambar halaman 5]' && parts[1].inline_data.data === 'QUFB' && parts[2].text === '[Gambar halaman 6]' && parts[3].inline_data.data === 'QkJC' && /SEMUA cluster dan SEMUA tipe/.test(parts[4].text) && /TEKS DOKUMEN:\n\[Halaman 5\]/.test(parts[4].text));
+  ok('extractAll: minta JSON murni, tanpa memaksa berpikir pendek', g.body.generationConfig.responseMimeType === 'application/json' && !g.body.generationConfig.thinkingConfig && g.body.generationConfig.maxOutputTokens >= 20000);
+  ok('extractAll: semua tipe terbaca, baris kosong dibuang', r.ok && r.units.length === 3 && r.developer === 'Grand Uji' && r.project === 'Timur Kota', r.error || JSON.stringify(r.units.map(u => u.type)));
+  const u0 = r.units[0], u1 = r.units[1], u2 = r.units[2];
+  ok('angka dirapikan (teks → angka), kamar tidur/mandi/lantai ikut', u0.lt === 120 && u0.lb === 98 && u0.kt === 3 && u0.km === 2 && u0.floors === 2 && u0.price === 2150000000 && u0.page === 5 && u1.kt === 4 && u2.price === 3500000000, JSON.stringify(u0));
+  ok('harga yang tidak tercantum tetap kosong (null), tidak dikarang', u1.price === null && u2.kt === null);
+  ok('tier dihitung: LB 98 → Deluxe, LB 140 → Premium, ruko → Shophouse', u0.tier === 'Deluxe' && u1.tier === 'Premium' && u2.tier === 'Shophouse', [u0.tier, u1.tier, u2.tier].join(','));
+  env.setFetch(() => ({code:200, type:'application/json', body:JSON.stringify({candidates:[{content:{parts:[{text:'maaf saya tidak bisa'}]}}]})})); r = post('extractAll', {text:'x'});
+  ok('jawaban AI bukan JSON → pesan jelas', r.ok === false && /tidak berupa JSON/.test(r.error), r.error);
+  // kolom baru di sheet: judul menyesuaikan sendiri tanpa setup() ulang, lalu nilainya tersimpan
+  const sh = env.sheets.Competitors; const before = sh.rows ? null : null;
+  r = post('saveCompetitor', {developer:'Grand Uji', cluster:'Melati', unitType:'Anggrek 8x15', tier:'Deluxe', lt:120, lb:98, kt:3, km:2, floors:2, price:2150000000});
+  const saved = A.readTable('Competitors').find(c => c.unitType === 'Anggrek 8x15');
+  ok('produk menyimpan tipe unit, kamar tidur, kamar mandi, lantai', r.ok && saved && saved.kt === 3 && saved.km === 2 && saved.floors === 2 && saved.unitType === 'Anggrek 8x15', JSON.stringify(saved && [saved.unitType, saved.kt, saved.km, saved.floors]));
+  ok('snapshot membawa kolom baru ke dashboard', get().competitors.some(c => c.unitType === 'Anggrek 8x15' && c.kt === 3));
+  delete env.props.GEMINI_API_KEY; delete env.props.AI_COUNT; }
+// sheet dari versi lama (belum punya kolom tipe/kamar): judul kolom dilengkapi sendiri saat pertama dipakai
+{ const e2 = makeEnv(require('path').join(__dirname, '..', 'apps-script', 'Code.gs')); e2.api.setup(); e2.props.WRITE_TOKEN = 't';
+  const sh = e2.sheets.Competitors, full = sh.rows[0].length; sh.rows[0].length = full - 4; delete sh.fmt[full - 3];
+  sh.rows.push(['lama-1', 'Dev Lama', '', 'Cluster Lama', 'Deluxe', 100, 80, 1500000000]);
+  const res = JSON.parse(e2.api.doPost({postData:{contents:JSON.stringify({token:'t', action:'saveCompetitor', payload:{developer:'Dev Baru', cluster:'C', unitType:'36/72', kt:2, km:1, floors:1, lb:36, lt:72, price:500000000}})}}).text);
+  const T = e2.api.readTable('Competitors');
+  ok('sheet lama: judul kolom baru ditambahkan otomatis, tanpa setup() ulang', res.ok && sh.rows[0].length === full && sh.rows[0].slice(-4).join() === 'unitType,kt,km,floors' && sh.fmt[full - 3] === '@', sh.rows[0].slice(-5).join());
+  ok('sheet lama: baris lama utuh, baris baru menyimpan tipe & kamar', T.length === 2 && T.find(c => c.id === 'lama-1').price === 1500000000 && T.find(c => c.id === 'lama-1').kt === null && T.find(c => c.unitType === '36/72').kt === 2, JSON.stringify(T.map(c => [c.id, c.unitType, c.kt]))); }
 // penanda perubahan untuk sinkron otomatis
 const rev = () => JSON.parse(A.doGet({parameter:{rev:'1'}}).text);
 let r0 = rev(); ok('cek revisi ringan: hanya mengembalikan penanda, bukan data', r0.ok && typeof r0.rev === 'string' && !('competitors' in r0), r0.rev);
