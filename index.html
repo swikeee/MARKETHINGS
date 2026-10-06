@@ -160,7 +160,9 @@ textarea{min-height:80px;resize:vertical}
 .st-alerts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:8px}
 .st-alerts .act{grid-template-columns:auto minmax(0,1fr);align-items:start} .st-alerts .act p{margin:0;font-size:13px;line-height:1.4;overflow-wrap:anywhere} .st-alerts .act small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
 .st-insight{margin:0 0 14px;padding:10px 12px;border-radius:10px;background:var(--accent-soft);font-size:13.5px;line-height:1.5}
-table.st{min-width:760px} .st td:first-child{white-space:normal;min-width:150px;font-weight:600} .st td:first-child small{font-weight:400} .st td.cmp{white-space:normal;min-width:150px;font-size:12px}
+table.st{min-width:760px} .st td:first-child{white-space:normal;min-width:150px;font-weight:600} .st td:first-child small{font-weight:400} .st td.cmp{white-space:normal;min-width:250px;font-size:12px;padding-top:6px;padding-bottom:6px}
+.cmp-l{display:grid;gap:1px;padding:4px 8px;border-radius:6px;margin:2px 0;line-height:1.35} .cmp-l b{font-weight:600} .cmp-l span{color:var(--muted)}
+.cmp-l.own{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)} .cmp-l.own b{color:var(--accent)} .cmp-l.own span{color:var(--ink)}
 .st .meter{width:54px} .meter.bad b{background:var(--bad)} .meter.warn b{background:var(--warn)} .meter.slow b{background:var(--muted)} .st .chip{margin-left:6px}
 /* proyeksi omzet & laba (Simulator Investor) */
 .proj-kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:4px 0 16px} .proj-kpis .kpi{padding:12px 14px;box-shadow:none} .proj-kpis .kpi .v{font-size:20px}
@@ -4031,7 +4033,7 @@ const segColor = seg => `hsl(${SEG_HUE[seg] ?? 220} ${seg==="Lainnya"?10:62}% 46
 const ana = {gran:"month", metric:"unit", from:null, to:null, seg:"all"};
 // ---------- stok per tipe: tab STOK di Google Sheet yang sama dengan rekap penjualan ----------
 // Kolom tab STOK: CLUSTER, TIPE, SEGMEN, LT, LB, KT, KM, LANTAI, TOTAL UNIT (satu baris per tipe). Terjual dihitung dashboard dari data penjualan.
-const STOCK_TAB = "STOK", HUNIAN = ["Milenial","Deluxe","Premium"];
+const STOCK_TAB = "STOK", HUNIAN = ["Milenial","Deluxe","Premium"], OWN_DEV = "Pororo Land";
 let sheetStock = null, lastStockSig = "", demoStockCache = null, stockUI = {g:"kt"};
 const typeBase = v => String(v||"").replace(/\s+(standard|standar|std|hook)\s*$/i, "").trim();
 const skey = (cl, ty) => tnorm(cl) + "|" + tnorm(typeBase(ty));
@@ -4091,11 +4093,13 @@ const STOCK_DIMS = {
 function stockView(){
   const base = curStock(); if (!base.length) return null;
   const net = sales.filter(x => x.status !== "Batal"), end = allSalesMonths().at(-1), last6 = new Set(end ? monthKeys(6, end) : []);
-  const by = {}, miss = {}; base.forEach(r => by[r.key || skey(r.cluster, r.type)] = {...r, sold:0, sold6:0});
+  const by = {}, miss = {}; base.forEach(r => by[r.key || skey(r.cluster, r.type)] = {...r, sold:0, sold6:0, ps:0, pn:0, hs:0, hn:0});
   net.forEach(x => { const r = by[skey(x.cluster, x.unitType)];
     if (!r){ const nm = x.cluster + " · " + (typeBase(x.unitType) || "(tanpa tipe)"); miss[nm] = (miss[nm]||0) + 1; return; }
-    r.sold++; if (last6.has(String(x.date).slice(0,7))) r.sold6++; });
-  const rows = Object.values(by); rows.forEach(r => { r.left = Math.max(0, r.total - r.sold); r.over = r.sold > r.total; r.pace = r.sold6/6; });
+    r.sold++; if (last6.has(String(x.date).slice(0,7))) r.sold6++;
+    if (num(x.price) > 0){ if (/hook/i.test(String(x.hook || x.unitType))){ r.hs += num(x.price); r.hn++; } else { r.ps += num(x.price); r.pn++; } } });
+  const rows = Object.values(by); rows.forEach(r => { r.left = Math.max(0, r.total - r.sold); r.over = r.sold > r.total; r.pace = r.sold6/6;
+    r.price = r.pn ? r.ps/r.pn : r.hn ? r.hs/r.hn : null; });          // harga tipe = rata-rata harga jual unit standar (hook bila hanya itu yang terjual)
   return {rows, by, miss, end};
 }
 function stockAgg(list){
@@ -4118,13 +4122,15 @@ function buyPattern(V, list){
   const top = d => Object.entries(cnt[d]).sort((a, b) => b[1] - a[1])[0] || null;
   return {n:list.length, mapped, cnt, top};
 }
-/** Penawaran kompetitor untuk satu kelompok (kamar tidur / lantai / segmen): jumlah tipe, rentang harga, sisa stok bila datanya ada. */
+/** Penawaran kompetitor untuk satu kelompok (kamar tidur / lantai / segmen), per developer: jumlah tipe, rentang harga, sisa stok bila datanya ada. */
 function compFor(dim, label){
   const D = STOCK_DIMS[dim]; if (!D.comp) return null;
-  const all = comps.filter(c => !c.isOwn), withData = all.filter(c => D.comp(c)), list = withData.filter(c => D.comp(c) === label);
-  const pr = list.map(c => num(c.price)).filter(v => v > 0), st = list.filter(c => num(c.stock) > 0 && has(c.sold));
-  return {all:all.length, withData:withData.length, n:list.length, min:pr.length ? Math.min(...pr) : null, max:pr.length ? Math.max(...pr) : null,
-    left:st.length ? st.reduce((a, c) => a + Math.max(0, num(c.stock) - num(c.sold)), 0)/st.reduce((a, c) => a + num(c.stock), 0) : null, devs:[...new Set(list.map(c => c.developer))]};
+  const all = comps.filter(c => !c.isOwn), withData = all.filter(c => D.comp(c)), list = withData.filter(c => D.comp(c) === label), by = {};
+  list.forEach(c => (by[c.developer || "Tanpa nama"] ??= []).push(c));
+  const devs = Object.entries(by).map(([dev, l]) => { const pr = l.map(c => num(c.price)).filter(v => v > 0), st = l.filter(c => num(c.stock) > 0 && has(c.sold));
+    return {dev, n:l.length, min:pr.length ? Math.min(...pr) : null, max:pr.length ? Math.max(...pr) : null,
+      left:st.length ? st.reduce((a, c) => a + Math.max(0, num(c.stock) - num(c.sold)), 0)/st.reduce((a, c) => a + num(c.stock), 0) : null}; }).sort((a, b) => b.n - a.n || a.dev.localeCompare(b.dev));
+  return {all:all.length, withData:withData.length, n:list.length, devs};
 }
 /** Daftar alert stok, paling genting dulu: kelompok hunian per kamar tidur / lantai / segmen, lalu tipe yang menipis, lalu yang lambat. */
 function stockAlerts(V, A){
@@ -4172,18 +4178,23 @@ function renderStock(A){
   const dim = stockUI.g, D = STOCK_DIMS[dim], G = stockGroups(V, dim), hasComp = !!D.comp, shareOf = label => dim === "cluster" ? clusterShare(V, A, label) : share(dim, label);
   $("#stGroup").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.g === dim));
   $("#stTableH").textContent = `Stok per ${D.l}` + (hasComp ? " · dibandingkan kompetitor" : "");
-  const cmpCell = c => !c || !c.n ? `<span class="note">belum ada data</span>` : `${nf(c.n)} tipe${c.min !== null ? " · " + (c.min === c.max ? rp(c.min) : rp(c.min) + " – " + rp(c.max)) : ""}<small>${esc(c.devs.slice(0, 2).join(", "))}${c.devs.length > 2 ? ", …" : ""}${c.left !== null ? " · sisa " + pctTxt(c.left) : ""}</small>`;
+  const range = (lo, hi) => lo === null ? "" : lo === hi ? rp(lo) : rp(lo) + " – " + rp(hi);
+  const line = (name, x, own) => `<div class="cmp-l${own ? " own" : ""}"><b>${esc(name)}</b><span>${[nf(x.n) + " tipe", range(x.min, x.max), x.left !== null ? "sisa " + pctTxt(x.left) : ""].filter(Boolean).join(" · ")}</span></div>`;
+  const cmpCell = (a, c) => { const pr = a.list.map(r => r.price).filter(v => v > 0);      // baris Pororo Land dulu (disorot), lalu tiap developer kompetitor
+    return line(OWN_DEV, {n:a.n, min:pr.length ? Math.min(...pr) : null, max:pr.length ? Math.max(...pr) : null, left:a.pct}, true)
+      + (c && c.n ? c.devs.slice(0, 4).map(d => line(d.dev, d)).join("") + (c.devs.length > 4 ? `<div class="cmp-l"><span>+${nf(c.devs.length - 4)} developer lain</span></div>` : "") : `<div class="cmp-l"><span>Kompetitor: belum ada data</span></div>`); };
   let anyComp = null;
-  $("#stTable").innerHTML = `<thead><tr><th>${dim === "type" ? "Tipe" : D.l[0].toUpperCase() + D.l.slice(1)}</th>${dim === "type" ? "" : `<th class="n">Tipe</th>`}<th class="n">Total</th><th class="n">Terjual</th><th class="n">Sisa</th><th>% sisa</th><th class="n">Laju / bln</th><th class="n">Habis dalam</th>${dim === "type" ? "" : `<th class="n">Porsi beli ${nf(A.P)} bln</th>`}${hasComp ? "<th>Kompetitor</th>" : ""}</tr></thead><tbody>${
+  $("#stTable").innerHTML = `<thead><tr><th>${dim === "type" ? "Tipe" : D.l[0].toUpperCase() + D.l.slice(1)}</th>${dim === "type" ? "" : `<th class="n">Tipe</th>`}<th class="n">Total</th><th class="n">Terjual</th><th class="n">Sisa</th><th>% sisa</th><th class="n">Laju / bln</th><th class="n">Habis dalam</th>${dim === "type" ? "" : `<th class="n">Porsi beli ${nf(A.P)} bln</th>`}${hasComp ? `<th>${esc(OWN_DEV)} vs kompetitor</th>` : ""}</tr></thead><tbody>${
     G.map(a => { const lv = stockLevel(a), r = a.list[0], c = hasComp ? compFor(dim, a.label) : null; if (c) anyComp = c;
       const name = dim === "type" ? `${esc(r.type)}<small>${esc([r.cluster, num(r.kt) ? nf(r.kt) + " KT" : "", num(r.km) ? nf(r.km) + " KM" : "", num(r.floors) ? nf(r.floors) + " lantai" : "", num(r.lb) ? "LB " + nf(r.lb) : ""].filter(Boolean).join(" · "))}</small>` : esc(a.label);
       return `<tr><td>${name}</td>${dim === "type" ? "" : `<td class="n">${nf(a.n)}</td>`}<td class="n">${nf(a.total)}</td><td class="n">${nf(a.sold)}</td><td class="n">${nf(a.left)}</td>
         <td><span class="meter ${lv}"><b style="width:${a.pct === null ? 0 : Math.round(a.pct*100)}%"></b></span>${pctTxt(a.pct)}${LEVEL_TXT[lv] ? `<span class="chip ${LEVEL_CHIP[lv]}">${LEVEL_TXT[lv]}</span>` : ""}</td>
-        <td class="n">${a.pace > 0 ? nf(a.pace, 1) : "–"}</td><td class="n">${coverTxt(a)}</td>${dim === "type" ? "" : `<td class="n">${pctTxt(shareOf(a.label))}</td>`}${hasComp ? `<td class="cmp">${cmpCell(c)}</td>` : ""}</tr>`; }).join("")}
+        <td class="n">${a.pace > 0 ? nf(a.pace, 1) : "–"}</td><td class="n">${coverTxt(a)}</td>${dim === "type" ? "" : `<td class="n">${pctTxt(shareOf(a.label))}</td>`}${hasComp ? `<td class="cmp">${cmpCell(a, c)}</td>` : ""}</tr>`; }).join("")}
     <tr class="tot"><td>Total</td>${dim === "type" ? "" : `<td class="n">${nf(all.n)}</td>`}<td class="n">${nf(all.total)}</td><td class="n">${nf(all.sold)}</td><td class="n">${nf(all.left)}</td><td>${pctTxt(all.pct)}</td><td class="n">${all.pace > 0 ? nf(all.pace, 1) : "–"}</td><td class="n">${coverTxt(all)}</td>${dim === "type" ? "" : `<td class="n">${P.mapped ? "100%" : "–"}</td>`}${hasComp ? "<td></td>" : ""}</tr></tbody>`;
   const missN = Object.values(V.miss).reduce((a, b) => a + b, 0), notes = [];
   if (missN) notes.push(`${nf(missN)} penjualan belum punya baris di ${st === "demo" ? "stok contoh" : "tab " + STOCK_TAB} (${Object.keys(V.miss).slice(0, 4).join(", ")}${Object.keys(V.miss).length > 4 ? ", …" : ""}), jadi tidak ikut dihitung.`);
   if (hasComp && anyComp && dim !== "seg") notes.push(`Kompetitor yang sudah punya data ${D.l}: ${nf(anyComp.withData)} dari ${nf(anyComp.all)} tipe. Lengkapi lewat Ekstrak brosur atau Edit di Market Research.`);
+  if (hasComp) notes.push(`Harga ${OWN_DEV} = rata-rata harga jual unit standar per tipe dari rekap penjualan; harga kompetitor = harga di pricelist / brosur.`);
   notes.push("Hampir habis = sisa ≤ 10%, Menipis = sisa ≤ 25%, Lambat = sisa ≥ 70% tanpa penjualan 6 bulan.");
   $("#stNote").textContent = notes.join(" ");
 }
