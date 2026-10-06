@@ -74,7 +74,7 @@ post('syncNow', {}); ok('perubahan harga masuk PriceHistory', get().history.some
 ok('aksi tidak dikenal', post('apaini', {}).error === 'unknown action');
 ok('import ke sheet tidak valid ditolak', /tidak valid/.test(post('import', {sheet:'Settings', rows:[{id:'x'}]}).error || ''));
 // volume: 300 baris penjualan
-r = post('import', {sheet:'Sales', rows:Array.from({length:300}, (_, i) => ({id:'s'+i, date:'2026-0'+(1+i%9)+'-15', cluster:'Padmagriya', price:1.1e9, status:'Akad'}))});
+r = post('import', {sheet:'Sales', rows:Array.from({length:300}, (_, i) => ({id:'s'+i, date:'2026-0'+(1+i%9)+'-15', cluster:'Pastigriya', price:1.1e9, status:'Akad'}))});
 ok('import 300 baris Sales, tanggal tetap teks', r.count === 300 && get().sales.length === 300 && get().sales[5].date === '2026-06-15', get().sales[5].date);
 // AI: panggilan ke Claude API (ditiru) — format permintaan, kunci salah, kunci kosong
 let seen = null;

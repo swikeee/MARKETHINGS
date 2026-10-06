@@ -286,7 +286,7 @@ function upsertUnits(units, s) {
 }
 
 function tierOf(lb, price, given, name) {
-  if (/student|naragriya/i.test(String(name || ''))) return 'Student House';
+  if (/student|cikonengraya/i.test(String(name || ''))) return 'Student House';
   if (/ruko|shophouse|plaza|komersial/i.test(String(name || ''))) return 'Shophouse';
   if (['Milenial','Deluxe','Premium','Shophouse','Student House'].indexOf(given) >= 0) return given;
   if (lb) return lb < 70 ? 'Milenial' : lb <= 130 ? 'Deluxe' : 'Premium';
