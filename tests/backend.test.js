@@ -167,6 +167,11 @@ delete env.props.ANTHROPIC_API_KEY; delete env.props.AI_COUNT;
   r = post('extractAll', {text:'x', images:[{page:1, file:'brosur.pdf', data:'QUFB'}, {page:1, file:'pricelist.pdf', data:'QkJC'}]}); const p2 = g.body.contents[0].parts;
   ok('beberapa file: gambar berlabel nama file, AI diminta menggabungkan brosur + pricelist', p2[0].text === '[Gambar · file "brosur.pdf" · halaman 1]' && p2[2].text === '[Gambar · file "pricelist.pdf" · halaman 1]' && /beberapa file untuk proyek yang sama/.test(p2[4].text) && /harga dari pricelist/.test(p2[4].text));
   ok('nama file sumber ikut di hasil, akhiran "Standard" dibuang dari nama tipe', r.units[0].file === 'pricelist.pdf' && r.units[0].type === 'Anggrek 8x15', JSON.stringify([r.units[0].type, r.units[0].file]));
+  // hapus banyak baris sekaligus (data lama hasil baca brosur)
+  { ['dm1','dm2','dm3'].forEach(id => post('saveCompetitor', {id, developer:'PT Uji Hapus', cluster:id, tier:'Deluxe'}));
+    r = post('deleteMany', {sheet:'Competitors', ids:['dm1','dm3','tidak-ada']}); const left = env.api.readTable('Competitors').filter(c => c.developer === 'PT Uji Hapus').map(c => c.id).join(',');
+    ok('deleteMany: baris yang disebut terhapus, sisanya utuh, butuh token tulis', r.ok && r.deleted === 2 && left === 'dm2' && post('deleteMany', {sheet:'Competitors', ids:['dm2']}, 'salah').error === 'unauthorized', JSON.stringify(r) + ' ' + left);
+    post('delete', {sheet:'Competitors', id:'dm2'}); }
   // developer = nama di logo (bukan PT), segmen dari foto
   { const ans = {developer:'summarecon  bandung', developerFrom:'logo kanan atas hal 1', legalEntity:'PT. Mahkota Permata Perdana', project:'Diamond Commercial', location:'Gedebage', units:[
       {cluster:'Diamond Commercial', type:'5x17', tier:'Shophouse', tierFrom:'foto hal 2: deretan ruko 2 lantai', lt:123, lb:85, floors:2, price:2670000000, priceBasis:'tunai keras'},

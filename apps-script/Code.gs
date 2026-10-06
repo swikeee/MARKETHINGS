@@ -34,7 +34,7 @@ const SHEETS = {
 };
 // Kolom yang harus tetap teks: cegah Sheets mengubah tanggal jadi Date, kode kavling jadi angka, atau nomor telepon kehilangan angka 0 di depan
 const TEXT_COLS = { Sales: ['date','akadDate'], Leads: ['month'], Offers: ['date','plotCode','contact','tenant'], Plots: ['code','poly','drawingId'], Competitors: ['sourceDate','cluster','unitType'], Files: ['name'], Settings: ['id','value'] };
-const WRITE_ACTIONS = ['saveCompetitor','savePlot','saveOffer','saveSource','delete','import','saveFile','deleteFile','saveSetting','selfTest'];
+const WRITE_ACTIONS = ['saveCompetitor','savePlot','saveOffer','saveSource','delete','deleteMany','import','saveFile','deleteFile','saveSetting','selfTest'];
 const NUMERIC = ['size','leads','visits','lt','lb','price','stock','sold','months','area','frontage','priceM2','rentM2','x','y','w','h','oldPrice','newPrice','changePct','term','inst','kt','km','floors'];
 const BOOL = ['isOwn','auto','dummy','active'];
 const MAX_TEXT = 60000;
@@ -130,6 +130,7 @@ function handle(action, p) {
       case 'saveOffer':      return out({ ok: true, row: upsert('Offers', { ...pick(p, SHEETS.Offers), id: p.id || 'of-' + uid(), updatedAt: now() }) });
       case 'saveSource':     return out({ ok: true, row: upsert('Sources', { ...pick(p, SHEETS.Sources), id: p.id || 'src-' + uid(), active: p.active !== false }) });
       case 'delete':         return out({ ok: deleteRow(p.sheet, p.id) });
+      case 'deleteMany':     return out({ ok: true, deleted: (Array.isArray(p.ids) ? p.ids : []).slice(0, 200).filter(id => deleteRow(p.sheet, id)).length });
       case 'import': {       // kirim data contoh dari dashboard ke Sheet
         if (['Competitors', 'Plots', 'Sources', 'Sales', 'Leads', 'Offers'].indexOf(p.sheet) < 0) throw new Error('Sheet tidak valid');
         importRows(p.sheet, p.rows || []);

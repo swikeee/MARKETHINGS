@@ -152,7 +152,7 @@ textarea{min-height:80px;resize:vertical}
 .bep .big{font:700 44px/1 var(--f-display);color:var(--accent)}
 .bep .big small{font:500 15px var(--f-body);color:var(--muted);margin-left:4px}
 .rv-wrap{max-height:52vh;overflow:auto} .rv-wrap thead th{position:sticky;top:0;background:var(--surface);z-index:1} table.rv{min-width:760px} .rv td{white-space:normal;vertical-align:top} .rv td.n{white-space:nowrap}
-.miss{color:var(--warn);font-weight:600} .rv-hint{display:block;margin-top:4px;font-size:12px;color:var(--muted);overflow-wrap:anywhere} .rv-hint.miss{color:var(--warn)} .rv td:nth-child(3){min-width:200px;max-width:230px;overflow-wrap:anywhere} .rv td:nth-child(3) small{max-width:230px;white-space:normal;overflow-wrap:anywhere} .rv .rv-seg{font:inherit;font-size:12.5px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:inherit;width:auto;min-width:124px;height:auto} .rv td.src{font-size:12px;color:var(--muted);max-width:150px;overflow-wrap:anywhere}
+.miss{color:var(--warn);font-weight:600} .form .rv-rep{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.45;margin:0} .form .rv-rep[hidden]{display:none} .form .rv-rep input{margin:3px 0 0;flex:none;width:auto} .form .rv-rep span{flex:1;min-width:0} .rv-hint{display:block;margin-top:4px;font-size:12px;color:var(--muted);overflow-wrap:anywhere} .rv-hint.miss{color:var(--warn)} .rv td:nth-child(3){min-width:200px;max-width:230px;overflow-wrap:anywhere} .rv td:nth-child(3) small{max-width:230px;white-space:normal;overflow-wrap:anywhere} .rv .rv-seg{font:inherit;font-size:12.5px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:inherit;width:auto;min-width:124px;height:auto} .rv td.src{font-size:12px;color:var(--muted);max-width:150px;overflow-wrap:anywhere}
 .ex-files{display:grid;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
 .ex-file{display:grid;grid-template-columns:54px minmax(0,1fr);gap:10px;align-items:center} .ex-file b{overflow-wrap:anywhere;font-size:13px}
 .ex-file-p{width:54px;height:70px;border:1px solid var(--line);border-radius:6px;background:var(--surface);overflow:hidden;display:grid;place-items:center} .ex-file-p canvas,.ex-file-p img{max-width:100%;max-height:100%;display:block}
@@ -2570,7 +2570,7 @@ $("#fileGrid").onclick = async e => {
   const o = e.target.closest("[data-f-open]"); if (o){ const f = allFiles().find(x=>x.id===o.dataset.fOpen); if (!f) return;
     if (f.blob){ const u = URL.createObjectURL(f.blob); window.open(u, "_blank"); setTimeout(()=>URL.revokeObjectURL(u), 60000); } else if (safeUrl(f.url)) window.open(f.url, "_blank", "noopener"); return; }
   const d = e.target.closest("[data-f-del]"); if (d){ if (!d.dataset.confirm){ d.dataset.confirm = 1; d.textContent = "Klik lagi"; return; }
-    await removeFile(d.dataset.fDel); } };
+    await askRemoveFile(d.dataset.fDel); } };
 
 // ---------- cadangan (unduh / pulihkan) ----------
 async function downloadBackup(){
@@ -3384,8 +3384,28 @@ function imageToBase64(file){
     img.src = url;
   });
 }
+// ---------- produk hasil baca brosur yang berasal dari file tertentu (dicocokkan lewat kolom Sumber = "Brosur: <nama file>") ----------
+const broRows = names => comps.filter(c => !c.isOwn && /^Brosur:/i.test(String(c.source || "")) && names.some(n => n && String(c.source).includes(n)));
+async function deleteComps(ids){ if (!ids.length) return;
+  if (mode === "demo"){ comps = comps.filter(c => !ids.includes(c.id)); persistLocal(); renderAll(); return; }
+  try { await api("deleteMany", {sheet:"Competitors", ids}); }
+  catch(e){ if (e.code !== "server" || !/unknown action/.test(e.message || "")) throw e; for (const id of ids) await api("delete", {sheet:"Competitors", id}); }   // backend lama: hapus satu per satu
+  await load(); }
+// hapus file dari arsip: bila ada produk yang dibaca dari file itu, tanya dulu apakah datanya ikut dihapus (bawaan: tetap)
+function askRemoveFile(id){ const f = allFiles().find(x => x.id === id), rows = f ? broRows([f.name]) : [];
+  if (!rows.length) return removeFile(id);
+  const devs = [...new Set(rows.map(c => c.developer).filter(Boolean))].join(", ");
+  $("#mTitle").textContent = "Hapus file"; $("#modal .box").classList.remove("wide");
+  $("#mBody").innerHTML = `<p class="note" style="margin:0">File <b>${esc(f.name)}</b> pernah dibaca AI dan menghasilkan <b>${nf(rows.length)} produk</b> di Market Research${devs ? ` (${esc(devs)})` : ""}. Datanya mau ikut dihapus, atau filenya saja?</p><p class="note" id="rmNote" style="margin:8px 0 0"></p>`;
+  const mk = (t, cls) => { const b = document.createElement("button"); b.className = "btn" + (cls ? " " + cls : ""); b.textContent = t; return b; };
+  const back = mk("Batal"), only = mk("File saja, data tetap"), both = mk(`Hapus file + ${nf(rows.length)} produk`); both.style.color = "var(--bad)"; back.style.marginRight = "auto";
+  back.onclick = closeModal; only.onclick = async () => { closeModal(); await removeFile(id); };
+  both.onclick = async () => { only.disabled = both.disabled = true; both.textContent = "Menghapus…";
+    try { await deleteComps(rows.map(c => c.id)); closeModal(); await removeFile(id); toast(`File dan ${nf(rows.length)} produk dihapus`); }
+    catch(e){ only.disabled = both.disabled = false; both.textContent = `Hapus file + ${nf(rows.length)} produk`; $("#rmNote").textContent = errText(e); } };
+  $("#mActions").replaceChildren(back, only, both); $("#modal").hidden = false; }
 // ---------- hasil baca brosur: semua cluster & tipe unit ditampilkan dulu untuk diperiksa, baru disimpan ----------
-function reviewUnits(res, fileName){
+function reviewUnits(res, fileName, files = []){
   const units = (res.units || []).map((u, i) => ({...u, i, on:true, tier:TIERS.includes(u.tier) ? u.tier : "Deluxe"}));
   const today = new Date().toLocaleDateString("id-ID", {day:"numeric", month:"short", year:"numeric"});
   $("#mTitle").textContent = `Hasil baca brosur · ${nf(units.length)} tipe unit`; $("#modal .box").classList.toggle("wide", units.length > 0);
@@ -3403,6 +3423,7 @@ function reviewUnits(res, fileName){
       <div class="field"><label for="rvProj">Proyek / kawasan</label><input type="text" id="rvProj" value="${esc(res.project || res.location || "")}"></div></div>
     <p class="note" style="margin:0">${nf(clusters.length)} cluster: ${clusters.map(esc).join(", ")}. Developer dibaca dari logo, segmen dari foto bangunannya (bisa diganti di kolom Segmen). Harga = tunai keras (atau tunai 2x) untuk unit standar; cara bayarnya tertulis di bawah angka. Cocokkan dengan dokumennya dulu (kolom Sumber = file dan halaman). Tanda <span class="miss">–</span> berarti tidak tercantum, jadi tidak diisi.</p>
     <div class="tablewrap rv-wrap"><table class="proj rv" id="rvTable"></table></div>
+    <label class="rv-rep" id="rvRepWrap" hidden><input type="checkbox" id="rvRep" checked> <span id="rvRepText"></span></label>
     <p class="note" id="rvNote" style="margin:0"></p></div>`;
   const draw = () => { const have = new Set(comps.map(c => String(c.id)));
     $("#rvTable").innerHTML = `<thead><tr><th><input type="checkbox" id="rvAll" ${units.every(u => u.on) ? "checked" : ""} aria-label="Pilih semua"></th><th>Cluster</th><th>Tipe</th><th>Segmen</th><th class="n">LT</th><th class="n">LB</th><th class="n">KT</th><th class="n">KM</th><th class="n">Lantai</th><th class="n">Harga</th><th>Sumber</th></tr></thead><tbody>${
@@ -3413,7 +3434,11 @@ function reviewUnits(res, fileName){
         <td class="n">${u.price ? rp(u.price) + (u.priceBasis ? `<small>${esc(u.priceBasis)}</small>` : "") : '<span class="miss">–</span>'}</td><td class="src">${u.file || u.page ? esc([u.file, u.page ? "hal " + nf(u.page) : ""].filter(Boolean).join(" · ")) : '<span class="miss">–</span>'}</td></tr>`).join("")}</tbody>`;
     const on = units.filter(u => u.on), noPrice = on.filter(u => !u.price).length, noSize = on.filter(u => !u.lb && !u.lt).length;
     $("#rvNote").textContent = [noPrice ? `${nf(noPrice)} tipe tanpa harga` : "", noSize ? `${nf(noSize)} tipe tanpa luas` : ""].filter(Boolean).join(" · ") + (noPrice || noSize ? ". Tetap bisa disimpan, lalu dilengkapi lewat Edit." : "");
+    const old = stale(); $("#rvRepWrap").hidden = !old.length;
+    if (old.length) $("#rvRepText").textContent = `Ganti data lama dari file yang sama: hapus ${nf(old.length)} produk yang tidak ada di hasil baca ini (${[...new Set(old.map(c => c.developer).filter(Boolean))].join(", ")})`;
     save.textContent = `Simpan ${nf(on.length)} produk`; save.disabled = !on.length; };
+  // produk lama yang dulu dibaca dari file yang sama tetapi tidak termasuk hasil baca sekarang (mis. dulu tersimpan di bawah nama PT)
+  const stale = () => { const now = new Set(units.map(idOf)); return broRows(files).filter(c => !now.has(String(c.id))); };
   const back = document.createElement("button"); back.className = "btn"; back.textContent = "Batal"; back.onclick = closeModal;
   const save = document.createElement("button"); save.className = "btn primary";
   $("#mActions").replaceChildren(back, save);
@@ -3425,7 +3450,9 @@ function reviewUnits(res, fileName){
       lt:u.lt, lb:u.lb, kt:u.kt, km:u.km, floors:u.floors, price:u.price, priceBasis:u.priceBasis || "", promo:u.promo || "", notes:u.notes || "",
       source:(u.file || fileName) ? "Brosur: " + (u.file || fileName) : "Brosur / survei", sourceDate:today, isOwn:false, auto:false, dummy:false, updatedAt:new Date().toISOString()}));
     save.disabled = true; save.textContent = "Menyimpan…";
-    try { await api("import", {sheet:"Competitors", rows}); closeModal(); await load(); toast(`${nf(rows.length)} produk dari brosur tersimpan. Lengkapi stok & penjualan lewat Edit.`); }
+    const gone = $("#rvRep").checked ? stale().map(c => c.id) : [];
+    try { await api("import", {sheet:"Competitors", rows}); if (gone.length) await deleteComps(gone); closeModal(); await load();
+      toast(`${nf(rows.length)} produk dari brosur tersimpan${gone.length ? `, ${nf(gone.length)} data lama dari file yang sama dihapus` : ""}. Lengkapi stok & penjualan lewat Edit.`); }
     catch(e){ save.disabled = false; draw(); $("#rvNote").textContent = errText(e); } };
   draw(); $("#modal").hidden = false;
 }
@@ -3508,7 +3535,7 @@ $("#btnExtract").onclick = () => {
         closeModal(); editComp(null, {...r, tier:TIERS.includes(r.tier)?r.tier:"Deluxe", stock:null, sold:null, months:null, source:"Brosur / survei"});
         toast("Backend versi lama: hanya satu tipe terbaca. Tempel Code.gs terbaru untuk membaca semua tipe."); return; }
       for (const rec of (go._recs||[])) if (rec) updateFileNote(rec.id, `Hasil ekstraksi: ${res.developer || "–"} · ${nf((res.units||[]).length)} tipe unit`);
-      reviewUnits(res, names);
+      reviewUnits(res, names, okDocs.map(d => d.file.name));
     }catch(e){ go.disabled=false; $("#exStatus").textContent=errText(e); }
   };
   act.append(c,go); $("#modal").hidden=false;
