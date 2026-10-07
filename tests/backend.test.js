@@ -188,6 +188,20 @@ delete env.props.ANTHROPIC_API_KEY; delete env.props.AI_COUNT;
     r = post('deleteMany', {sheet:'Competitors', ids:['dm1','dm3','tidak-ada']}); const left = env.api.readTable('Competitors').filter(c => c.developer === 'PT Uji Hapus').map(c => c.id).join(',');
     ok('deleteMany: baris yang disebut terhapus, sisanya utuh, butuh token tulis', r.ok && r.deleted === 2 && left === 'dm2' && post('deleteMany', {sheet:'Competitors', ids:['dm2']}, 'salah').error === 'unauthorized', JSON.stringify(r) + ' ' + left);
     post('delete', {sheet:'Competitors', id:'dm2'}); }
+  // gambar fasad: AI menandai halaman + kotak; nilai yang tidak masuk akal dibuang; foto tersimpan di kolom image
+  { const ans = {developer:'Grand Uji', units:[{cluster:'Melati', type:'A', lb:98, price:2e9, imageFile:'brosur.pdf', imagePage:3, imageBox:[0.52, 0.1, 0.96, 0.48]}, {cluster:'Melati', type:'B', lb:120, imagePage:4, imageBox:[0.9, 0.5, 0.1, 0.2]},
+      {cluster:'Melati', type:'C', lb:70, imagePage:2, imageBox:[0.1, 0.1, 0.12, 0.9]}, {cluster:'Melati', type:'D', lb:60, imagePage:null, imageBox:[0, 0, 1, 1]}, {cluster:'Melati', type:'E', lb:60, imagePage:2, imageBox:'kiri atas'}]};
+    env.setFetch((url, o) => { g = {url, body:JSON.parse(o.payload)}; return {code:200, type:'application/json', body:JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(ans)}]}}]})}; });
+    r = post('extractAll', {text:'x', images:[{page:3, data:'QUFB'}]}); const U = r.units, pt = g.body.contents[0].parts.at(-1).text;
+    ok('instruksi AI meminta lokasi gambar fasad (halaman + kotak pecahan 0–1), bukan denah', /GAMBAR FASAD/.test(pt) && /imageBox = \[x0, y0, x1, y1\]/.test(pt) && /bukan denah/.test(pt) && /jangan menebak/.test(pt));
+    ok('kotak fasad diteruskan; kotak terbalik dirapikan; kotak terlalu sempit / tanpa halaman / bukan angka dibuang', U[0].imagePage === 3 && U[0].imageFile === 'brosur.pdf' && U[0].imageBox.join() === '0.52,0.1,0.96,0.48' && U[1].imageBox.join() === '0.1,0.2,0.9,0.5' && U[2].imageBox === null && U[2].imagePage === null && U[3].imageBox === null && U[4].imageBox === null, JSON.stringify(U.map(u => [u.imagePage, u.imageBox])));
+    const img = 'data:image/jpeg;base64,' + 'A'.repeat(4000);
+    r = post('saveCompetitor', {id:'img1', developer:'Grand Uji', cluster:'Melati', unitType:'A', tier:'Deluxe', price:2e9, image:img}); let c = get().competitors.find(x => x.id === 'img1');
+    ok('foto fasad tersimpan di kolom image dan ikut terbaca', r.ok && c.image === img);
+    post('saveCompetitor', {id:'img1', price:2.1e9}); ok('mengubah data lain tidak menghapus fotonya', get().competitors.find(x => x.id === 'img1').image === img);
+    post('saveCompetitor', {id:'img2', developer:'Grand Uji', cluster:'Melati', unitType:'B', tier:'Deluxe', image:'data:image/jpeg;base64,' + 'A'.repeat(60000)}); post('saveCompetitor', {id:'img3', developer:'Grand Uji', cluster:'Melati', unitType:'C', tier:'Deluxe', image:'javascript:alert(1)'});
+    ok('gambar terlalu besar atau bukan data URI gambar tidak disimpan', get().competitors.find(x => x.id === 'img2').image === '' && get().competitors.find(x => x.id === 'img3').image === '');
+    post('saveCompetitor', {id:'img1', image:''}); ok('foto bisa dihapus', get().competitors.find(x => x.id === 'img1').image === ''); ['img1','img2','img3'].forEach(id => post('delete', {sheet:'Competitors', id})); }
   // developer = nama di logo (bukan PT), segmen dari foto
   { const ans = {developer:'summarecon  bandung', developerFrom:'logo kanan atas hal 1', legalEntity:'PT. Mahkota Permata Perdana', project:'Diamond Commercial', location:'Gedebage', units:[
       {cluster:'Diamond Commercial', type:'5x17', tier:'Shophouse', tierFrom:'foto hal 2: deretan ruko 2 lantai', lt:123, lb:85, floors:2, price:2670000000, priceBasis:'tunai keras'},
@@ -217,7 +231,7 @@ delete env.props.ANTHROPIC_API_KEY; delete env.props.AI_COUNT;
   sh.rows.push(['lama-1', 'Dev Lama', '', 'Cluster Lama', 'Deluxe', 100, 80, 1500000000]);
   const res = JSON.parse(e2.api.doPost({postData:{contents:JSON.stringify({token:'t', action:'saveCompetitor', payload:{developer:'Dev Baru', cluster:'C', unitType:'36/72', kt:2, km:1, floors:1, lb:36, lt:72, price:500000000}})}}).text);
   const T = e2.api.readTable('Competitors');
-  ok('sheet lama: judul kolom baru ditambahkan otomatis, tanpa setup() ulang', res.ok && sh.rows[0].length === full && sh.rows[0].slice(-4).join() === 'unitType,kt,km,floors' && sh.fmt[full - 3] === '@', sh.rows[0].slice(-5).join());
+  ok('sheet lama: judul kolom baru ditambahkan otomatis, tanpa setup() ulang', res.ok && sh.rows[0].length === full && sh.rows[0].slice(-5).join() === 'unitType,kt,km,floors,image' && sh.fmt[full - 4] === '@' && sh.fmt[full] === '@', sh.rows[0].slice(-5).join());
   ok('sheet lama: baris lama utuh, baris baru menyimpan tipe & kamar', T.length === 2 && T.find(c => c.id === 'lama-1').price === 1500000000 && T.find(c => c.id === 'lama-1').kt === null && T.find(c => c.unitType === '36/72').kt === 2, JSON.stringify(T.map(c => [c.id, c.unitType, c.kt]))); }
 // penanda perubahan untuk sinkron otomatis
 const rev = () => JSON.parse(A.doGet({parameter:{rev:'1'}}).text);
