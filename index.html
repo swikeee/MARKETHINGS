@@ -965,6 +965,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
         <h2 class="hero-h">Market Pulse</h2>
         <p class="hero-p" id="heroSub" hidden></p>
         <div class="kpis hero-k" id="compKpis"></div>
+        <p class="hero-sum" id="compSum" hidden></p>
       </div>
       <div class="scroll-cue" aria-hidden="true">Scroll</div>
     </div>
@@ -1489,13 +1490,15 @@ function renderCompFold(rows){ const b = $("#compToggle"), devs = new Set(rows.m
   $("#compWrap").hidden = !compOpen; $("#compFold").hidden = compOpen; b.setAttribute("aria-expanded", compOpen); b.querySelector("span").textContent = compOpen ? "Sembunyikan" : `Tampilkan ${nf(rows.length)} produk`;
   $("#compFold").textContent = rows.length ? `${nf(rows.length)} produk dari ${nf(devs)} developer${tier === "all" ? "" : " di segmen " + tier}. Daftar lengkapnya disembunyikan supaya halaman ringkas.` : "Belum ada produk."; }
 $("#compToggle").onclick = () => { compOpen = !compOpen; store.set("li.showComp", compOpen ? "1" : "0"); renderComp(); };
+const DEV_SHORT = {"Kota Baru Parahyangan":"KBP", "Summarecon Bandung":"Summarecon", "Pororo Land":"Pororo"};
+const devShort = d => DEV_SHORT[d] || (String(d).length <= 12 ? String(d) : String(d).split(/\s+/).length >= 3 ? String(d).split(/\s+/).map(w => w[0]).join("").toUpperCase() : String(d).split(/\s+/)[0]);
 function renderComp(){
   const rows = comps.filter(c => tier==="all" || c.tier===tier);
   renderCompFold(rows);
   const own = rows.filter(c=>c.isOwn), oth = rows.filter(c=>!c.isOwn);
   const k = $("#compKpis");
   if (!rows.length){
-    k.innerHTML = "";
+    k.innerHTML = ""; $("#compSum").hidden = true;
     $("#compTable").innerHTML = `<tr><td class="empty">${dbState==="loading"?"Memuat data…":dbState==="error"?esc(loadError):"Belum ada produk. Klik “+ Tambah produk”, “Ekstrak brosur”, atau “Sinkron sekarang”."}</td></tr>`;
     drawCompCharts([]); return;
   }
@@ -1505,12 +1508,24 @@ function renderComp(){
   const ownA = avg(own.map(absorb)), othA = avg(oth.map(absorb));
   const autoN = rows.filter(c=>c.auto).length;
   const devN = new Set(oth.map(c=>c.developer)).size;
+  // serapan (unit terjual per bulan) per developer kompetitor, urut dari yang tipenya paling banyak; null = belum ada data stok/terjual
+  const ownAbs = own.map(absorb).filter(v => v !== null), othAbs = oth.map(absorb).filter(v => v !== null), byDev = {};
+  oth.forEach(c => { const d = byDev[c.developer || "Tanpa nama"] ??= {n:0, a:[]}; d.n++; if (absorb(c) !== null) d.a.push(absorb(c)); });
+  const devAbs = Object.entries(byDev).map(([dev, d]) => ({dev, n:d.n, a:d.a.length ? d.a.reduce((x, y) => x + y, 0)/d.a.length : null})).sort((a, b) => b.n - a.n || a.dev.localeCompare(b.dev));
   $("#heroSub").textContent = `${rows.length} tipe unit dari ${devN} developer kompetitor dan Pororo Land${tier==="all"?"":" · tier "+tier}. ${autoN} di antaranya diambil otomatis dari sumber publik.`;
   k.innerHTML = `
     <div class="kpi"><div class="l">Produk dipantau</div><div class="v" data-count="${rows.length}" data-fmt="int">${rows.length}</div><div class="s">${devN} developer kompetitor · ${autoN} dari sumber publik</div></div>
     <div class="kpi"><div class="l">Harga / m² LB · kompetitor</div><div class="v" data-count="${othP}" data-fmt="rp">${rp(othP)}</div><div class="s">Pororo ${rp(ownP)}${gap?` · <span class="${gap>0?"up":"down"}">${gap>0?"+":""}${nf(gap,1)}%</span>`:""}</div></div>
-    <div class="kpi"><div class="l">Serapan rata-rata</div><div class="v"><span data-count="${othA}" data-fmt="d1">${nf(othA,1)}</span> <small style="font-size:13px">unit/bln</small></div><div class="s">Pororo ${nf(ownA,1)} unit/bln</div></div>
+    <div class="kpi"><div class="l">Serapan rata-rata · kompetitor</div>${othAbs.length ? `<div class="v"><span data-count="${othA}" data-fmt="d1">${nf(othA,1)}</span> <small style="font-size:13px">unit/bln</small></div>` : `<div class="v">–</div>`}<div class="s">${[["Pororo", ownAbs.length ? ownA : null], ...devAbs.slice(0, 3).map(d => [devShort(d.dev), d.a])].map(x => `${esc(x[0])} ${x[1] === null ? "–" : nf(x[1], 1)}`).join(" · ")} unit/bln</div></div>
     <div class="kpi"><div class="l">Serapan tertinggi</div>${top?`<div class="v" style="font-size:17px">${esc(top.cluster)}</div><div class="s">${esc(top.developer)} · ${nf(absorb(top),1)} unit/bln</div>`:`<div class="v">–</div><div class="s">belum ada data penjualan</div>`}</div>`;
+  { const B = t => `<b>${t}</b>`, list = a => a.length > 1 ? a.slice(0, -1).join(", ") + " dan " + a.at(-1) : a[0] || "", S = [];      // ringkasan 4 panel dalam kalimat
+    S.push(`Dipantau ${B(nf(rows.length) + " tipe unit")}${tier === "all" ? "" : " di segmen " + esc(tier)}: ${nf(own.length)} milik Pororo Land dan ${nf(oth.length)} dari ${nf(devN)} developer kompetitor${devN && devN <= 4 ? " (" + esc(list(devAbs.map(d => d.dev))) + ")" : ""}.`);
+    if (ownP && othP) S.push(`Rata-rata harga per m² luas bangunan Pororo Land ${B(rp(ownP))}, ${Math.abs(gap) < .05 ? "sama dengan" : B(nf(Math.abs(gap), 1) + "% " + (gap > 0 ? "lebih tinggi" : "lebih rendah")) + " dari"} rata-rata kompetitor (${rp(othP)}).`);
+    else if (ownP || othP) S.push(`Rata-rata harga per m² luas bangunan ${ownP ? "Pororo Land" : "kompetitor"} ${B(rp(ownP || othP))}; ${ownP ? "kompetitor" : "Pororo Land"} belum punya data harga dan luas bangunan.`);
+    const withA = devAbs.filter(d => d.a !== null), noA = devAbs.filter(d => d.a === null);
+    S.push(`Serapan (rata-rata unit terjual per bulan, per cluster)${ownAbs.length ? `: Pororo Land ${B(nf(ownA, 1) + " unit per bulan")}` : ": Pororo Land belum ada data"}${withA.length ? ", " + withA.slice(0, 4).map(d => `${esc(d.dev)} ${B(nf(d.a, 1) + " unit per bulan")}`).join(", ") : ""}.${noA.length ? ` ${esc(list(noA.slice(0, 4).map(d => d.dev)))}${noA.length > 4 ? " dan lainnya" : ""} belum punya data serapan (stok dan unit terjual belum diisi).` : ""}`);
+    if (top) S.push(`Serapan tertinggi: ${B(esc(top.cluster))} milik ${esc(top.developer)}, ${B(nf(absorb(top), 1) + " unit per bulan")}.`);
+    $("#compSum").innerHTML = S.map(t => `<span>${t}</span>`).join(" "); $("#compSum").hidden = false; }
   const ab = c => absorb(c) ?? -1;
   const sorted = [...rows].sort((a,b)=> (b.isOwn-a.isOwn) || String(a.developer).localeCompare(b.developer) || ab(b)-ab(a));
   const pos = v => num(v) > 0 ? v : null;
