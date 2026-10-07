@@ -152,7 +152,7 @@ textarea{min-height:80px;resize:vertical}
 .bep .big{font:700 44px/1 var(--f-display);color:var(--accent)}
 .bep .big small{font:500 15px var(--f-body);color:var(--muted);margin-left:4px}
 .rv-wrap{max-height:52vh;overflow:auto} .rv-wrap thead th{position:sticky;top:0;background:var(--surface);z-index:1} table.rv{min-width:760px} .rv td{white-space:normal;vertical-align:top} .rv td.n{white-space:nowrap}
-.miss{color:var(--warn);font-weight:600} .form .rv-rep{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.45;margin:0} .form .rv-rep[hidden]{display:none} .form .rv-rep input{margin:3px 0 0;flex:none;width:auto} .form .rv-rep span{flex:1;min-width:0} .rv-hint{display:block;margin-top:4px;font-size:12px;color:var(--muted);overflow-wrap:anywhere} .rv-hint.miss{color:var(--warn)} .rv td:nth-child(4){min-width:200px;max-width:230px;overflow-wrap:anywhere} .rv td:nth-child(4) small{max-width:230px;white-space:normal;overflow-wrap:anywhere} .rv .rv-seg{font:inherit;font-size:12.5px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:inherit;width:auto;min-width:124px;height:auto} .rv td.src{font-size:12px;color:var(--muted);max-width:150px;overflow-wrap:anywhere}
+.miss{color:var(--warn);font-weight:600} .form .rv-rep{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.45;margin:0} .form .rv-rep[hidden]{display:none} .form .rv-rep input{margin:3px 0 0;flex:none;width:auto} .form .rv-rep span{flex:1;min-width:0} .rv-hint{display:block;margin-top:4px;font-size:12px;color:var(--muted);overflow-wrap:anywhere} .rv-hint.miss{color:var(--warn)} .rv td:nth-child(5){min-width:200px;max-width:230px;overflow-wrap:anywhere} .rv td:nth-child(5) small{max-width:230px;white-space:normal;overflow-wrap:anywhere} .rv .rv-seg{font:inherit;font-size:12.5px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:inherit;width:auto;min-width:124px;height:auto} .rv td.src{font-size:12px;color:var(--muted);max-width:150px;overflow-wrap:anywhere}
 .ex-files{display:grid;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
 .ex-file{display:grid;grid-template-columns:54px minmax(0,1fr);gap:10px;align-items:center} .ex-file b{overflow-wrap:anywhere;font-size:13px}
 .ex-file-p{width:54px;height:70px;border:1px solid var(--line);border-radius:6px;background:var(--surface);overflow:hidden;display:grid;place-items:center} .ex-file-p canvas,.ex-file-p img{max-width:100%;max-height:100%;display:block}
@@ -235,7 +235,7 @@ details.abs-more > summary{cursor:pointer;font-size:12.5px;font-weight:500;color
 .gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(250px,100%),1fr));gap:14px}
 .gcard{display:grid;grid-template-rows:auto 1fr;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;min-width:0;box-shadow:var(--shadow)}
 .gcard.picked{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent)}
-.gimg{position:relative;aspect-ratio:4/3;background:var(--surface-2);overflow:hidden} .gimg img{width:100%;height:100%;object-fit:cover;display:block}
+.gimg{position:relative;aspect-ratio:4/3;background:var(--surface-2);overflow:hidden} .gimg img{width:100%;height:100%;object-fit:cover;display:block} .gimg.plan{background:#fff} .gimg.plan img{object-fit:contain;box-sizing:border-box;padding:30px 10px 32px}
 .gimg .none{position:absolute;inset:0;display:grid;place-items:center;align-content:center;gap:8px;color:var(--muted);font-size:12.5px;text-align:center;padding:12px}
 .gimg .none svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;opacity:.6}
 .gdev{position:absolute;left:10px;top:10px;display:inline-flex;align-items:center;gap:6px;max-width:calc(100% - 20px);padding:3px 9px;border-radius:999px;font:600 11.5px var(--f-body);background:color-mix(in srgb,var(--surface) 90%,transparent);backdrop-filter:blur(6px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -247,9 +247,14 @@ details.abs-more > summary{cursor:pointer;font-size:12.5px;font-weight:500;color
 .gspec{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;margin:0} .gspec div{min-width:0} .gspec dt{font-size:11px;color:var(--muted)} .gspec dd{margin:0;font-size:13px;font-weight:600;overflow-wrap:anywhere} .gspec dd small{font-weight:400;color:var(--muted);font-size:11px}
 .gacts{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
 .gal-cmp{overflow-x:auto} .gal-cmp table{min-width:0;width:100%;table-layout:fixed} .gal-cmp th,.gal-cmp td{white-space:normal;vertical-align:top;padding:8px 10px;font-size:13px;overflow-wrap:anywhere} .gal-cmp th:first-child,.gal-cmp td:first-child{width:112px;color:var(--muted);font-weight:500}
-.gal-cmp .cimg{aspect-ratio:4/3;border-radius:10px;overflow:hidden;background:var(--surface-2);margin-bottom:8px;display:grid;place-items:center;color:var(--muted);font-size:12px} .gal-cmp .cimg img{width:100%;height:100%;object-fit:cover;display:block}
+.gal-cmp .cimg{aspect-ratio:4/3;border-radius:10px;overflow:hidden;background:var(--surface-2);margin-bottom:8px;display:grid;place-items:center;color:var(--muted);font-size:12px} .gal-cmp .cimg img{width:100%;height:100%;object-fit:cover;display:block} .gal-cmp .cimg.plan{background:#fff;margin:0} .gal-cmp .cimg.plan img{object-fit:contain}
 .gal-cmp td.best{font-weight:700;color:var(--accent)} .gal-cmp .ch{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap}
 /* potong gambar fasad */
+.gimg img,.cimg img{cursor:zoom-in}
+.zoomer{position:fixed;inset:0;z-index:10000;background:rgba(9,9,11,.72);display:grid;place-items:center;padding:14px;overflow:auto}
+.zoomer .zb{background:var(--surface);color:var(--text);border-radius:14px;padding:16px;max-width:min(1100px,100%);width:100%;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.zoomer .zh{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px} .zoomer h3{margin:0;font-size:17px} .zoomer .zh p{margin:3px 0 0;color:var(--muted);font-size:13px}
+.zoomer .zg{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px} .zoomer figure{margin:0;background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden} .zoomer figure img{display:block;width:100%;max-height:68vh;object-fit:contain} .zoomer figcaption{padding:6px 10px;font-size:12px;color:#52525b;border-top:1px solid #e4e4e7}
 .cropper{position:fixed;inset:0;z-index:10000;background:rgba(9,9,11,.62);display:grid;place-items:center;padding:14px}
 .cr-box{background:var(--surface);color:var(--ink);border-radius:14px;width:min(980px,100%);max-height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:10px;padding:14px 16px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
 .cr-h b{font:700 16px var(--f-display)} .cr-h p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
@@ -1105,8 +1110,8 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
     </div>
     <div class="sec reveal in" id="gallerySec">
       <div class="sec-h scene"><span class="eyebrow">07</span><h2>Galeri fasad</h2>
-        <p class="note">Foto fasad tiap tipe unit berdampingan dengan luas, kamar, dan harganya. Foto dipotong otomatis dari brosur saat Ekstrak brosur, atau ditambahkan sendiri lewat tombol di tiap kartu. Centang beberapa kartu untuk membandingkannya.</p></div>
-      <div class="gal-tools"><div class="seg" id="galShow"><button aria-pressed="true" data-v="photo">Dengan foto</button><button aria-pressed="false" data-v="all">Semua tipe</button></div>
+        <p class="note">Foto fasad dan denah (layout) tiap tipe unit berdampingan dengan luas, kamar, dan harganya. Gambar dipotong otomatis dari brosur saat Ekstrak brosur, atau ditambahkan sendiri lewat tombol di tiap kartu. Pilih Fasad atau Denah untuk mengganti gambar di semua kartu; centang beberapa kartu untuk membandingkannya.</p></div>
+      <div class="gal-tools"><div class="seg" id="galPic" aria-label="Gambar yang ditampilkan"><button aria-pressed="true" data-k="image">Fasad</button><button aria-pressed="false" data-k="plan">Denah</button></div><div class="seg" id="galShow"><button aria-pressed="true" data-v="photo">Dengan foto</button><button aria-pressed="false" data-v="all">Semua tipe</button></div>
         <label class="sel" for="galDev">Developer <select id="galDev"></select></label>
         <label class="sel" for="galSort">Urutkan <select id="galSort"><option value="dev">Developer</option><option value="price">Harga termurah</option><option value="pm2">Harga per m² termurah</option><option value="lb">Luas bangunan terbesar</option></select></label>
         <span class="note" id="galCount"></span></div>
@@ -1912,63 +1917,73 @@ let absTier = "all";
 $("#absSeg").onclick = e => { const b = e.target.closest("button"); if (!b || b.disabled) return; absTier = b.dataset.s; drawCompCharts(lastChartRows); };
 
 // ---------- galeri fasad: foto tiap tipe berdampingan dengan spesifikasi & harganya; beberapa kartu bisa dibandingkan ----------
-const gal = {show:"", dev:"all", sort:"dev", cmp:[], target:""};
+const gal = {show:"", dev:"all", sort:"dev", cmp:[], target:"", pic:"image"};      // pic = gambar yang ditampilkan di kartu: "image" (fasad) atau "plan" (denah)
 const galName = c => c.unitType && c.unitType !== c.cluster ? c.unitType : c.cluster;
 const galKamar = c => [num(c.kt) ? nf(c.kt) + " KT" : "", num(c.km) ? nf(c.km) + " KM" : "", num(c.floors) ? nf(c.floors) + " lantai" : ""].filter(Boolean).join(" · ");
 const PHOTO_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18M5 20V9l7-5 7 5v11M10 20v-6h4v6"/></svg>';
 function renderGallery(rows){
   const el = $("#galGrid"); if (!el) return;
-  const nPhoto = rows.filter(c => okImg(c.image)).length; if (!gal.picked) gal.show = nPhoto ? "photo" : "all";      // sebelum dipilih sendiri: tampilkan yang berfoto bila ada
+  const K = PIC_KINDS.find(x => x.k === gal.pic) || PIC_KINDS[0], pic = c => c[K.k], anyPic = c => okImg(c.image) || okImg(c.plan);
+  const nPhoto = rows.filter(anyPic).length; if (!gal.picked) gal.show = nPhoto ? "photo" : "all";
+  $("#galPic").querySelectorAll("button").forEach(b => { b.setAttribute("aria-pressed", b.dataset.k === gal.pic); const kk = PIC_KINDS.find(x => x.k === b.dataset.k); b.textContent = `${kk.L} (${nf(rows.filter(c => okImg(c[kk.k])).length)})`; });      // sebelum dipilih sendiri: tampilkan yang berfoto bila ada
   const devs = [...new Set(rows.map(c => c.developer).filter(Boolean))].sort((a, b) => (b === OWN_DEV) - (a === OWN_DEV) || a.localeCompare(b)); if (gal.dev !== "all" && !devs.includes(gal.dev)) gal.dev = "all";
   $("#galDev").innerHTML = `<option value="all">Semua developer</option>` + devs.map(d => `<option${d === gal.dev ? " selected" : ""}>${esc(d)}</option>`).join("");
-  $("#galShow").querySelectorAll("button").forEach(b => { b.setAttribute("aria-pressed", b.dataset.v === gal.show); if (b.dataset.v === "photo") b.textContent = `Dengan foto (${nf(nPhoto)})`; else b.textContent = `Semua tipe (${nf(rows.length)})`; });
+  $("#galShow").querySelectorAll("button").forEach(b => { b.setAttribute("aria-pressed", b.dataset.v === gal.show); if (b.dataset.v === "photo") b.textContent = `Dengan gambar (${nf(nPhoto)})`; else b.textContent = `Semua tipe (${nf(rows.length)})`; });
   $("#galSort").value = gal.sort;
   const big = v => v === null || v === undefined || !(num(v) > 0) ? Infinity : num(v);
-  const list = rows.filter(c => (gal.show === "all" || okImg(c.image)) && (gal.dev === "all" || c.developer === gal.dev)).sort((a, b) =>
+  const list = rows.filter(c => (gal.show === "all" || anyPic(c)) && (gal.dev === "all" || c.developer === gal.dev)).sort((a, b) =>
     gal.sort === "price" ? big(a.price) - big(b.price) : gal.sort === "pm2" ? big(pm2(a)) - big(pm2(b)) : gal.sort === "lb" ? num(b.lb) - num(a.lb)
     : (b.isOwn - a.isOwn) || String(a.developer).localeCompare(b.developer) || big(a.price) - big(b.price));
   gal.cmp = gal.cmp.filter(id => rows.some(c => c.id === id));
   $("#galCount").textContent = rows.length ? `${nf(list.length)} tipe ditampilkan` + (gal.cmp.length ? ` · ${nf(gal.cmp.length)} dipilih untuk dibandingkan` : "") : "";
   const W = canWrite();
-  el.innerHTML = list.length ? list.map(c => { const has = okImg(c.image), kamar = galKamar(c), sel = gal.cmp.includes(c.id);
-    return `<article class="gcard${sel ? " picked" : ""}"><div class="gimg">${has ? `<img src="${c.image}" alt="Fasad ${esc(galName(c))}" loading="lazy">` : `<div class="none">${PHOTO_SVG}<span>Belum ada foto fasad</span></div>`}
+  el.innerHTML = list.length ? list.map(c => { const has = okImg(pic(c)), kamar = galKamar(c), sel = gal.cmp.includes(c.id);
+    return `<article class="gcard${sel ? " picked" : ""}"><div class="gimg${K.k === "plan" ? " plan" : ""}">${has ? `<img src="${pic(c)}" alt="${K.L} ${esc(galName(c))}" loading="lazy" data-gzoom="${esc(c.id)}" title="Klik untuk perbesar">` : `<div class="none">${PHOTO_SVG}<span>Belum ada ${K.k === "plan" ? "gambar denah" : "foto fasad"}</span></div>`}
         <span class="gdev" style="--c:${c.isOwn ? "var(--accent)" : devColor(c.developer, false)}"><i></i>${esc(c.developer || "–")}</span>
         <label class="gcmp"><input type="checkbox" data-gcmp="${esc(c.id)}" ${sel ? "checked" : ""}> Bandingkan</label></div>
       <div class="gbody"><h4>${esc(galName(c))}</h4>
         <div class="gsub">${galName(c) !== c.cluster ? `<span>${esc(c.cluster)}</span>` : c.project ? `<span>${esc(c.project)}</span>` : ""}<span class="chip">${esc(c.tier || "–")}</span>${c.isOwn ? '<span class="chip own">Kita</span>' : ""}</div>
         <dl class="gspec"><div><dt>LT / LB</dt><dd>${dash(num(c.lt) || null, nf)} / ${dash(num(c.lb) || null, nf)} <small>m²</small></dd></div><div><dt>Kamar & lantai</dt><dd>${kamar ? esc(kamar) : "–"}</dd></div>
           <div><dt>Harga</dt><dd>${num(c.price) > 0 ? rp(c.price) : "–"}${c.priceBasis ? `<br><small>${esc(c.priceBasis)}</small>` : ""}</dd></div><div><dt>Harga per m² LB</dt><dd>${dash(pm2(c), rp)}</dd></div></dl>
-        ${W ? `<div class="gacts"><button class="btn sm" data-gphoto="${esc(c.id)}">${has ? "Ganti foto" : "Tambah foto"}</button>${has ? `<button class="btn sm" data-gdel="${esc(c.id)}">Hapus foto</button>` : ""}<button class="btn sm" data-edit-comp="${esc(c.id)}">Edit</button></div>` : ""}</div></article>`; }).join("")
-    : `<div class="empty" style="grid-column:1/-1">${!rows.length ? "Belum ada produk." : gal.show === "photo" ? `Belum ada tipe yang punya foto fasad${gal.dev === "all" ? "" : " dari " + esc(gal.dev)}. Unggah brosur lewat <b>Ekstrak brosur</b> (fasadnya dipotong otomatis), atau pilih <b>Semua tipe</b> lalu klik <b>Tambah foto</b> di kartunya.` : "Tidak ada tipe yang cocok dengan saringan ini."}</div>`;
+        ${W ? `<div class="gacts"><button class="btn sm" data-gphoto="${esc(c.id)}">${has ? "Ganti " : "Tambah "}${K.l}</button>${has ? `<button class="btn sm" data-gdel="${esc(c.id)}">Hapus ${K.l}</button>` : ""}<button class="btn sm" data-edit-comp="${esc(c.id)}">Edit</button></div>` : ""}</div></article>`; }).join("")
+    : `<div class="empty" style="grid-column:1/-1">${!rows.length ? "Belum ada produk." : gal.show === "photo" ? `Belum ada tipe yang punya foto fasad atau denah${gal.dev === "all" ? "" : " dari " + esc(gal.dev)}. Unggah brosur lewat <b>Ekstrak brosur</b> (fasad dan denahnya dipotong otomatis), atau pilih <b>Semua tipe</b> lalu klik <b>Tambah ${K.l}</b> di kartunya.` : "Tidak ada tipe yang cocok dengan saringan ini."}</div>`;
   // perbandingan berdampingan
   const C = gal.cmp.map(id => rows.find(c => c.id === id)).filter(Boolean), box = $("#galCompare"); box.hidden = C.length < 2;
   if (C.length >= 2){ const pm = C.map(pm2), minPm = Math.min(...pm.filter(v => v !== null)), pr = C.map(c => num(c.price) > 0 ? num(c.price) : null), minPr = Math.min(...pr.filter(v => v !== null));
     const line = (label, f, best) => `<tr><td>${label}</td>${C.map((c, i) => `<td${best && best(i) ? ' class="best"' : ""}>${f(c, i)}</td>`).join("")}</tr>`;
     box.innerHTML = `<div class="ch"><h3 style="margin:0">Perbandingan ${nf(C.length)} tipe</h3><button class="btn sm" id="galClear">Kosongkan pilihan</button></div>
-      <table><thead><tr><th></th>${C.map(c => `<th><div class="cimg">${okImg(c.image) ? `<img src="${c.image}" alt="Fasad ${esc(galName(c))}">` : "Belum ada foto"}</div>${esc(galName(c))}</th>`).join("")}</tr></thead><tbody>
-      ${line("Developer", c => esc(c.developer || "–") + (c.isOwn ? ' <span class="chip own">Kita</span>' : ""))}${line("Cluster / proyek", c => esc(galName(c) !== c.cluster ? c.cluster : c.project || "–"))}${line("Segmen", c => esc(c.tier || "–"))}
+      <table><thead><tr><th></th>${C.map(c => `<th><div class="cimg">${okImg(c.image) ? `<img src="${c.image}" alt="Fasad ${esc(galName(c))}" data-gzoom="${esc(c.id)}">` : "Belum ada foto"}</div>${esc(galName(c))}</th>`).join("")}</tr></thead><tbody>
+      ${C.some(c => okImg(c.plan)) ? line("Denah", c => `<div class="cimg plan">${okImg(c.plan) ? `<img src="${c.plan}" alt="Denah ${esc(galName(c))}" data-gzoom="${esc(c.id)}">` : "Belum ada denah"}</div>`) : ""}${line("Developer", c => esc(c.developer || "–") + (c.isOwn ? ' <span class="chip own">Kita</span>' : ""))}${line("Cluster / proyek", c => esc(galName(c) !== c.cluster ? c.cluster : c.project || "–"))}${line("Segmen", c => esc(c.tier || "–"))}
       ${line("Luas tanah", c => num(c.lt) > 0 ? nf(c.lt) + " m²" : "–")}${line("Luas bangunan", c => num(c.lb) > 0 ? nf(c.lb) + " m²" : "–")}${line("Kamar & lantai", c => esc(galKamar(c)) || "–")}
       ${line("Harga", (c, i) => pr[i] === null ? "–" : rp(pr[i]) + (c.priceBasis ? `<div class="note">${esc(c.priceBasis)}</div>` : ""), i => pr[i] !== null && pr[i] === minPr && pr.filter(v => v !== null).length > 1)}
       ${line("Harga per m² LB", (c, i) => pm[i] === null ? "–" : rp(pm[i]), i => pm[i] !== null && pm[i] === minPm && pm.filter(v => v !== null).length > 1)}
       ${line("Serapan", c => absorb(c) === null ? "–" : nf(absorb(c), 1) + " unit/bln" + (absDummy(c) || (c.isOwn && c.dummy) ? ' <span class="dummy">dummy</span>' : ""))}${line("Promo", c => esc(c.promo || "–"))}${line("Sumber", c => esc(c.source || (c.dummy ? "Data dummy" : "Input manual")) + (c.sourceDate ? `<div class="note">${esc(c.sourceDate)}</div>` : ""))}
       </tbody></table><p class="note" style="margin:8px 0 0">Angka berwarna = yang paling murah di antara tipe yang dibandingkan.</p>`; }
 }
-async function saveCompImage(id, image){ const c = comps.find(x => x.id === id); if (!c) return;
-  if (mode !== "demo") await api("import", {sheet:"Competitors", rows:[{id, image}]});      // hanya kolom foto yang diubah: status Auto dan data lain tidak tersentuh
-  c.image = image; if (mode === "demo") persistLocal(); renderComp(); }
+function galZoom(id){ const c = comps.find(x => x.id === id); if (!c) return; const pics = PIC_KINDS.filter(K => okImg(c[K.k])); if (!pics.length) return;
+  const kamar = galKamar(c), o = document.createElement("div"); o.className = "zoomer"; o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-label", "Gambar " + galName(c));
+  o.innerHTML = `<div class="zb"><div class="zh"><div><h3>${esc(galName(c))}</h3><p>${esc(c.developer || "–")}${c.tier ? " · " + esc(c.tier) : ""} · LT ${dash(num(c.lt) || null, nf)} / LB ${dash(num(c.lb) || null, nf)} m²${kamar ? " · " + esc(kamar) : ""}${num(c.price) > 0 ? " · " + rp(c.price) : ""}</p></div><button class="btn sm" data-zclose>Tutup</button></div>
+    <div class="zg">${pics.map(K => `<figure><img src="${c[K.k]}" alt="${K.L} ${esc(galName(c))}"><figcaption>${K.L}</figcaption></figure>`).join("")}</div></div>`;
+  const close = () => { o.remove(); document.removeEventListener("keydown", key); }, key = e => { if (e.key === "Escape") close(); };
+  o.onclick = e => { if (e.target === o || e.target.closest("[data-zclose]")) close(); }; document.addEventListener("keydown", key); document.body.appendChild(o); o.querySelector("[data-zclose]").focus(); }
+async function saveCompImage(id, image, key = "image"){ const c = comps.find(x => x.id === id); if (!c) return;
+  if (mode !== "demo") await api("import", {sheet:"Competitors", rows:[{id, [key]:image}]});      // hanya kolom gambar itu yang diubah: status Auto dan data lain tidak tersentuh
+  c[key] = image; if (mode === "demo") persistLocal(); renderComp(); }
+$("#galPic").onclick = e => { const b = e.target.closest("button"); if (!b) return; gal.pic = b.dataset.k; renderComp(); };
 $("#galShow").onclick = e => { const b = e.target.closest("button"); if (!b) return; gal.show = b.dataset.v; gal.picked = true; renderComp(); };
 $("#galDev").onchange = e => { gal.dev = e.target.value; renderComp(); };
 $("#galSort").onchange = e => { gal.sort = e.target.value; renderComp(); };
-$("#galCompare").onclick = e => { if (e.target.closest("#galClear")){ gal.cmp = []; renderComp(); } };
+$("#galCompare").onclick = e => { if (e.target.closest("#galClear")){ gal.cmp = []; renderComp(); } const z = e.target.closest("[data-gzoom]"); if (z) galZoom(z.dataset.gzoom); };
 $("#galGrid").onchange = e => { const id = e.target.dataset.gcmp; if (id === undefined) return;
   if (e.target.checked){ if (gal.cmp.length >= 4){ e.target.checked = false; return toast("Paling banyak 4 tipe sekaligus"); } gal.cmp.push(id); } else gal.cmp = gal.cmp.filter(x => x !== id);
   renderComp(); if (gal.cmp.length === 2 && e.target.checked) $("#galCompare").scrollIntoView({block:"nearest", behavior:reduceMotion ? "auto" : "smooth"}); };
-$("#galGrid").onclick = async e => { const ed = e.target.closest("[data-edit-comp]"); if (ed) return editComp(comps.find(c => c.id === ed.dataset.editComp));
+$("#galGrid").onclick = async e => { const z = e.target.closest("[data-gzoom]"); if (z) return galZoom(z.dataset.gzoom);
+  const ed = e.target.closest("[data-edit-comp]"); if (ed) return editComp(comps.find(c => c.id === ed.dataset.editComp));
   const ph = e.target.closest("[data-gphoto]"); if (ph){ gal.target = ph.dataset.gphoto; $("#galFile").value = ""; $("#galFile").click(); return; }
   const del = e.target.closest("[data-gdel]"); if (del){ if (!del.dataset.confirm){ del.dataset.confirm = 1; del.textContent = "Klik lagi"; return; }
-    del.disabled = true; try { await saveCompImage(del.dataset.gdel, ""); toast("Foto dihapus"); } catch(err){ del.disabled = false; toast(errText(err)); } } };
+    del.disabled = true; try { await saveCompImage(del.dataset.gdel, "", gal.pic); toast(gal.pic === "plan" ? "Denah dihapus" : "Foto dihapus"); } catch(err){ del.disabled = false; toast(errText(err)); } } };
 $("#galFile").onchange = async e => { const f = e.target.files[0], id = gal.target; if (!f || !id) return;
-  try { const src = await imageSource(f), r = await pickCrop([src], {}); if (!r || !r.image) return; await saveCompImage(id, r.image); toast("Foto fasad tersimpan"); }
+  try { const K = PIC_KINDS.find(x => x.k === gal.pic) || PIC_KINDS[0], src = await imageSource(f), r = await pickCrop([src], {what:K.l}); if (!r || !r.image) return; await saveCompImage(id, r.image, K.k); toast(K.k === "plan" ? "Denah tersimpan" : "Foto fasad tersimpan"); }
   catch(err){ toast(errText(err) || "File tidak bisa dibaca"); } };
 
 function renderHist(){
@@ -3748,6 +3763,7 @@ function cropThumb(src, box){
   return out.length <= IMG_MAX ? out : "";
 }
 const padBox = (b, p = .015) => [Math.max(0, b[0] - p), Math.max(0, b[1] - p), Math.min(1, b[2] + p), Math.min(1, b[3] + p)];
+const PIC_KINDS = [{k:"image", l:"fasad", L:"Fasad"}, {k:"plan", l:"denah", L:"Denah"}];      // dua gambar per tipe: fasad (tampak depan) dan denah (layout lantai)
 const okImg = v => typeof v === "string" && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v);
 function fileCanvas(file){ return new Promise((resolve, reject) => { const img = new Image(), url = URL.createObjectURL(file);
   img.onload = () => { const k = Math.min(1, 1600/Math.max(img.width, img.height)), c = document.createElement("canvas"); c.width = Math.round(img.width*k); c.height = Math.round(img.height*k); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); resolve(c); };
@@ -3759,8 +3775,8 @@ async function imageSource(file, pdf){ if (isPdf(file)){ const P = pdf || await 
 function pickCrop(sources, start = {}){
   return new Promise(resolve => {
     let si = Math.max(0, start.src || 0), page = Math.max(1, start.page || 1), box = start.box || null, cv = null, drag = null;
-    const el = document.createElement("div"); el.className = "cropper"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Pilih area fasad");
-    el.innerHTML = `<div class="cr-box"><div class="cr-h"><b>Pilih area fasad</b><p>Seret di gambar untuk menandai bagian fasad yang dipakai. Tanpa tanda, seluruh halaman dipakai.</p></div>
+    const el = document.createElement("div"); el.className = "cropper"; el.setAttribute("role", "dialog"); const what = start.what || "fasad"; el.setAttribute("aria-label", "Pilih area " + what);
+    el.innerHTML = `<div class="cr-box"><div class="cr-h"><b>Pilih area ${what}</b><p>Seret di gambar untuk menandai bagian ${what} yang dipakai. Tanpa tanda, seluruh halaman dipakai.</p></div>
       <div class="cr-wrap"><div class="cr-stage"><div class="cr-rect" hidden></div></div></div>
       <div class="cr-acts">${sources.length > 1 ? `<label class="sel">File <select data-c="src">${sources.map((x, i) => `<option value="${i}">${esc(x.name)}</option>`).join("")}</select></label>` : ""}
         <button class="btn sm" data-c="prev" aria-label="Halaman sebelumnya">‹</button><span class="note" data-c="pg"></span><button class="btn sm" data-c="next" aria-label="Halaman berikutnya">›</button>
@@ -3822,14 +3838,14 @@ function reviewUnits(res, fileName, files = [], srcs = []){
     <div class="row2" style="align-items:start"><div class="field"><label for="rvDev">Developer</label><input type="text" id="rvDev" list="rvDevList" autocomplete="off" value="${esc(res.developer || "")}"><datalist id="rvDevList">${devNames.map(d => `<option value="${esc(d)}">`).join("")}</datalist>
         <small class="rv-hint${res.devIsLegal ? " miss" : ""}" id="rvDevHint">${esc(devHint)}</small></div>
       <div class="field"><label for="rvProj">Proyek / kawasan</label><input type="text" id="rvProj" value="${esc(res.project || res.location || "")}"></div></div>
-    <p class="note" style="margin:0">${nf(clusters.length)} cluster: ${clusters.map(esc).join(", ")}. Developer dibaca dari logo, segmen dari foto bangunannya (bisa diganti di kolom Segmen). Kolom Fasad = potongan gambar tipe itu dari brosur; klik untuk mengatur ulang. Harga = tunai keras (atau tunai 2x) untuk unit standar; cara bayarnya tertulis di bawah angka. Cocokkan dengan dokumennya dulu (kolom Sumber = file dan halaman). Tanda <span class="miss">–</span> berarti tidak tercantum, jadi tidak diisi.</p>
+    <p class="note" style="margin:0">${nf(clusters.length)} cluster: ${clusters.map(esc).join(", ")}. Developer dibaca dari logo, segmen dari foto bangunannya (bisa diganti di kolom Segmen). Kolom Fasad dan Denah = potongan gambar tipe itu dari brosur; klik untuk mengatur ulang. Harga = tunai keras (atau tunai 2x) untuk unit standar; cara bayarnya tertulis di bawah angka. Cocokkan dengan dokumennya dulu (kolom Sumber = file dan halaman). Tanda <span class="miss">–</span> berarti tidak tercantum, jadi tidak diisi.</p>
     <div class="tablewrap rv-wrap"><table class="proj rv" id="rvTable"></table></div>
     <label class="rv-rep" id="rvRepWrap" hidden><input type="checkbox" id="rvRep" checked> <span id="rvRepText"></span></label>
     <p class="note" id="rvNote" style="margin:0"></p></div>`;
   const draw = () => { const have = new Set(comps.map(c => String(c.id)));
-    $("#rvTable").innerHTML = `<thead><tr><th><input type="checkbox" id="rvAll" ${units.every(u => u.on) ? "checked" : ""} aria-label="Pilih semua"></th><th>Fasad</th><th>Cluster</th><th>Tipe</th><th>Segmen</th><th class="n">LT</th><th class="n">LB</th><th class="n">KT</th><th class="n">KM</th><th class="n">Lantai</th><th class="n">Harga</th><th>Sumber</th></tr></thead><tbody>${
+    $("#rvTable").innerHTML = `<thead><tr><th><input type="checkbox" id="rvAll" ${units.every(u => u.on) ? "checked" : ""} aria-label="Pilih semua"></th><th>Fasad</th><th>Denah</th><th>Cluster</th><th>Tipe</th><th>Segmen</th><th class="n">LT</th><th class="n">LB</th><th class="n">KT</th><th class="n">KM</th><th class="n">Lantai</th><th class="n">Harga</th><th>Sumber</th></tr></thead><tbody>${
       units.map(u => `<tr class="${u.on ? "" : "pre"}"><td><input type="checkbox" data-rv="${u.i}" ${u.on ? "checked" : ""} aria-label="Simpan ${esc(u.type)}"></td>
-        <td><button type="button" class="rv-img${okImg(u.image) ? " has" : ""}" data-rv-img="${u.i}" ${srcs.length ? "" : "disabled"} title="${srcs.length ? "Klik untuk memilih / mengatur potongan fasad" : "Tidak ada file gambar"}" aria-label="Foto fasad ${esc(u.type)}">${okImg(u.image) ? `<img src="${u.image}" alt="">` : srcs.length ? "+ foto" : "–"}</button></td><td>${esc(u.cluster) || '<span class="miss">–</span>'}</td>
+        ${PIC_KINDS.map(K => `<td><button type="button" class="rv-img${okImg(u[K.k]) ? " has" : ""}" data-rv-img="${u.i}" data-kind="${K.k}" ${srcs.length ? "" : "disabled"} title="${srcs.length ? `Klik untuk memilih / mengatur potongan ${K.l}` : "Tidak ada file gambar"}" aria-label="${K.L} ${esc(u.type)}">${okImg(u[K.k]) ? `<img src="${u[K.k]}" alt="">` : srcs.length ? "+ " + K.l : "–"}</button></td>`).join("")}<td>${esc(u.cluster) || '<span class="miss">–</span>'}</td>
         <td>${esc(u.type)}${have.has(idOf(u)) ? ' <span class="chip info">memperbarui</span>' : ""}${u.promo || u.notes ? `<small>${esc([u.promo, u.notes].filter(Boolean).join(" · "))}</small>` : ""}</td>
         <td><select class="rv-seg" data-seg="${u.i}" aria-label="Segmen ${esc(u.type)}" title="${esc(u.tierFrom || "")}">${TIERS.map(t => `<option${t === u.tier ? " selected" : ""}>${t}</option>`).join("")}</select></td>
         <td class="n">${val(u.lt)}</td><td class="n">${val(u.lb)}</td><td class="n">${val(u.kt)}</td><td class="n">${val(u.km)}</td><td class="n">${val(u.floors)}</td>
@@ -3844,14 +3860,14 @@ function reviewUnits(res, fileName, files = [], srcs = []){
   const back = document.createElement("button"); back.className = "btn"; back.textContent = "Batal"; back.onclick = closeModal;
   const save = document.createElement("button"); save.className = "btn primary";
   $("#mActions").replaceChildren(back, save);
-  $("#rvTable").onclick = async e => { const b = e.target.closest("[data-rv-img]"); if (!b || !srcs.length) return; const u = units[+b.dataset.rvImg], at = u.imgAt || {src:Math.max(0, srcs.findIndex(x => x.name === u.file)), page:u.page || 1};
-    const r = await pickCrop(srcs, {...at, allowNone:true}); if (!r) return; u.image = r.image; u.imgAt = r.image ? {src:r.src, page:r.page, box:r.box} : null; draw(); };
+  $("#rvTable").onclick = async e => { const b = e.target.closest("[data-rv-img]"); if (!b || !srcs.length) return; const u = units[+b.dataset.rvImg], K = PIC_KINDS.find(x => x.k === b.dataset.kind) || PIC_KINDS[0], at = u[K.k + "At"] || u.imageAt || u.planAt || {src:Math.max(0, srcs.findIndex(x => x.name === u.file)), page:u.page || 1};
+    const r = await pickCrop(srcs, {src:at.src, page:at.page, box:u[K.k + "At"] ? at.box : null, allowNone:true, what:K.l}); if (!r) return; u[K.k] = r.image; u[K.k + "At"] = r.image ? {src:r.src, page:r.page, box:r.box} : null; draw(); };
   $("#rvTable").onchange = e => { if (e.target.dataset.seg !== undefined){ units[+e.target.dataset.seg].tier = e.target.value; return; } if (e.target.id === "rvAll") units.forEach(u => u.on = e.target.checked); else if (e.target.dataset.rv !== undefined) units[+e.target.dataset.rv].on = e.target.checked; draw(); };
   $("#rvDev").oninput = () => { const h = $("#rvDevHint"), pt = /^pt\.?\s/i.test($("#rvDev").value.trim()); if (res.devIsLegal){ h.hidden = !pt; } draw(); };
   save.onclick = async () => { const dev = $("#rvDev").value.trim(), proj = $("#rvProj").value.trim();
     if (!dev){ $("#rvNote").textContent = "Isi nama developer dulu."; $("#rvDev").focus(); return; }
     const rows = units.filter(u => u.on).map(u => ({id:idOf(u), developer:dev, project:proj, cluster:u.cluster || u.type, unitType:u.type, tier:TIERS.includes(u.tier) ? u.tier : "Deluxe",
-      lt:u.lt, lb:u.lb, kt:u.kt, km:u.km, floors:u.floors, price:u.price, priceBasis:u.priceBasis || "", promo:u.promo || "", notes:u.notes || "", ...(okImg(u.image) ? {image:u.image} : {}),
+      lt:u.lt, lb:u.lb, kt:u.kt, km:u.km, floors:u.floors, price:u.price, priceBasis:u.priceBasis || "", promo:u.promo || "", notes:u.notes || "", ...(okImg(u.image) ? {image:u.image} : {}), ...(okImg(u.plan) ? {plan:u.plan} : {}),
       source:(u.file || fileName) ? "Brosur: " + (u.file || fileName) : "Brosur / survei", sourceDate:today, isOwn:false, auto:false, dummy:false, updatedAt:new Date().toISOString()}));
     save.disabled = true; save.textContent = "Menyimpan…";
     const gone = $("#rvRep").checked ? stale().map(c => c.id) : [];
@@ -3941,11 +3957,11 @@ $("#btnExtract").onclick = () => {
       for (const rec of (go._recs||[])) if (rec) updateFileNote(rec.id, `Hasil ekstraksi: ${res.developer || "–"} · ${nf((res.units||[]).length)} tipe unit`);
       // potong gambar fasad tiap tipe dari halaman yang ditunjuk AI (hasilnya bisa diatur ulang di layar periksa)
       const srcs = []; for (const d of okDocs){ try { srcs.push(await imageSource(d.file, d.pdf)); } catch {} }
-      const need = (res.units || []).filter(u => u.imagePage && u.imageBox); let done = 0;
-      for (const u of need){ $("#exStatus").textContent = `Memotong gambar fasad ${++done} dari ${need.length}…`;
-        const si = Math.max(0, srcs.findIndex(x => x.name === u.imageFile)), S = srcs[u.imageFile ? si : 0];
-        if (!S || u.imagePage > S.pages) continue;
-        try { const box = padBox(u.imageBox), image = cropThumb(await S.getPage(u.imagePage), box); if (image){ u.image = image; u.imgAt = {src:srcs.indexOf(S), page:u.imagePage, box}; } } catch {} }
+      const jobs = (res.units || []).flatMap(u => PIC_KINDS.filter(K => u[K.k + "Page"] && u[K.k + "Box"]).map(K => [u, K])); let done = 0;
+      for (const [u, K] of jobs){ $("#exStatus").textContent = `Memotong gambar fasad & denah ${++done} dari ${jobs.length}…`;
+        const f = u[K.k + "File"], S = srcs[f ? Math.max(0, srcs.findIndex(x => x.name === f)) : 0], no = u[K.k + "Page"];
+        if (!S || no > S.pages) continue;
+        try { const box = padBox(u[K.k + "Box"]), pic = cropThumb(await S.getPage(no), box); if (pic){ u[K.k] = pic; u[K.k + "At"] = {src:srcs.indexOf(S), page:no, box}; } } catch {} }
       reviewUnits(res, names, okDocs.map(d => d.file.name), srcs);
     }catch(e){ go.disabled=false; $("#exStatus").textContent=errText(e); }
   };

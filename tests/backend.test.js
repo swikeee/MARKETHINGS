@@ -201,6 +201,12 @@ delete env.props.ANTHROPIC_API_KEY; delete env.props.AI_COUNT;
     post('saveCompetitor', {id:'img1', price:2.1e9}); ok('mengubah data lain tidak menghapus fotonya', get().competitors.find(x => x.id === 'img1').image === img);
     post('saveCompetitor', {id:'img2', developer:'Grand Uji', cluster:'Melati', unitType:'B', tier:'Deluxe', image:'data:image/jpeg;base64,' + 'A'.repeat(60000)}); post('saveCompetitor', {id:'img3', developer:'Grand Uji', cluster:'Melati', unitType:'C', tier:'Deluxe', image:'javascript:alert(1)'});
     ok('gambar terlalu besar atau bukan data URI gambar tidak disimpan', get().competitors.find(x => x.id === 'img2').image === '' && get().competitors.find(x => x.id === 'img3').image === '');
+    { const a2 = {developer:'Grand Uji', units:[{cluster:'Melati', type:'A', lb:98, planFile:'brosur.pdf', planPage:5, planBox:[0.05, 0.3, 0.95, 0.9]}, {cluster:'Melati', type:'B', lb:98, planPage:5, planBox:null}]};
+      env.setFetch((url, o) => { g = {url, body:JSON.parse(o.payload)}; return {code:200, type:'application/json', body:JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(a2)}]}}]})}; });
+      const rr = post('extractAll', {text:'x', images:[{page:5, data:'QUFB'}]}), pt2 = g.body.contents[0].parts.at(-1).text;
+      ok('denah: AI diminta menandai layout lantai tiap tipe (semua lantai, bukan site plan); hasilnya diteruskan', /DENAH/.test(pt2) && /planBox/.test(pt2) && /SEMUA lantainya/.test(pt2) && /site plan/.test(pt2) && rr.units[0].planPage === 5 && rr.units[0].planBox.join() === '0.05,0.3,0.95,0.9' && rr.units[0].planFile === 'brosur.pdf' && rr.units[1].planPage === null && rr.units[1].planBox === null, JSON.stringify(rr.units.map(u => [u.planPage, u.planBox])));
+      post('import', {sheet:'Competitors', rows:[{id:'img1', plan:img}]}); const c2 = get().competitors.find(x => x.id === 'img1');
+      ok('denah tersimpan di kolom plan tanpa mengubah foto fasad & data lain', c2.plan === img && c2.image === img && c2.price === 2.1e9); }
     post('saveCompetitor', {id:'img1', image:''}); ok('foto bisa dihapus', get().competitors.find(x => x.id === 'img1').image === ''); ['img1','img2','img3'].forEach(id => post('delete', {sheet:'Competitors', id})); }
   // developer = nama di logo (bukan PT), segmen dari foto
   { const ans = {developer:'summarecon  bandung', developerFrom:'logo kanan atas hal 1', legalEntity:'PT. Mahkota Permata Perdana', project:'Diamond Commercial', location:'Gedebage', units:[
@@ -227,11 +233,11 @@ delete env.props.ANTHROPIC_API_KEY; delete env.props.AI_COUNT;
   delete env.props.GEMINI_API_KEY; delete env.props.AI_COUNT; }
 // sheet dari versi lama (belum punya kolom tipe/kamar): judul kolom dilengkapi sendiri saat pertama dipakai
 { const e2 = makeEnv(require('path').join(__dirname, '..', 'apps-script', 'Code.gs')); e2.api.setup(); e2.props.WRITE_TOKEN = 't';
-  const sh = e2.sheets.Competitors, full = sh.rows[0].length; sh.rows[0].length = full - 4; delete sh.fmt[full - 3];
+  const sh = e2.sheets.Competitors, full = sh.rows[0].length; sh.rows[0].length = full - 6; delete sh.fmt[full - 5]; delete sh.fmt[full - 1]; delete sh.fmt[full];
   sh.rows.push(['lama-1', 'Dev Lama', '', 'Cluster Lama', 'Deluxe', 100, 80, 1500000000]);
   const res = JSON.parse(e2.api.doPost({postData:{contents:JSON.stringify({token:'t', action:'saveCompetitor', payload:{developer:'Dev Baru', cluster:'C', unitType:'36/72', kt:2, km:1, floors:1, lb:36, lt:72, price:500000000}})}}).text);
   const T = e2.api.readTable('Competitors');
-  ok('sheet lama: judul kolom baru ditambahkan otomatis, tanpa setup() ulang', res.ok && sh.rows[0].length === full && sh.rows[0].slice(-5).join() === 'unitType,kt,km,floors,image' && sh.fmt[full - 4] === '@' && sh.fmt[full] === '@', sh.rows[0].slice(-5).join());
+  ok('sheet lama: judul kolom baru ditambahkan otomatis, tanpa setup() ulang', res.ok && sh.rows[0].length === full && sh.rows[0].slice(-6).join() === 'unitType,kt,km,floors,image,plan' && sh.fmt[full - 5] === '@' && sh.fmt[full - 1] === '@' && sh.fmt[full] === '@', sh.rows[0].slice(-5).join());
   ok('sheet lama: baris lama utuh, baris baru menyimpan tipe & kamar', T.length === 2 && T.find(c => c.id === 'lama-1').price === 1500000000 && T.find(c => c.id === 'lama-1').kt === null && T.find(c => c.unitType === '36/72').kt === 2, JSON.stringify(T.map(c => [c.id, c.unitType, c.kt]))); }
 // penanda perubahan untuk sinkron otomatis
 const rev = () => JSON.parse(A.doGet({parameter:{rev:'1'}}).text);
