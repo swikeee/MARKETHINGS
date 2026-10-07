@@ -3905,18 +3905,20 @@ function sparkSvg(arr){
 }
 /** Ringkasan singkat 4 panel KPI dalam kalimat: dihitung langsung dari angkanya, tanpa AI. */
 function salesSentence(A){
-  const [val, unit, k3, k4] = A.kpi, B = t => `<b>${t}</b>`, fmt = k => k.fmt === "rp" ? rp(k.v) : k.fmt === "pct" ? nf(k.v, 1) + "%" : nf(k.v);
+  const [val, unit, k3, k4] = A.kpi, B = t => `<b>${t}</b>`, f = (k, v) => k.fmt === "rp" ? rp(v) : k.fmt === "pct" ? nf(v, 1) + "%" : nf(v);
   const d = k => k.fmt === "pct" ? k.v - k.pv : k.pv ? (k.v - k.pv)/k.pv*100 : 0, dir = k => Math.abs(d(k)) < .05 ? 0 : d(k) > 0 ? 1 : -1;
   const chg = k => !dir(k) ? "tetap" : `${dir(k) > 0 ? "naik" : "turun"} ${B(nf(Math.abs(d(k)), 1) + (k.fmt === "pct" ? " poin" : "%"))}`;
+  const from = k => dir(k) ? ` dari ${f(k, k.pv)}` : "", prev = `${keyLabel(A.prev[0])} – ${keyLabel(A.prev.at(-1))}`;      // pembanding = periode sama panjang tepat sebelumnya
   const out = [`${nf(A.P)} bulan terakhir terjual ${B(nf(unit.v) + " unit")} senilai ${B(rp(val.v))}.`];
   const avg = /harga/i.test(k3.l) ? k3 : null, explains = avg && dir(unit) && dir(val) && dir(unit) !== dir(val) && dir(avg) === dir(val);
-  let s2 = !dir(unit) && !dir(val) ? "Unit dan nilai penjualan sama dengan periode sebelumnya"
-    : dir(unit) === dir(val) ? `Unit ${chg(unit)} dan nilai penjualan ${chg(val)} dari periode sebelumnya`
-    : `Unit ${chg(unit)}, tetapi nilai penjualan ${chg(val)} dari periode sebelumnya`;
-  if (explains) s2 += ` karena rata-rata harga per unit ${chg(avg)} ke ${B(rp(avg.v))}`;
+  let s2 = !dir(unit) && !dir(val) ? `Unit dan nilai penjualan sama dengan ${nf(A.P)} bulan sebelumnya (${prev})`
+    : `Dibanding ${nf(A.P)} bulan sebelumnya (${prev}), unit ${chg(unit)}${from(unit)}${dir(unit) === dir(val) ? " dan" : ", tetapi"} nilai penjualan ${chg(val)}${from(val)}`;
+  if (explains) s2 += ` karena rata-rata harga per unit ${chg(avg)}${from(avg)} ke ${B(rp(avg.v))}`;
   out.push(s2 + ".");
-  if (!explains) out.push(`${k3.l.replace(" / unit", " per unit")} ${B(fmt(k3))}, ${chg(k3)}.`);
-  out.push(`${k4.l} ${B(fmt(k4))}, ${chg(k4)}.`);
+  if (!explains) out.push(`${k3.l.replace(" / unit", " per unit")} ${B(f(k3, k3.v))}, ${chg(k3)}${from(k3)}.`);
+  let cnt = "";                                                                        // porsi KPR: sebut juga jumlah unitnya
+  if (/KPR/.test(k4.l)){ const paid = A.net(A.S).filter(x => x.payment || x.payCat); if (paid.length) cnt = ` (${nf(paid.filter(x => payOf(x) === "KPR").length)} dari ${nf(paid.length)} unit)`; }
+  out.push(`${k4.l} ${B(f(k4, k4.v))}${cnt}, ${chg(k4)}${from(k4)}.`);
   return out.join(" ");
 }
 function renderSales(){
