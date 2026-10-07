@@ -279,12 +279,14 @@ function upsertUnits(units, s) {
       appendRow('PriceHistory', { at: now(), competitorId: id, developer: dev, cluster: u.cluster, oldPrice: prev.price, newPrice: price, changePct: Math.round((price - prev.price) / prev.price * 1000) / 10, source: s.label });
       priceChanges++;
     }
+    // stok / terjual / bulan: sumber publik jarang memuatnya. Bila sumber tidak memberi angkanya, nilai yang sudah ada di Sheet (diisi tangan atau angka contoh) dipertahankan.
+    const fromSrc = ['stock', 'sold', 'months'].some(k => num(u[k]) !== null), keep = k => num(u[k]) !== null ? num(u[k]) : (prev ? num(prev[k]) : null);
     upsert('Competitors', {
       id, developer: dev, project: u.project || (prev && prev.project) || '', cluster: u.cluster,
       tier: tierOf(num(u.lb), price, u.tier, u.cluster), lt: num(u.lt), lb: num(u.lb), price,
-      priceBasis: u.priceBasis || '', stock: num(u.stock), sold: num(u.sold), months: num(u.months),
+      priceBasis: u.priceBasis || '', stock: keep('stock'), sold: keep('sold'), months: keep('months'),
       promo: u.promo || '', notes: u.notes || '', source: s.label, sourceUrl: s.url, sourceDate: u.sourceDate || 'tanggal tidak tercantum',
-      isOwn: false, auto: true, dummy: false, syncedAt: now(), updatedAt: now(),
+      isOwn: false, auto: true, dummy: fromSrc ? false : !!(prev && prev.dummy), syncedAt: now(), updatedAt: now(),
     });
     rows++;
   });

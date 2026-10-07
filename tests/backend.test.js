@@ -71,6 +71,14 @@ ok('jadwal sinkron mingguan: hari Rabu', env.weekdays.weeklySync === 'WEDNESDAY'
 r = post('syncNow', {}); ok('syncNow berjalan & mencatat log', r.ok && r.status === 'ok' && A.readTable('SyncLog').length === 1 && get().lastSync.summary === r.summary, r.summary);
 env.setFetch((url) => url.includes('api.anthropic.com') ? {code:200, type:'application/json', body:JSON.stringify({content:[{type:'text', text:'[{"developer":"Summarecon Bandung","cluster":"Cluster Uji","lb":100,"price":2600000000}]'}]})} : {code:200, type:'text/html', body:'<p>berubah</p>'});
 post('syncNow', {}); ok('perubahan harga masuk PriceHistory', get().history.some(h => h.competitorId === 'auto-summarecon-bandung-cluster-uji' && h.oldPrice === 2500000000 && h.newPrice === 2600000000 && h.changePct === 4));
+// stok / terjual yang diisi tangan (atau angka contoh) tidak boleh hilang saat sinkron berikutnya
+{ A.upsert('Competitors', {id:'auto-summarecon-bandung-cluster-uji', stock:48, sold:39, months:30, dummy:true});      // diisi langsung di Sheet (baris tetap auto)
+  env.setFetch((url) => url.includes('api.anthropic.com') ? {code:200, type:'application/json', body:JSON.stringify({content:[{type:'text', text:'[{"developer":"Summarecon Bandung","cluster":"Cluster Uji","lb":100,"price":2700000000}]'}]})} : {code:200, type:'text/html', body:'<p>berubah lagi</p>'});
+  post('syncNow', {}); let c = get().competitors.find(x => x.id === 'auto-summarecon-bandung-cluster-uji');
+  ok('sinkron: harga diperbarui, stok/terjual/bulan dan tanda dummy dipertahankan', c.price === 2700000000 && c.stock === 48 && c.sold === 39 && c.months === 30 && c.dummy === true && c.auto === true, JSON.stringify([c.price, c.stock, c.sold, c.months, c.dummy]));
+  env.setFetch((url) => url.includes('api.anthropic.com') ? {code:200, type:'application/json', body:JSON.stringify({content:[{type:'text', text:'[{"developer":"Summarecon Bandung","cluster":"Cluster Uji","lb":100,"price":2700000000,"stock":60,"sold":20,"months":10}]'}]})} : {code:200, type:'text/html', body:'<p>ada stok</p>'});
+  post('syncNow', {}); c = get().competitors.find(x => x.id === 'auto-summarecon-bandung-cluster-uji');
+  ok('sumber memuat stok asli → angka sumber dipakai dan tanda dummy dilepas', c.stock === 60 && c.sold === 20 && c.months === 10 && c.dummy === false, JSON.stringify([c.stock, c.sold, c.months, c.dummy])); }
 ok('aksi tidak dikenal', post('apaini', {}).error === 'unknown action');
 ok('import ke sheet tidak valid ditolak', /tidak valid/.test(post('import', {sheet:'Settings', rows:[{id:'x'}]}).error || ''));
 // volume: 300 baris penjualan
