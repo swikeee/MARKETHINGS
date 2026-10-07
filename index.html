@@ -250,6 +250,7 @@ details.abs-more > summary{cursor:pointer;font-size:12.5px;font-weight:500;color
 .gal-cmp .cimg{aspect-ratio:4/3;border-radius:10px;overflow:hidden;background:var(--surface-2);margin-bottom:8px;display:grid;place-items:center;color:var(--muted);font-size:12px} .gal-cmp .cimg img{width:100%;height:100%;object-fit:cover;display:block} .gal-cmp .cimg.plan{background:#fff;margin:0;aspect-ratio:auto;height:clamp(260px,32vw,440px);border:1px solid var(--border)} .gal-cmp .cimg.plan img{object-fit:contain}
 .gal-cmp td.best{font-weight:700;color:var(--accent)} .gal-cmp .ch{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap}
 /* potong gambar fasad */
+.dupbar{display:flex;gap:10px 14px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 14px;margin:0 0 12px;border-radius:12px;font-size:13px;line-height:1.45;border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line));background:color-mix(in srgb,var(--warn) 9%,var(--surface))} .dupbar[hidden]{display:none} .dupbar span{flex:1;min-width:220px}
 .gimg img,.cimg img{cursor:zoom-in}
 .zoomer{position:fixed;inset:0;z-index:10000;background:rgba(9,9,11,.72);display:grid;place-items:center;padding:14px;overflow:auto}
 .zoomer .zb{background:var(--surface);color:var(--text);border-radius:14px;padding:16px;max-width:min(1100px,100%);width:100%;box-shadow:0 20px 60px rgba(0,0,0,.4)}
@@ -1106,6 +1107,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
       <div class="sec-h"><span class="eyebrow">06</span><h2>Arsip file</h2>
         <span class="tools"><span class="note" id="fileWhere"></span><button class="btn" id="btnUpload">Unggah file</button><input type="file" id="fileInput" multiple hidden></span>
         <p class="note">Brosur, pricelist, foto survei, atau file lain. Brosur yang diekstrak AI otomatis masuk ke sini.</p></div>
+      <div class="dupbar" id="fileDup" hidden></div>
       <div class="filegrid" id="fileGrid"></div>
     </div>
     <div class="sec reveal in" id="gallerySec">
@@ -1115,6 +1117,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
         <label class="sel" for="galDev">Developer <select id="galDev"></select></label>
         <label class="sel" for="galSort">Urutkan <select id="galSort"><option value="dev">Developer</option><option value="price">Harga termurah</option><option value="pm2">Harga per m² termurah</option><option value="lb">Luas bangunan terbesar</option></select></label>
         <span class="note" id="galCount"></span></div>
+      <div class="dupbar" id="galDup" hidden></div>
       <div class="panel gal-cmp" id="galCompare" hidden></div>
       <div class="gal" id="galGrid"></div>
       <input type="file" id="galFile" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" hidden>
@@ -1918,6 +1921,38 @@ $("#absSeg").onclick = e => { const b = e.target.closest("button"); if (!b || b.
 
 // ---------- galeri fasad: foto tiap tipe berdampingan dengan spesifikasi & harganya; beberapa kartu bisa dibandingkan ----------
 const gal = {show:"", dev:"all", sort:"dev", cmp:[], target:"", pic:"image"};      // pic = gambar yang ditampilkan di kartu: "image" (fasad) atau "plan" (denah)
+// ---------- tipe yang sama tercatat dua kali: dicocokkan lewat developer + nama tipe + luas ----------
+const pKey = v => String(v || "").toLowerCase().replace(/×/g, "x").replace(/\b(tipe|type)\b/g, " ").replace(/[^a-z0-9]+/g, "");
+const pType = c => pKey(c.unitType || c.cluster);
+const pFits = (a, b) => !(num(a) > 0 && num(b) > 0) || Math.abs(num(a) - num(b)) <= 1;      // tidak bertentangan (salah satu boleh kosong)
+const pBoth = (a, b) => num(a) > 0 && num(b) > 0 && Math.abs(num(a) - num(b)) <= 1;         // dua-duanya terisi dan sama
+function sameProduct(a, b){
+  if (pKey(a.developer) !== pKey(b.developer) || !pType(a) || pType(a) !== pType(b)) return false;
+  if (!pFits(a.lt, b.lt) || !pFits(a.lb, b.lb)) return false;
+  if (pKey(a.cluster) === pKey(b.cluster)) return true;
+  // nama cluster berbeda: hanya dianggap sama bila luasnya terbukti sama dan harganya tidak bertentangan (nama tipe seperti "6x12" bisa ada di beberapa cluster)
+  const pa = num(a.price), pb = num(b.price);
+  return (pBoth(a.lt, b.lt) || pBoth(a.lb, b.lb)) && (!(pa > 0 && pb > 0) || Math.abs(pa - pb) <= .01*Math.max(pa, pb));
+}
+const dupPool = () => comps.filter(c => !c.isOwn && !c.auto);      // produk sendiri dan baris sinkron otomatis tidak ikut digabung
+function dupGroups(){ const P = dupPool(), used = new Set(), out = [];
+  P.forEach((a, i) => { if (used.has(a.id)) return; const g = [a];
+    for (let j = i + 1; j < P.length; j++){ const b = P[j]; if (!used.has(b.id) && g.every(x => sameProduct(x, b))){ g.push(b); used.add(b.id); } }
+    if (g.length > 1){ used.add(a.id); out.push(g.sort((x, y) => String(y.updatedAt || "").localeCompare(String(x.updatedAt || "")))); } });
+  return out; }
+/** Gabungkan tipe ganda: baris terbaru dipertahankan, kolom kosongnya diisi dari baris lama, lalu baris lama dihapus. */
+async function mergeDups(){ const blank = v => v === null || v === undefined || v === "", groups = dupGroups(), rows = [], gone = [];
+  for (const g of groups){ const keep = g[0], patch = {id:keep.id};
+    for (const o of g.slice(1)){ gone.push(o.id);
+      for (const k of ["project", "lt", "lb", "kt", "km", "floors", "promo", "notes", "image", "plan", "sourceUrl"]) if (blank(keep[k]) && blank(patch[k]) && !blank(o[k]) && !(num(o[k]) === 0 && ["lt", "lb", "kt", "km", "floors"].includes(k))) patch[k] = o[k];
+      if (!(num(keep.price) > 0) && !patch.price && num(o.price) > 0){ patch.price = o.price; patch.priceBasis = o.priceBasis || ""; for (const k of ["notes", "source", "sourceDate"]) if (!blank(o[k])) patch[k] = o[k]; }      // harga dari baris lama: catatan dan sumbernya ikut
+      if (pKey(keep.cluster) === pType(keep) && !patch.cluster && !blank(o.cluster) && pKey(o.cluster) !== pType(o)) patch.cluster = o.cluster;      // baris baru tanpa nama cluster: pakai nama cluster dari baris lama
+      if (["stock", "sold", "months"].every(k => blank(keep[k]) && blank(patch[k])) && ["stock", "sold", "months"].some(k => !blank(o[k]))){ for (const k of ["stock", "sold", "months"]) if (!blank(o[k])) patch[k] = o[k]; patch.dummy = !!o.dummy; } }
+    if (Object.keys(patch).length > 1) rows.push(patch); }
+  if (!gone.length) return 0;
+  if (mode === "demo"){ rows.forEach(r => Object.assign(comps.find(c => c.id === r.id), r)); comps = comps.filter(c => !gone.includes(c.id)); persistLocal(); renderAll(); return gone.length; }
+  if (rows.length) await api("import", {sheet:"Competitors", rows});
+  await deleteComps(gone); return gone.length; }
 const galName = c => c.unitType && c.unitType !== c.cluster ? c.unitType : c.cluster;
 const galKamar = c => [num(c.kt) ? nf(c.kt) + " KT" : "", num(c.km) ? nf(c.km) + " KM" : "", num(c.floors) ? nf(c.floors) + " lantai" : ""].filter(Boolean).join(" · ");
 const PHOTO_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18M5 20V9l7-5 7 5v11M10 20v-6h4v6"/></svg>';
@@ -1935,6 +1970,9 @@ function renderGallery(rows){
     gal.sort === "price" ? big(a.price) - big(b.price) : gal.sort === "pm2" ? big(pm2(a)) - big(pm2(b)) : gal.sort === "lb" ? num(b.lb) - num(a.lb)
     : (b.isOwn - a.isOwn) || String(a.developer).localeCompare(b.developer) || big(a.price) - big(b.price));
   gal.cmp = gal.cmp.filter(id => rows.some(c => c.id === id));
+  const dups = canWrite() ? dupGroups() : [], bar = $("#galDup"); bar.hidden = !dups.length;
+  if (dups.length){ const extra = dups.reduce((t, g) => t + g.length - 1, 0), nm = c => galName(c) + (c.cluster && galName(c) !== c.cluster ? " (" + c.cluster + ")" : "");
+    bar.innerHTML = `<span><b>${nf(dups.length)} tipe tercatat lebih dari sekali</b> (developer, nama tipe, dan luasnya sama): ${dups.slice(0, 3).map(g => esc(g.map(nm).join(" = "))).join("; ")}${dups.length > 3 ? "; dan lainnya" : ""}. Gabungkan = data terbaru dipertahankan, kolom kosongnya (harga, fasad, denah) diisi dari yang lama, lalu ${nf(extra)} baris lama dihapus.</span><button class="btn sm primary" id="galMerge">Gabungkan</button>`; }
   $("#galCount").textContent = rows.length ? `${nf(list.length)} tipe ditampilkan` + (gal.cmp.length ? ` · ${nf(gal.cmp.length)} dipilih untuk dibandingkan` : "") : "";
   const W = canWrite();
   el.innerHTML = list.length ? list.map(c => { const has = okImg(pic(c)), kamar = galKamar(c), sel = gal.cmp.includes(c.id);
@@ -1975,6 +2013,8 @@ function galZoomPlans(){ const C = gal.cmp.map(id => comps.find(c => c.id === id
 async function saveCompImage(id, image, key = "image"){ const c = comps.find(x => x.id === id); if (!c) return;
   if (mode !== "demo") await api("import", {sheet:"Competitors", rows:[{id, [key]:image}]});      // hanya kolom gambar itu yang diubah: status Auto dan data lain tidak tersentuh
   c[key] = image; if (mode === "demo") persistLocal(); renderComp(); }
+$("#galDup").onclick = async e => { const b = e.target.closest("#galMerge"); if (!b) return; if (!b.dataset.confirm){ b.dataset.confirm = 1; b.textContent = "Klik lagi untuk menggabungkan"; return; }
+  b.disabled = true; b.textContent = "Menggabungkan…"; try { const n = await mergeDups(); toast(n ? `${nf(n)} data ganda digabung` : "Tidak ada data ganda"); } catch(err){ b.disabled = false; b.textContent = "Gabungkan"; delete b.dataset.confirm; toast(errText(err)); } };
 $("#galPic").onclick = e => { const b = e.target.closest("button"); if (!b) return; gal.pic = b.dataset.k; renderComp(); };
 $("#galShow").onclick = e => { const b = e.target.closest("button"); if (!b) return; gal.show = b.dataset.v; gal.picked = true; renderComp(); };
 $("#galDev").onchange = e => { gal.dev = e.target.value; renderComp(); };
@@ -2845,9 +2885,17 @@ const fmtSize = n => n >= 1048576 ? nf(n/1048576,1)+" MB" : nf(Math.max(1,n/1024
 const blobToBase64 = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
 async function loadFiles(){ try { localFiles = await idb.all(); fileErr = ""; } catch(e){ localFiles = []; fileErr = "Penyimpanan file di browser ini tidak tersedia."; } renderFiles(); }
 /** Simpan satu file ke arsip. Selalu ke browser; juga ke Google Drive bila backend tersambung. */
+const fKey = f => String(f.name || "").trim().toLowerCase();
+/** File arsip umum (bukan dokumen lahan) yang namanya sama. */
+const fileTwins = (name, skipId) => allFiles().filter(f => !f.linkedTo && f.id !== skipId && fKey(f) === fKey({name}));
 async function archiveFile(file, note, linkedTo, max){
   const lim = max || MAX_FILE;
   if (file.size > lim){ toast(`${file.name} terlalu besar (maks ${Math.round(lim/1048576)} MB)`); return null; }
+  // file bernama sama sudah ada: yang lama ditimpa, bukan ditumpuk. Bila isinya juga sama (ukuran sama) dan sudah tersimpan lengkap, cukup dipakai ulang.
+  const olds = linkedTo ? [] : fileTwins(file.name), wantDrive = mode === "live" && TOKEN && file.size <= MAX_DRIVE;
+  const same = olds.find(f => f.blob && num(f.size) === file.size && (f.url || !wantDrive) && localFiles.includes(f));
+  if (same){ same.createdAt = new Date().toISOString(); if (note) same.note = note; try { await idb.put(same); } catch {}
+    for (const o of olds) if (o !== same) await removeFile(o.id, true); renderFiles(); return same; }
   const rec = {id:"f"+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name:file.name || "file", type:file.type || "application/octet-stream", size:file.size, blob:file, note:note||"", linkedTo:linkedTo||"", createdAt:new Date().toISOString(), url:""};
   try { await idb.put(rec); localFiles.push(rec); } catch(e){ fileErr = "Gagal menyimpan file di browser (penyimpanan penuh atau diblokir)."; }
   renderFiles();
@@ -2856,6 +2904,7 @@ async function archiveFile(file, note, linkedTo, max){
       rec.url = r.row?.url || ""; try { await idb.put(rec); } catch {} remoteFiles = remoteFiles.filter(f=>f.id!==rec.id).concat(r.row ? [r.row] : []); renderFiles(); }
     catch(e){ toast("File tersimpan di browser, tapi gagal diunggah ke Google Drive"); }
   }
+  for (const o of olds) await removeFile(o.id, true);
   return rec;
 }
 async function updateFileNote(id, note){ const f = localFiles.find(x=>x.id===id); if (!f) return; f.note = note; try { await idb.put(f); } catch {} renderFiles(); }
@@ -2873,8 +2922,11 @@ function renderFiles(){
       ${f.note ? `<span class="note" style="white-space:normal">${esc(f.note)}</span>` : ""}
       <div class="acts"><button class="btn sm" data-f-open="${esc(f.id)}">Buka</button><button class="btn sm" data-f-del="${esc(f.id)}" style="color:var(--bad)">Hapus</button></div></div></div>`; }).join("")
     : `<div class="empty" style="grid-column:1/-1">Belum ada file.</div>`;
+  const df = dupFiles(), fb = $("#fileDup"); fb.hidden = !df.length;
+  if (df.length) fb.innerHTML = `<span><b>${nf(df.length)} file tersimpan ganda</b> (nama filenya sama): ${[...new Set(df.map(f => f.name))].slice(0, 3).map(esc).join(", ")}${new Set(df.map(f => f.name)).size > 3 ? ", …" : ""}. Yang terbaru dipertahankan; data hasil bacanya tidak ikut terhapus.</span><button class="btn sm primary" id="fileMerge">Hapus yang lama</button>`;
   renderLandDocs();
 }
+$("#fileDup").onclick = async e => { const b = e.target.closest("#fileMerge"); if (!b) return; b.disabled = true; b.textContent = "Menghapus…"; const df = dupFiles(); for (const f of df) await removeFile(f.id, true); toast(`${nf(df.length)} file ganda dihapus`); };
 $("#btnUpload").onclick = () => $("#fileInput").click();
 $("#fileInput").onchange = async e => { const fs = [...e.target.files]; e.target.value = ""; let n = 0;
   for (const f of fs){ if (await archiveFile(f, "Diunggah manual")) n++; }
@@ -3494,9 +3546,11 @@ async function addLandFiles(files){ let n = 0, last = null;
   if (n) toast(`${n} file tersimpan otomatis`); if (last && files.length === 1 && localFiles.some(x => x.id === last.id)) openDrawing(last.id); }
 function openFileRec(f){ if (!f) return; if (f.blob){ const u = URL.createObjectURL(f.blob), a = document.createElement("a"); a.href = u; if (drawKind(f) === "dwg" || drawKind(f) === "dxf") a.download = f.name; else a.target = "_blank"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000); }
   else if (safeUrl(f.url)) window.open(f.url, "_blank", "noopener"); }
-async function removeFile(id){ const f = allFiles().find(x => x.id === id); try { await idb.del(id); } catch {} localFiles = localFiles.filter(x => x.id !== id);
-  if (f?.url && mode === "live" && TOKEN){ try { await api("deleteFile", {id}); remoteFiles = remoteFiles.filter(x => x.id !== id); } catch { toast("File di Google Drive gagal dihapus"); } }
-  renderFiles(); renderSite(); toast("File dihapus"); }
+async function removeFile(id, quiet){ const f = allFiles().find(x => x.id === id); try { await idb.del(id); } catch {} localFiles = localFiles.filter(x => x.id !== id);
+  if (f?.url && mode === "live" && TOKEN){ try { await api("deleteFile", {id}); remoteFiles = remoteFiles.filter(x => x.id !== id); } catch { if (!quiet) toast("File di Google Drive gagal dihapus"); } }
+  renderFiles(); renderSite(); if (!quiet) toast("File dihapus"); }
+/** File arsip umum yang namanya sama tersimpan lebih dari sekali: selain yang terbaru. */
+function dupFiles(){ const seen = new Set(), out = []; for (const f of allFiles()){ if (f.linkedTo) continue; const k = fKey(f); if (seen.has(k)) out.push(f); else seen.add(k); } return out; }
 $("#btnLandUp").onclick = () => $("#landFile").click();
 $("#landFile").onchange = e => { const fs = [...e.target.files]; e.target.value = ""; addLandFiles(fs); };
 const landDrop = $("#landDocs");
@@ -3851,23 +3905,29 @@ function reviewUnits(res, fileName, files = [], srcs = []){
       <div class="field"><label for="rvProj">Proyek / kawasan</label><input type="text" id="rvProj" value="${esc(res.project || res.location || "")}"></div></div>
     <p class="note" style="margin:0">${nf(clusters.length)} cluster: ${clusters.map(esc).join(", ")}. Developer dibaca dari logo, segmen dari foto bangunannya (bisa diganti di kolom Segmen). Kolom Fasad dan Denah = potongan gambar tipe itu dari brosur; klik untuk mengatur ulang. Harga = tunai keras (atau tunai 2x) untuk unit standar; cara bayarnya tertulis di bawah angka. Cocokkan dengan dokumennya dulu (kolom Sumber = file dan halaman). Tanda <span class="miss">–</span> berarti tidak tercantum, jadi tidak diisi.</p>
     <div class="tablewrap rv-wrap"><table class="proj rv" id="rvTable"></table></div>
+    <label class="rv-rep" id="rvDupWrap" hidden><input type="checkbox" id="rvDup" checked> <span id="rvDupText"></span></label>
     <label class="rv-rep" id="rvRepWrap" hidden><input type="checkbox" id="rvRep" checked> <span id="rvRepText"></span></label>
     <p class="note" id="rvNote" style="margin:0"></p></div>`;
-  const draw = () => { const have = new Set(comps.map(c => String(c.id)));
+  // tipe yang sudah ada dengan nama/ID lain (mis. "Tipe 5x17" vs "5x17"): data lama itu yang ditimpa, bukan menambah baris baru
+  const twins = () => { const have = new Set(comps.map(c => String(c.id))), dev = $("#rvDev").value.trim(), pool = dupPool(), used = new Set(), m = new Map();
+    for (const u of units){ if (!u.on || have.has(idOf(u))) continue; const t = pool.find(c => !used.has(c.id) && sameProduct({developer:dev, cluster:u.cluster || u.type, unitType:u.type, lt:u.lt, lb:u.lb, price:u.price}, c)); if (t){ used.add(t.id); m.set(u.i, t); } }
+    return m; };
+  const draw = () => { const have = new Set(comps.map(c => String(c.id))), tw = twins();
     $("#rvTable").innerHTML = `<thead><tr><th><input type="checkbox" id="rvAll" ${units.every(u => u.on) ? "checked" : ""} aria-label="Pilih semua"></th><th>Fasad</th><th>Denah</th><th>Cluster</th><th>Tipe</th><th>Segmen</th><th class="n">LT</th><th class="n">LB</th><th class="n">KT</th><th class="n">KM</th><th class="n">Lantai</th><th class="n">Harga</th><th>Sumber</th></tr></thead><tbody>${
       units.map(u => `<tr class="${u.on ? "" : "pre"}"><td><input type="checkbox" data-rv="${u.i}" ${u.on ? "checked" : ""} aria-label="Simpan ${esc(u.type)}"></td>
         ${PIC_KINDS.map(K => `<td><button type="button" class="rv-img${okImg(u[K.k]) ? " has" : ""}" data-rv-img="${u.i}" data-kind="${K.k}" ${srcs.length ? "" : "disabled"} title="${srcs.length ? `Klik untuk memilih / mengatur potongan ${K.l}` : "Tidak ada file gambar"}" aria-label="${K.L} ${esc(u.type)}">${okImg(u[K.k]) ? `<img src="${u[K.k]}" alt="">` : srcs.length ? "+ " + K.l : "–"}</button></td>`).join("")}<td>${esc(u.cluster) || '<span class="miss">–</span>'}</td>
-        <td>${esc(u.type)}${have.has(idOf(u)) ? ' <span class="chip info">memperbarui</span>' : ""}${u.promo || u.notes ? `<small>${esc([u.promo, u.notes].filter(Boolean).join(" · "))}</small>` : ""}</td>
+        <td>${esc(u.type)}${have.has(idOf(u)) ? ' <span class="chip info">memperbarui</span>' : tw.has(u.i) ? ` <span class="chip info" title="Sudah ada sebagai ${esc(galName(tw.get(u.i)))} · ${esc(tw.get(u.i).cluster || "")}">sudah ada</span>` : ""}${u.promo || u.notes ? `<small>${esc([u.promo, u.notes].filter(Boolean).join(" · "))}</small>` : ""}</td>
         <td><select class="rv-seg" data-seg="${u.i}" aria-label="Segmen ${esc(u.type)}" title="${esc(u.tierFrom || "")}">${TIERS.map(t => `<option${t === u.tier ? " selected" : ""}>${t}</option>`).join("")}</select></td>
         <td class="n">${val(u.lt)}</td><td class="n">${val(u.lb)}</td><td class="n">${val(u.kt)}</td><td class="n">${val(u.km)}</td><td class="n">${val(u.floors)}</td>
         <td class="n">${u.price ? rp(u.price) + (u.priceBasis ? `<small>${esc(u.priceBasis)}</small>` : "") : '<span class="miss">–</span>'}</td><td class="src">${u.file || u.page ? esc([u.file, u.page ? "hal " + nf(u.page) : ""].filter(Boolean).join(" · ")) : '<span class="miss">–</span>'}</td></tr>`).join("")}</tbody>`;
     const on = units.filter(u => u.on), noPrice = on.filter(u => !u.price).length, noSize = on.filter(u => !u.lb && !u.lt).length;
     $("#rvNote").textContent = [noPrice ? `${nf(noPrice)} tipe tanpa harga` : "", noSize ? `${nf(noSize)} tipe tanpa luas` : ""].filter(Boolean).join(" · ") + (noPrice || noSize ? ". Tetap bisa disimpan, lalu dilengkapi lewat Edit." : "");
+    $("#rvDupWrap").hidden = !tw.size; if (tw.size) $("#rvDupText").textContent = `Timpa ${nf(tw.size)} tipe yang sudah ada (developer, nama tipe, dan luasnya sama: ${[...tw.values()].slice(0, 3).map(c => galName(c)).join(", ")}${tw.size > 3 ? ", …" : ""}) supaya tidak tercatat ganda. Angka lama yang tidak ada di brosur ini tetap dipertahankan.`;
     const old = stale(); $("#rvRepWrap").hidden = !old.length;
     if (old.length) $("#rvRepText").textContent = `Ganti data lama dari file yang sama: hapus ${nf(old.length)} produk yang tidak ada di hasil baca ini (${[...new Set(old.map(c => c.developer).filter(Boolean))].join(", ")})`;
     save.textContent = `Simpan ${nf(on.length)} produk`; save.disabled = !on.length; };
   // produk lama yang dulu dibaca dari file yang sama tetapi tidak termasuk hasil baca sekarang (mis. dulu tersimpan di bawah nama PT)
-  const stale = () => { const now = new Set(units.map(idOf)); return broRows(files).filter(c => !now.has(String(c.id))); };
+  const stale = () => { const now = new Set(units.map(idOf)); if ($("#rvDup")?.checked) twins().forEach(c => now.add(String(c.id))); return broRows(files).filter(c => !now.has(String(c.id))); };
   const back = document.createElement("button"); back.className = "btn"; back.textContent = "Batal"; back.onclick = closeModal;
   const save = document.createElement("button"); save.className = "btn primary";
   $("#mActions").replaceChildren(back, save);
@@ -3877,13 +3937,17 @@ function reviewUnits(res, fileName, files = [], srcs = []){
   $("#rvDev").oninput = () => { const h = $("#rvDevHint"), pt = /^pt\.?\s/i.test($("#rvDev").value.trim()); if (res.devIsLegal){ h.hidden = !pt; } draw(); };
   save.onclick = async () => { const dev = $("#rvDev").value.trim(), proj = $("#rvProj").value.trim();
     if (!dev){ $("#rvNote").textContent = "Isi nama developer dulu."; $("#rvDev").focus(); return; }
-    const rows = units.filter(u => u.on).map(u => ({id:idOf(u), developer:dev, project:proj, cluster:u.cluster || u.type, unitType:u.type, tier:TIERS.includes(u.tier) ? u.tier : "Deluxe",
+    const tw = $("#rvDup").checked ? twins() : new Map(), have = new Set(comps.map(c => String(c.id))); let over = 0;
+    const rows = units.filter(u => u.on).map(u => ({_u:u.i, id:tw.has(u.i) ? tw.get(u.i).id : idOf(u), developer:dev, project:proj, cluster:u.cluster || u.type, unitType:u.type, tier:TIERS.includes(u.tier) ? u.tier : "Deluxe",
       lt:u.lt, lb:u.lb, kt:u.kt, km:u.km, floors:u.floors, price:u.price, priceBasis:u.priceBasis || "", promo:u.promo || "", notes:u.notes || "", ...(okImg(u.image) ? {image:u.image} : {}), ...(okImg(u.plan) ? {plan:u.plan} : {}),
       source:(u.file || fileName) ? "Brosur: " + (u.file || fileName) : "Brosur / survei", sourceDate:today, isOwn:false, auto:false, dummy:false, updatedAt:new Date().toISOString()}));
+    // baris yang sudah ada (ID sama atau tipe yang sama): kolom yang kosong di brosur ini tidak menimpa isi lama
+    for (const r of rows){ if (tw.has(r._u)) over++; if (tw.has(r._u) || have.has(String(r.id))){ if (!(num(r.price) > 0)){ delete r.price; delete r.priceBasis; }
+        for (const k of ["lt", "lb", "kt", "km", "floors"]) if (!(num(r[k]) > 0)) delete r[k]; for (const k of ["project", "promo", "notes"]) if (!r[k]) delete r[k]; delete r.dummy; if (!units[r._u].cluster) delete r.cluster; } delete r._u; }
     save.disabled = true; save.textContent = "Menyimpan…";
     const gone = $("#rvRep").checked ? stale().map(c => c.id) : [];
     try { await api("import", {sheet:"Competitors", rows}); if (gone.length) await deleteComps(gone); closeModal(); await load();
-      toast(`${nf(rows.length)} produk dari brosur tersimpan${gone.length ? `, ${nf(gone.length)} data lama dari file yang sama dihapus` : ""}. Lengkapi stok & penjualan lewat Edit.`); }
+      toast(`${nf(rows.length)} produk dari brosur tersimpan${over ? `, ${nf(over)} di antaranya menimpa data yang sama` : ""}${gone.length ? `, ${nf(gone.length)} data lama dari file yang sama dihapus` : ""}. Lengkapi stok & penjualan lewat Edit.`); }
     catch(e){ save.disabled = false; draw(); $("#rvNote").textContent = errText(e); } };
   draw(); $("#modal").hidden = false;
 }
