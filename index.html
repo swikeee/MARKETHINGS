@@ -212,6 +212,9 @@ mark.num i,.air-list .lead i{font-style:normal;font-size:.7em;margin-right:4px;c
 /* tombol tampilkan / sembunyikan */
 .tgl{display:inline-flex;align-items:center;gap:6px} .tgl svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s} .tgl[aria-expanded="true"] svg{transform:rotate(180deg)}
 .fold-note{margin:0;padding:14px 16px;border:1px dashed var(--line);border-radius:var(--r);background:var(--surface);color:var(--muted);font-size:13px}
+/* ringkasan satu kalimat di bawah 4 panel KPI */
+.hero-sum{margin:0;padding:11px 15px;border-radius:12px;font-size:14px;line-height:1.55;max-width:96ch;text-wrap:pretty;background:color-mix(in srgb,var(--surface) 78%,transparent);-webkit-backdrop-filter:blur(12px) saturate(1.3);backdrop-filter:blur(12px) saturate(1.3);border:1px solid color-mix(in srgb,var(--surface) 60%,transparent);box-shadow:inset 3px 0 0 var(--accent)}
+.hero-sum b{font-weight:600}
 /* stok & alert (Sales Report) */
 .st-alerts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:8px}
 .st-alerts .act{grid-template-columns:auto minmax(0,1fr);align-items:start} .st-alerts .act p{margin:0;font-size:13px;line-height:1.4;overflow-wrap:anywhere} .st-alerts .act small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
@@ -804,6 +807,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
       </div>
     </div>
     <div class="kpis sk hero-k" id="salesKpis"></div>
+    <p class="hero-sum" id="salesSum" hidden></p>
       </div>
     </div>
     <nav class="jump" id="salesJump" aria-label="Lompat ke bagian"><a href="#s-tren">Tren</a><a href="#s-cluster">Cluster</a><a href="#s-tipe">Tipe</a><a href="#s-stok">Stok</a><a href="#s-komposisi">Komposisi</a><a href="#s-channel">Channel</a><a href="#s-pembeli">Pembeli</a><a href="#s-kalender">Kalender</a><a href="#s-tim">Tim</a></nav>
@@ -3899,10 +3903,26 @@ function sparkSvg(arr){
   const d = pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join("");
   return `<svg class="spark" viewBox="0 0 100 36" preserveAspectRatio="none" aria-hidden="true"><path class="a" d="${d}L100 36L0 36Z"/><path class="l" d="${d}" vector-effect="non-scaling-stroke"/></svg>`;
 }
+/** Ringkasan singkat 4 panel KPI dalam kalimat: dihitung langsung dari angkanya, tanpa AI. */
+function salesSentence(A){
+  const [val, unit, k3, k4] = A.kpi, B = t => `<b>${t}</b>`, fmt = k => k.fmt === "rp" ? rp(k.v) : k.fmt === "pct" ? nf(k.v, 1) + "%" : nf(k.v);
+  const d = k => k.fmt === "pct" ? k.v - k.pv : k.pv ? (k.v - k.pv)/k.pv*100 : 0, dir = k => Math.abs(d(k)) < .05 ? 0 : d(k) > 0 ? 1 : -1;
+  const chg = k => !dir(k) ? "tetap" : `${dir(k) > 0 ? "naik" : "turun"} ${B(nf(Math.abs(d(k)), 1) + (k.fmt === "pct" ? " poin" : "%"))}`;
+  const out = [`${nf(A.P)} bulan terakhir terjual ${B(nf(unit.v) + " unit")} senilai ${B(rp(val.v))}.`];
+  const avg = /harga/i.test(k3.l) ? k3 : null, explains = avg && dir(unit) && dir(val) && dir(unit) !== dir(val) && dir(avg) === dir(val);
+  let s2 = !dir(unit) && !dir(val) ? "Unit dan nilai penjualan sama dengan periode sebelumnya"
+    : dir(unit) === dir(val) ? `Unit ${chg(unit)} dan nilai penjualan ${chg(val)} dari periode sebelumnya`
+    : `Unit ${chg(unit)}, tetapi nilai penjualan ${chg(val)} dari periode sebelumnya`;
+  if (explains) s2 += ` karena rata-rata harga per unit ${chg(avg)} ke ${B(rp(avg.v))}`;
+  out.push(s2 + ".");
+  if (!explains) out.push(`${k3.l.replace(" / unit", " per unit")} ${B(fmt(k3))}, ${chg(k3)}.`);
+  out.push(`${k4.l} ${B(fmt(k4))}, ${chg(k4)}.`);
+  return out.join(" ");
+}
 function renderSales(){
   const A = salesAgg(salesP);
   $("#salesDummy").hidden = !salesDemo;
-  if (!A){ $("#salesKpis").innerHTML = `<div class="empty">Belum ada data penjualan. Isi sheet <b>Sales</b> dan <b>Leads</b>, atau kirim data contoh lewat Pengaturan.</div>`; return; }
+  if (!A){ $("#salesKpis").innerHTML = `<div class="empty">Belum ada data penjualan. Isi sheet <b>Sales</b> dan <b>Leads</b>, atau kirim data contoh lewat Pengaturan.</div>`; $("#salesSum").hidden = true; return; }
   $("#salesRange").textContent = `${keyLabel(A.cur[0])} – ${keyLabel(A.end)}`;
   $("#topDate").textContent = `Data penjualan s/d ${keyLabel(A.end)}`;
   const fmtK = (v,f) => f==="rp" ? rp(v) : f==="pct" ? nf(v,1)+"%" : nf(v);
@@ -3911,6 +3931,7 @@ function renderSales(){
     return `<div class="kpi"><div class="top"><span class="l">${k.l}</span><span class="delta ${Math.abs(d)<0.05?"flat":good?"pos":"neg"}">${Math.abs(d)<0.05?"→":d>0?"↑":"↓"} ${nf(Math.abs(d),1)}${k.fmt==="pct"?" pt":"%"}</span></div>
       <div class="v">${fmtK(k.v,k.fmt)}</div><div class="s">sebelumnya ${fmtK(k.pv,k.fmt)}</div>${sparkSvg(k.spark)}</div>`;
   }).join("");
+  $("#salesSum").innerHTML = salesSentence(A); $("#salesSum").hidden = false;
 
   renderTrend();
 
