@@ -1954,6 +1954,13 @@ async function mergeDups(){ const blank = v => v === null || v === undefined || 
   if (rows.length) await api("import", {sheet:"Competitors", rows});
   await deleteComps(gone); return gone.length; }
 const galName = c => c.unitType && c.unitType !== c.cluster ? c.unitType : c.cluster;
+// Judul kartu yang seragam: "Nama tipe - ukuran kavling". Ukuran = lebar x panjang bila tertulis di nama tipe, kalau tidak ada dipakai luas tanah.
+// Tipe yang namanya hanya ukuran (mis. "5x17") diberi nama "Standard", karena yang dicatat memang unit standarnya.
+const LOT_RX = /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)(?:\s*m\b)?/i;
+function typeLabel(c){ const raw = String(galName(c) || "").trim(), m = raw.match(LOT_RX);
+  const size = m ? `${m[1]}x${m[2]}` : num(c.lt) > 0 ? `${nf(c.lt)} m²` : "";
+  const name = raw.replace(LOT_RX, " ").replace(/\bLT\s*\d+(?:[.,]\d+)?\s*(?:m2|m²)?/gi, " ").replace(/\b(tipe|type)\b/gi, " ").replace(/\(\s*\)|\[\s*\]/g, " ").replace(/\s{2,}/g, " ").replace(/^[\s·\-–—:,/]+|[\s·\-–—:,/]+$/g, "") || "Standard";
+  return size ? `${name} - ${size}` : name; }
 const galKamar = c => [num(c.kt) ? nf(c.kt) + " KT" : "", num(c.km) ? nf(c.km) + " KM" : "", num(c.floors) ? nf(c.floors) + " lantai" : ""].filter(Boolean).join(" · ");
 const PHOTO_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18M5 20V9l7-5 7 5v11M10 20v-6h4v6"/></svg>';
 function renderGallery(rows){
@@ -1976,10 +1983,10 @@ function renderGallery(rows){
   $("#galCount").textContent = rows.length ? `${nf(list.length)} tipe ditampilkan` + (gal.cmp.length ? ` · ${nf(gal.cmp.length)} dipilih untuk dibandingkan` : "") : "";
   const W = canWrite();
   el.innerHTML = list.length ? list.map(c => { const has = okImg(pic(c)), kamar = galKamar(c), sel = gal.cmp.includes(c.id);
-    return `<article class="gcard${sel ? " picked" : ""}"><div class="gimg${K.k === "plan" ? " plan" : ""}">${has ? `<img src="${pic(c)}" alt="${K.L} ${esc(galName(c))}" loading="lazy" data-gzoom="${esc(c.id)}" title="Klik untuk perbesar">` : `<div class="none">${PHOTO_SVG}<span>Belum ada ${K.k === "plan" ? "gambar denah" : "foto fasad"}</span></div>`}
+    return `<article class="gcard${sel ? " picked" : ""}"><div class="gimg${K.k === "plan" ? " plan" : ""}">${has ? `<img src="${pic(c)}" alt="${K.L} ${esc(typeLabel(c))}" loading="lazy" data-gzoom="${esc(c.id)}" title="Klik untuk perbesar">` : `<div class="none">${PHOTO_SVG}<span>Belum ada ${K.k === "plan" ? "gambar denah" : "foto fasad"}</span></div>`}
         <span class="gdev" style="--c:${c.isOwn ? "var(--accent)" : devColor(c.developer, false)}"><i></i>${esc(c.developer || "–")}</span>
         <label class="gcmp"><input type="checkbox" data-gcmp="${esc(c.id)}" ${sel ? "checked" : ""}> Bandingkan</label></div>
-      <div class="gbody"><h4>${esc(galName(c))}</h4>
+      <div class="gbody"><h4 title="${esc(galName(c))}">${esc(typeLabel(c))}</h4>
         <div class="gsub">${galName(c) !== c.cluster ? `<span>${esc(c.cluster)}</span>` : c.project ? `<span>${esc(c.project)}</span>` : ""}<span class="chip">${esc(c.tier || "–")}</span>${c.isOwn ? '<span class="chip own">Kita</span>' : ""}</div>
         <dl class="gspec"><div><dt>LT / LB</dt><dd>${dash(num(c.lt) || null, nf)} / ${dash(num(c.lb) || null, nf)} <small>m²</small></dd></div><div><dt>Kamar & lantai</dt><dd>${kamar ? esc(kamar) : "–"}</dd></div>
           <div><dt>Harga</dt><dd>${num(c.price) > 0 ? rp(c.price) : "–"}${c.priceBasis ? `<br><small>${esc(c.priceBasis)}</small>` : ""}</dd></div><div><dt>Harga per m² LB</dt><dd>${dash(pm2(c), rp)}</dd></div></dl>
@@ -1990,7 +1997,7 @@ function renderGallery(rows){
   if (C.length >= 2){ const pm = C.map(pm2), minPm = Math.min(...pm.filter(v => v !== null)), pr = C.map(c => num(c.price) > 0 ? num(c.price) : null), minPr = Math.min(...pr.filter(v => v !== null));
     const line = (label, f, best) => `<tr><td>${label}</td>${C.map((c, i) => `<td${best && best(i) ? ' class="best"' : ""}>${f(c, i)}</td>`).join("")}</tr>`;
     box.innerHTML = `<div class="ch"><h3 style="margin:0">Perbandingan ${nf(C.length)} tipe</h3><span style="display:flex;gap:8px;flex-wrap:wrap">${C.filter(c => okImg(c.plan)).length >= 2 ? '<button class="btn sm primary" id="galPlans">Bandingkan denah</button>' : ""}<button class="btn sm" id="galClear">Kosongkan pilihan</button></span></div>
-      <table><thead><tr><th></th>${C.map(c => `<th><div class="cimg">${okImg(c.image) ? `<img src="${c.image}" alt="Fasad ${esc(galName(c))}" data-gzoom="${esc(c.id)}">` : "Belum ada foto"}</div>${esc(galName(c))}</th>`).join("")}</tr></thead><tbody>
+      <table><thead><tr><th></th>${C.map(c => `<th><div class="cimg">${okImg(c.image) ? `<img src="${c.image}" alt="Fasad ${esc(galName(c))}" data-gzoom="${esc(c.id)}">` : "Belum ada foto"}</div>${esc(typeLabel(c))}</th>`).join("")}</tr></thead><tbody>
       ${C.some(c => okImg(c.plan)) ? line("Denah", c => `<div class="cimg plan">${okImg(c.plan) ? `<img src="${c.plan}" alt="Denah ${esc(galName(c))}" data-gplans title="Klik untuk bandingkan denah di layar penuh">` : "Belum ada denah"}</div>`) : ""}${line("Developer", c => esc(c.developer || "–") + (c.isOwn ? ' <span class="chip own">Kita</span>' : ""))}${line("Cluster / proyek", c => esc(galName(c) !== c.cluster ? c.cluster : c.project || "–"))}${line("Segmen", c => esc(c.tier || "–"))}
       ${line("Luas tanah", c => num(c.lt) > 0 ? nf(c.lt) + " m²" : "–")}${line("Luas bangunan", c => num(c.lb) > 0 ? nf(c.lb) + " m²" : "–")}${line("Kamar & lantai", c => esc(galKamar(c)) || "–")}
       ${line("Harga", (c, i) => pr[i] === null ? "–" : rp(pr[i]) + (c.priceBasis ? `<div class="note">${esc(c.priceBasis)}</div>` : ""), i => pr[i] !== null && pr[i] === minPr && pr.filter(v => v !== null).length > 1)}
@@ -2005,11 +2012,11 @@ function zoomBox(title, sub, figs, cols){ const o = document.createElement("div"
   o.onclick = e => { if (e.target === o || e.target.closest("[data-zclose]")) close(); }; document.addEventListener("keydown", key); document.body.appendChild(o); o.querySelector("[data-zclose]").focus(); }
 const galSpec = c => { const kamar = galKamar(c); return `LT ${dash(num(c.lt) || null, nf)} / LB ${dash(num(c.lb) || null, nf)} m²${kamar ? " · " + esc(kamar) : ""}${num(c.price) > 0 ? " · " + rp(c.price) : ""}`; };
 function galZoom(id){ const c = comps.find(x => x.id === id); if (!c) return; const pics = PIC_KINDS.filter(K => okImg(c[K.k])); if (!pics.length) return;
-  zoomBox(galName(c), `${esc(c.developer || "–")}${c.tier ? " · " + esc(c.tier) : ""} · ${galSpec(c)}`, pics.map(K => ({src:c[K.k], alt:K.L + " " + galName(c), cap:K.L}))); }
+  zoomBox(typeLabel(c), `${esc(c.developer || "–")}${c.tier ? " · " + esc(c.tier) : ""} · ${galSpec(c)}`, pics.map(K => ({src:c[K.k], alt:K.L + " " + galName(c), cap:K.L}))); }
 /** Denah semua tipe yang sedang dibandingkan, berdampingan pada tinggi yang sama. */
 function galZoomPlans(){ const C = gal.cmp.map(id => comps.find(c => c.id === id)).filter(c => c && okImg(c.plan)); if (!C.length) return; if (C.length === 1) return galZoom(C[0].id);
   zoomBox(`Perbandingan denah ${nf(C.length)} tipe`, "Skala gambar mengikuti brosur masing-masing. Bandingkan ukuran ruang dari angka di denah, bukan dari besar gambarnya.",
-    C.map(c => ({src:c.plan, alt:"Denah " + galName(c), cap:`<b>${esc(galName(c))}</b>${esc(c.developer || "–")} · ${galSpec(c)}`})), true); }
+    C.map(c => ({src:c.plan, alt:"Denah " + galName(c), cap:`<b>${esc(typeLabel(c))}</b>${esc(c.developer || "–")} · ${galSpec(c)}`})), true); }
 async function saveCompImage(id, image, key = "image"){ const c = comps.find(x => x.id === id); if (!c) return;
   if (mode !== "demo") await api("import", {sheet:"Competitors", rows:[{id, [key]:image}]});      // hanya kolom gambar itu yang diubah: status Auto dan data lain tidak tersentuh
   c[key] = image; if (mode === "demo") persistLocal(); renderComp(); }
