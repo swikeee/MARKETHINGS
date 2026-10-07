@@ -1412,6 +1412,9 @@ async function load(silent){
     if (!j.ok) throw {code: j.error==="unauthorized" ? "unauthorized" : "server", message:j.error};
     const sig = JSON.stringify([j.competitors, j.sources, j.history, j.files, j.settings, j.lastSync, j.sales, j.leads, !!j.ai]);
     if (j.rev !== undefined) lastRev = j.rev;
+    // event marketing diproses lebih dulu: perubahan yang hanya menyangkut event tidak perlu menggambar ulang seluruh halaman
+    evBackend = Array.isArray(j.events); backendEvents = evBackend ? j.events.filter(e => e && e.id && e.name && e.start).map(e => ({id:String(e.id), name:String(e.name), type:String(e.type || "Lainnya"), start:String(e.start).slice(0, 10), end:String(e.end || e.start).slice(0, 10), notes:String(e.notes || "")})) : [];
+    if (evReady) loadEvents(true);          // event ikut diperbarui tiap data backend dimuat ulang
     if (silent && sig === lastSnapSig && dbState === "ready") return false;      // tidak ada yang berubah: jangan gambar ulang
     lastSnapSig = sig;
     comps = j.competitors || []; sources = j.sources || []; history = j.history || [];
@@ -3434,7 +3437,7 @@ $("#btnSettings").onclick = () => {
   const R = (a,b,c) => `<tr><td><b>${a}</b></td><td>${b}</td><td>${c}</td></tr>`;
   $("#storRows").innerHTML =
     R("Penjualan (Sales Report)", salesSource === "sheet" ? "Google Sheet rekap (tab " + esc(SALES_TAB || "pertama") + ")" : salesSource === "api" ? "Google Sheet backend (sheet Sales)" : "Data contoh bawaan", sales.length + " baris")
-  + R("Event marketing", EVENT_API ? "Google Sheet (tab EVENT) + browser ini" : "Browser ini" + (evSheetOk ? " · membaca tab EVENT" : ""), events.length + " event")
+  + R("Event marketing", evViaBackend() ? "Google Sheet (tab Events)" : EVENT_API ? "Google Sheet (tab EVENT) + browser ini" : "Browser ini" + (evSheetOk ? " · membaca tab EVENT" : ""), events.length + " event")
   + R("Produk kompetitor", live ? "Google Sheet backend (sheet Competitors)" : "Browser ini", comps.length + " produk")
   + R("Kavling komersial", live ? "Google Sheet backend (sheet Plots)" : "Browser ini", plots.length + " kavling")
   + R("Penawaran tenant", live ? "Google Sheet backend (sheet Offers)" : "Browser ini", offers.length + " penawaran")
@@ -4607,6 +4610,8 @@ const EV_TYPES = ["Open house","Pameran","Promo","Gathering","Launching","Lainny
 const EV_COLOR = {"Open house":"var(--c1)","Pameran":"var(--c2)","Promo":"var(--c3)","Gathering":"var(--c4)","Launching":"var(--c5)","Lainnya":"var(--c6)"};
 const evColor = t => EV_COLOR[t] || "var(--c6)";
 let EVENT_API = (store.get("li.eventApi") || "").trim();
+// Event disimpan di backend utama (tab Events di Google Sheet) bila Code.gs sudah versi yang mendukungnya; browser hanya menyimpan salinan + event yang belum terkirim.
+const evViaBackend = () => evBackend && mode === "live" && !!TOKEN, evCanSync = () => evViaBackend() || !!EVENT_API, evGone = new Map();
 let events = [], evWin = 7, heatView = "month", calMonth = null, evSheetOk = false, evSyncMsg = "";
 const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const addDays = (s, n) => { const d = new Date(s+"T00:00:00"); d.setDate(d.getDate()+n); return iso(d); };
@@ -4639,19 +4644,31 @@ async function readSheetEvents(){
   catch { try { return parseEventRows(await sheetRowsJsonp(SALES_SHEET, "EVENT")); } catch { return null; } }
 }
 async function postEvent(action, ev){
+  if (evViaBackend()){
+    try { if (action === "delete"){ evGone.set(ev.id, Date.now()); await api("deleteEvent", {id:ev.id}); } else await api("saveEvent", {id:ev.id, name:ev.name, type:ev.type, start:ev.start, end:ev.end, notes:ev.notes || ""}); return true; }
+    catch(e){ evSyncMsg = "Belum tersimpan ke Google Sheet (" + errText(e) + "). Event tetap ada di browser ini dan dikirim ulang otomatis."; return false; } }
   if (!EVENT_API) return false;
   try { const r = await fetch(EVENT_API, {method:"POST", body: JSON.stringify({action, token: TOKEN || "", event: {id:ev.id, name:ev.name, type:ev.type, start:ev.start, end:ev.end, notes:ev.notes||""}})});
     const j = await r.json(); if (!j.ok) throw new Error(j.error||"gagal"); return true; }
   catch(e){ evSyncMsg = "Gagal sinkron ke Google Sheet (" + (e.message||"jaringan") + "). Event tetap tersimpan di browser."; return false; }
 }
+let evPushing = false;
 async function syncPending(){
-  if (!EVENT_API) return;
-  let changed = false;
-  for (const ev of events.filter(e => !e.synced && !e.demo)){ if (await postEvent("upsert", ev)){ ev.synced = true; changed = true; } }
+  if (!evCanSync() || evPushing) return;
+  let changed = false; evPushing = true;
+  try { for (const ev of events.filter(e => !e.synced && !e.demo)){ if (await postEvent("upsert", ev)){ ev.synced = true; ev.savedAt = Date.now(); changed = true; } } } finally { evPushing = false; }
   if (changed){ evSyncMsg = ""; saveLocalEvents(); renderEvents(); }
 }
-let lastEvSig = "";
+let lastEvSig = "", evReady = false, evBackend = false, backendEvents = [];
 async function loadEvents(silent){
+  evReady = true;
+  if (evBackend){          // sumber utama: tab Events di backend. Event lokal yang belum terkirim ditambahkan lalu dikirim.
+    const local = readLocalEvents() || [], now = Date.now(), fresh = t => t && now - t < 120000;      // jeda 2 menit: data backend yang dimuat tepat sebelum simpan / hapus selesai tidak membatalkan perubahan itu
+    const list = backendEvents.filter(e => !fresh(evGone.get(e.id))), ids = new Set(list.map(e => e.id)), mine = Object.fromEntries(events.map(e => [e.id, e]));
+    const next = list.map(e => mine[e.id] && !mine[e.id].synced ? mine[e.id] : {...e, synced:true}).concat(local.filter(e => !e.demo && !ids.has(e.id) && !fresh(evGone.get(e.id)) && (!e.synced || fresh(e.savedAt))));
+    const key = a => JSON.stringify(a.map(e => [e.id, e.name, e.type, e.start, e.end, e.notes, !!e.synced]));
+    evSheetOk = true; if (silent && key(next) === key(events)){ syncPending(); return; }      // tidak ada yang berubah: jangan gambar ulang
+    events = next; saveLocalEvents(); renderEvents(); syncPending(); return; }
   const sheet = await readSheetEvents(), sig = JSON.stringify(sheet);
   if (silent && sig === lastEvSig) return;      // tab EVENT tidak berubah
   lastEvSig = sig;
@@ -4673,10 +4690,10 @@ function editEvent(ev, presetDate){
       if (!val.end || val.end < val.start) val.end = val.start;
       const e = {...(ev||{}), ...val, id: ev?.id || "ev"+Date.now().toString(36), demo:false, synced:false};
       events = events.filter(x => x.id !== e.id).concat([e]); saveLocalEvents(); renderEvents();
-      if (EVENT_API && await postEvent("upsert", e)){ e.synced = true; evSyncMsg = ""; saveLocalEvents(); renderEvents(); }
+      if (evCanSync() && await postEvent("upsert", e)){ e.synced = true; e.savedAt = Date.now(); evSyncMsg = ""; saveLocalEvents(); renderEvents(); }
     },
-    ev ? async () => { events = events.filter(x => x.id !== ev.id); saveLocalEvents(); renderEvents(); if (ev.synced && EVENT_API) await postEvent("delete", ev); } : null,
-    EVENT_API ? "Event tersimpan dan disinkron ke Google Sheet" : "Event tersimpan otomatis di browser ini");
+    ev ? async () => { events = events.filter(x => x.id !== ev.id); saveLocalEvents(); renderEvents(); if (evCanSync() && (ev.synced || evViaBackend())) await postEvent("delete", ev); } : null,
+    evCanSync() ? "Event tersimpan di Google Sheet" : "Event tersimpan otomatis di browser ini");
 }
 const salesOnDays = (a, b) => sales.filter(x => x.status !== "Batal" && x.date >= a && x.date <= b);
 function impactOf(ev){
@@ -4688,12 +4705,15 @@ function impactOf(ev){
 }
 function renderEvents(){
   $("#evSync").innerHTML = evSyncMsg ? `<span class="up">${esc(evSyncMsg)}</span>`
-    : EVENT_API ? `<span class="dot ok"></span> Auto-save ke Google Sheet (tab EVENT)` : `<span class="dot run"></span> Auto-save di browser ini${evSheetOk ? " · membaca tab EVENT" : ""}`;
+    : evViaBackend() ? (events.some(e => !e.synced && !e.demo) ? `<span class="dot run"></span> Mengirim event ke Google Sheet…` : `<span class="dot ok"></span> Tersimpan di Google Sheet (tab Events)`)
+    : EVENT_API ? `<span class="dot ok"></span> Auto-save ke Google Sheet (tab EVENT)`
+    : mode === "live" && TOKEN ? `<span class="up">Event baru tersimpan di browser ini saja. Pasang Code.gs terbaru supaya tersimpan di Google Sheet.</span>`
+    : `<span class="dot run"></span> Auto-save di browser ini${evSheetOk ? " · membaca tab EVENT" : ""}`;
   const list = [...events].sort((a,b)=>b.start.localeCompare(a.start));
   $("#evTable").innerHTML = list.length ? `<thead><tr><th>Event</th><th>Tanggal</th><th class="n">${evWin} hari sebelum</th><th class="n">Selama + ${evWin} hari sesudah</th><th>Perubahan / hari</th><th></th></tr></thead><tbody>${
     list.map(ev => { const im = impactOf(ev), up = im.chg > 0;
       const chg = im.chg === Infinity ? `<span class="imp pos">naik dari 0</span>` : `<span class="imp ${up?"pos":im.chg<0?"neg":""}">${up?"↑":im.chg<0?"↓":"→"} ${nf(Math.abs(im.chg),0)}%</span>`;
-      return `<tr><td><span class="evdot" style="background:${evColor(ev.type)};margin:0 8px 0 0"></span><b>${esc(ev.name)}</b> <span class="chip">${esc(ev.type)}</span>${ev.demo?' <span class="dummy">contoh</span>':""}${!ev.synced && EVENT_API && !ev.demo?' <span class="chip warn">belum tersinkron</span>':""}${ev.notes && !ev.demo?`<div class="note">${esc(ev.notes)}</div>`:""}</td>
+      return `<tr><td><span class="evdot" style="background:${evColor(ev.type)};margin:0 8px 0 0"></span><b>${esc(ev.name)}</b> <span class="chip">${esc(ev.type)}</span>${ev.demo?' <span class="dummy">contoh</span>':""}${!ev.synced && evCanSync() && !ev.demo?' <span class="chip warn">belum tersimpan di Sheet</span>':""}${ev.notes && !ev.demo?`<div class="note">${esc(ev.notes)}</div>`:""}</td>
         <td>${fmtDay(ev.start)}${ev.end!==ev.start?" – "+fmtDay(ev.end):""}</td>
         <td class="n">${im.before.length} unit</td><td class="n">${im.after.length} unit <div class="note">${rp(im.val)}</div></td>
         <td>${chg}<div class="note">${nf(im.rb,2)} → ${nf(im.ra,2)} unit/hari${im.partial?" · data belum lengkap":""}</div></td>

@@ -79,6 +79,14 @@ post('syncNow', {}); ok('perubahan harga masuk PriceHistory', get().history.some
   env.setFetch((url) => url.includes('api.anthropic.com') ? {code:200, type:'application/json', body:JSON.stringify({content:[{type:'text', text:'[{"developer":"Summarecon Bandung","cluster":"Cluster Uji","lb":100,"price":2700000000,"stock":60,"sold":20,"months":10}]'}]})} : {code:200, type:'text/html', body:'<p>ada stok</p>'});
   post('syncNow', {}); c = get().competitors.find(x => x.id === 'auto-summarecon-bandung-cluster-uji');
   ok('sumber memuat stok asli → angka sumber dipakai dan tanda dummy dilepas', c.stock === 60 && c.sold === 20 && c.months === 10 && c.dummy === false, JSON.stringify([c.stock, c.sold, c.months, c.dummy])); }
+// event marketing: tersimpan di tab Events (dibuat sendiri), ikut di data GET, bisa diubah & dihapus
+{ delete env.sheets.Events;      // seperti Sheet lama yang belum punya tab Events: tab dibuat sendiri
+  r = post('saveEvent', {id:'ev1', name:'Open House Akhir Pekan', type:'Open house', start:'2026-09-12', end:'2026-09-13', notes:'di marketing gallery'});
+  ok('saveEvent: tersimpan dan ikut di data yang dibaca dashboard', r.ok && r.row.id === 'ev1' && get().events.length === 1 && get().events[0].start === '2026-09-12' && get().events[0].end === '2026-09-13' && get().events[0].name === 'Open House Akhir Pekan', r.error || JSON.stringify(get().events));
+  r = post('saveEvent', {id:'ev1', name:'Open House', type:'Open house', start:'2026-09-12', end:'2026-09-01'}); ok('saveEvent id sama → memperbarui, tanggal selesai < mulai dirapikan', get().events.length === 1 && get().events[0].name === 'Open House' && get().events[0].end === '2026-09-12');
+  ok('saveEvent menolak tanpa nama / tanggal tidak valid / token salah', post('saveEvent', {start:'2026-09-12'}).ok === false && post('saveEvent', {name:'x', start:'12/09/2026'}).ok === false && post('saveEvent', {name:'x', start:'2026-09-12'}, 'salah').error === 'unauthorized' && get().events.length === 1);
+  r = post('saveEvent', {name:'Pameran', type:'Pameran', start:'2026-10-01'}); ok('tanpa id → id dibuat, selesai = mulai', r.ok && /^ev-/.test(r.row.id) && r.row.end === '2026-10-01' && get().events.length === 2);
+  r = post('deleteEvent', {id:'ev1'}); const r2 = post('deleteEvent', {id:'tidak-ada'}); ok('deleteEvent: terhapus; id tak dikenal tidak error', r.ok && r.deleted === true && r2.ok && r2.deleted === false && get().events.length === 1); }
 ok('aksi tidak dikenal', post('apaini', {}).error === 'unknown action');
 ok('import ke sheet tidak valid ditolak', /tidak valid/.test(post('import', {sheet:'Settings', rows:[{id:'x'}]}).error || ''));
 // volume: 300 baris penjualan

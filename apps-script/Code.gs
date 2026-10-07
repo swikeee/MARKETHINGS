@@ -30,11 +30,12 @@ const SHEETS = {
   Leads:       ['id','month','channel','leads','visits'],
   Files:       ['id','name','type','size','url','driveId','note','linkedTo','createdAt'],
   Offers:      ['id','plotCode','tenant','type','priceM2','term','date','status','use','contact','notes','dummy','updatedAt','inst'],   // inst = jumlah cicilan/angsuran yang diminta tenant · penawaran sewa/beli dari calon tenant per kavling; priceM2 sewa = Rp/m²/bulan
+  Events:      ['id','name','type','start','end','notes','updatedAt'],   // event marketing (open house, pameran, promo, ...) · start/end = yyyy-MM-dd
   Settings:    ['id','value','updatedAt'],   // pengaturan bersama, mis. id "kom" = ketentuan sewa & jual (JSON)
 };
 // Kolom yang harus tetap teks: cegah Sheets mengubah tanggal jadi Date, kode kavling jadi angka, atau nomor telepon kehilangan angka 0 di depan
-const TEXT_COLS = { Sales: ['date','akadDate'], Leads: ['month'], Offers: ['date','plotCode','contact','tenant'], Plots: ['code','poly','drawingId'], Competitors: ['sourceDate','cluster','unitType'], Files: ['name'], Settings: ['id','value'] };
-const WRITE_ACTIONS = ['saveCompetitor','savePlot','saveOffer','saveSource','delete','deleteMany','import','saveFile','deleteFile','saveSetting','selfTest'];
+const TEXT_COLS = { Sales: ['date','akadDate'], Leads: ['month'], Offers: ['date','plotCode','contact','tenant'], Plots: ['code','poly','drawingId'], Competitors: ['sourceDate','cluster','unitType'], Files: ['name'], Settings: ['id','value'], Events: ['id','name','start','end','notes'] };
+const WRITE_ACTIONS = ['saveCompetitor','savePlot','saveOffer','saveSource','delete','deleteMany','import','saveFile','deleteFile','saveSetting','saveEvent','deleteEvent','selfTest'];
 const NUMERIC = ['size','leads','visits','lt','lb','price','stock','sold','months','area','frontage','priceM2','rentM2','x','y','w','h','oldPrice','newPrice','changePct','term','inst','kt','km','floors'];
 const BOOL = ['isOwn','auto','dummy','active'];
 const MAX_TEXT = 60000;
@@ -136,6 +137,13 @@ function handle(action, p) {
         importRows(p.sheet, p.rows || []);
         return out({ ok: true, count: (p.rows || []).length });
       }
+      case 'saveEvent': {    // event marketing dari Sales Report: disimpan di tab Events supaya ikut ke semua browser
+        if (!String(p.name || '').trim()) throw new Error('Nama event wajib diisi');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(p.start || ''))) throw new Error('Tanggal mulai tidak valid');
+        const end = /^\d{4}-\d{2}-\d{2}$/.test(String(p.end || '')) && p.end >= p.start ? p.end : p.start;
+        return out({ ok: true, row: upsert('Events', { id: p.id || 'ev-' + uid(), name: String(p.name).trim().slice(0, 120), type: String(p.type || 'Lainnya').slice(0, 40), start: p.start, end: end, notes: String(p.notes || '').slice(0, 1000), updatedAt: now() }) });
+      }
+      case 'deleteEvent':    return out({ ok: true, deleted: deleteRow('Events', p.id) });
       case 'saveSetting': {  // pengaturan bersama (ketentuan sewa & jual, dll.)
         if (!/^[a-z][\w-]{0,40}$/i.test(String(p.id || ''))) throw new Error('Nama pengaturan tidak valid');
         return out({ ok: true, row: upsert('Settings', { id: p.id, value: typeof p.value === 'string' ? p.value : JSON.stringify(p.value), updatedAt: now() }) });
@@ -195,6 +203,7 @@ function snapshot() {
     sales: readTable('Sales'),
     leads: readTable('Leads'),
     files: readTable('Files').map(f => { delete f.driveId; return f; }),
+    events: (function () { try { return readTable('Events'); } catch (e) { return []; } })(),
     settings: (function () { try { const o = {}; readTable('Settings').forEach(x => { if (String(x.id).charAt(0) !== '_') o[x.id] = x.value; }); return o; } catch (e) { return {}; } })(),
     lastSync: log.length ? log[log.length - 1] : null,
     ai: !!aiProvider(),
@@ -567,7 +576,12 @@ function deleteFile(id) {
 const headerOk = {};   // per eksekusi: sheet yang judul kolomnya sudah dicek
 function sheet(name) {
   if (!SHEETS[name]) throw new Error('Sheet tidak dikenal: ' + name);
-  const sh = SpreadsheetApp.getActive().getSheetByName(name);
+  let sh = SpreadsheetApp.getActive().getSheetByName(name);
+  if (!sh && name === 'Events') {   // tab baru di versi ini: dibuat sendiri saat pertama dipakai, tidak perlu setup() ulang
+    const h = SHEETS[name]; sh = SpreadsheetApp.getActive().insertSheet(name);
+    sh.getRange(1, 1, 1, h.length).setValues([h]).setFontWeight('bold'); sh.setFrozenRows(1);
+    (TEXT_COLS[name] || []).forEach(k => sh.getRange(1, h.indexOf(k) + 1, sh.getMaxRows(), 1).setNumberFormat('@'));
+  }
   if (!sh) throw new Error('Sheet ' + name + ' belum ada. Jalankan setup().');
   if (!headerOk[name]) {   // versi kode baru menambah kolom di ujung kanan: lengkapi judul kolomnya sendiri, tidak perlu setup() ulang
     headerOk[name] = true;
@@ -590,7 +604,7 @@ function readTable(name) {
 }
 
 function fromCell(k, v) {
-  if (v instanceof Date) return (k === 'month') ? Utilities.formatDate(v, 'Asia/Jakarta', 'yyyy-MM') : (k === 'date' || k === 'akadDate') ? Utilities.formatDate(v, 'Asia/Jakarta', 'yyyy-MM-dd') : v.toISOString();
+  if (v instanceof Date) return (k === 'month') ? Utilities.formatDate(v, 'Asia/Jakarta', 'yyyy-MM') : (k === 'date' || k === 'akadDate' || k === 'start' || k === 'end') ? Utilities.formatDate(v, 'Asia/Jakarta', 'yyyy-MM-dd') : v.toISOString();
   if (NUMERIC.indexOf(k) >= 0) return v === '' || v === null ? null : Number(v);
   if (BOOL.indexOf(k) >= 0) return v === true || String(v).toUpperCase() === 'TRUE';
   return v;
@@ -639,7 +653,7 @@ function importRows(name, rows) {
 function appendRow(name, obj) { sheet(name).appendRow(SHEETS[name].map(k => toCell(k, obj[k]))); }
 
 function deleteRow(name, id) {
-  if (['Competitors', 'Plots', 'Sources', 'Offers'].indexOf(name) < 0) throw new Error('Tidak bisa menghapus dari ' + name);
+  if (['Competitors', 'Plots', 'Sources', 'Offers', 'Events'].indexOf(name) < 0) throw new Error('Tidak bisa menghapus dari ' + name);
   const sh = sheet(name);
   if (sh.getLastRow() < 2) return false;
   const ids = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().map(r => String(r[0]));
