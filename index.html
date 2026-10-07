@@ -212,9 +212,14 @@ mark.num i,.air-list .lead i{font-style:normal;font-size:.7em;margin-right:4px;c
 /* tombol tampilkan / sembunyikan */
 .tgl{display:inline-flex;align-items:center;gap:6px} .tgl svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s} .tgl[aria-expanded="true"] svg{transform:rotate(180deg)}
 .fold-note{margin:0;padding:14px 16px;border:1px dashed var(--line);border-radius:var(--r);background:var(--surface);color:var(--muted);font-size:13px}
-/* ringkasan satu kalimat di bawah 4 panel KPI */
-.hero-sum{margin:0;padding:11px 15px;border-radius:12px;font-size:14px;line-height:1.55;max-width:96ch;text-wrap:pretty;background:color-mix(in srgb,var(--surface) 78%,transparent);-webkit-backdrop-filter:blur(12px) saturate(1.3);backdrop-filter:blur(12px) saturate(1.3);border:1px solid color-mix(in srgb,var(--surface) 60%,transparent);box-shadow:inset 3px 0 0 var(--accent)}
-.hero-sum b{font-weight:600} .hero-sum span{display:block} .hero-sum span + span{margin-top:4px}
+/* ringkasan kalimat di bawah 4 panel KPI: selebar deretan panel, teks abu-abu dengan angka tegas, ikon per kalimat, panah naik / turun berwarna */
+.hero-sum{margin:0;padding:14px 16px;border-radius:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 26px;background:color-mix(in srgb,var(--surface) 80%,transparent);-webkit-backdrop-filter:blur(12px) saturate(1.3);backdrop-filter:blur(12px) saturate(1.3);border:1px solid color-mix(in srgb,var(--surface) 60%,transparent);box-shadow:0 6px 24px rgba(9,9,11,.06)}
+.hero-sum[hidden]{display:none}
+.hs{display:grid;grid-template-columns:30px minmax(0,1fr);gap:11px;align-items:start;min-width:0;font-size:13.5px;line-height:1.55;color:var(--muted);text-wrap:pretty}
+.hs b{font-weight:600;color:var(--ink);white-space:nowrap}
+.hs .ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)} .hs .ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.hs .tr{font-style:normal;font-size:.72em;margin-right:3px;position:relative;top:-1px} .hs .tr.up{color:var(--ok)} .hs .tr.dn{color:var(--bad)} .hs .tr.nt{color:var(--muted)}
+@media (max-width:860px){.hero-sum{grid-template-columns:minmax(0,1fr)}}
 /* stok & alert (Sales Report) */
 .st-alerts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:8px}
 .st-alerts .act{grid-template-columns:auto minmax(0,1fr);align-items:start} .st-alerts .act p{margin:0;font-size:13px;line-height:1.4;overflow-wrap:anywhere} .st-alerts .act small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
@@ -807,7 +812,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
       </div>
     </div>
     <div class="kpis sk hero-k" id="salesKpis"></div>
-    <p class="hero-sum" id="salesSum" hidden></p>
+    <div class="hero-sum" id="salesSum" hidden></div>
       </div>
     </div>
     <nav class="jump" id="salesJump" aria-label="Lompat ke bagian"><a href="#s-tren">Tren</a><a href="#s-cluster">Cluster</a><a href="#s-tipe">Tipe</a><a href="#s-stok">Stok</a><a href="#s-komposisi">Komposisi</a><a href="#s-channel">Channel</a><a href="#s-pembeli">Pembeli</a><a href="#s-kalender">Kalender</a><a href="#s-tim">Tim</a></nav>
@@ -965,7 +970,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
         <h2 class="hero-h">Market Pulse</h2>
         <p class="hero-p" id="heroSub" hidden></p>
         <div class="kpis hero-k" id="compKpis"></div>
-        <p class="hero-sum" id="compSum" hidden></p>
+        <div class="hero-sum" id="compSum" hidden></div>
       </div>
       <div class="scroll-cue" aria-hidden="true">Scroll</div>
     </div>
@@ -1519,13 +1524,13 @@ function renderComp(){
     <div class="kpi"><div class="l">Serapan rata-rata · kompetitor</div>${othAbs.length ? `<div class="v"><span data-count="${othA}" data-fmt="d1">${nf(othA,1)}</span> <small style="font-size:13px">unit/bln</small></div>` : `<div class="v">–</div>`}<div class="s">${[["Pororo", ownAbs.length ? ownA : null], ...devAbs.slice(0, 3).map(d => [devShort(d.dev), d.a])].map(x => `${esc(x[0])} ${x[1] === null ? "–" : nf(x[1], 1)}`).join(" · ")} unit/bln</div></div>
     <div class="kpi"><div class="l">Serapan tertinggi</div>${top?`<div class="v" style="font-size:17px">${esc(top.cluster)}</div><div class="s">${esc(top.developer)} · ${nf(absorb(top),1)} unit/bln</div>`:`<div class="v">–</div><div class="s">belum ada data penjualan</div>`}</div>`;
   { const B = t => `<b>${t}</b>`, list = a => a.length > 1 ? a.slice(0, -1).join(", ") + " dan " + a.at(-1) : a[0] || "", S = [];      // ringkasan 4 panel dalam kalimat
-    S.push(`Dipantau ${B(nf(rows.length) + " tipe unit")}${tier === "all" ? "" : " di segmen " + esc(tier)}: ${nf(own.length)} milik Pororo Land dan ${nf(oth.length)} dari ${nf(devN)} developer kompetitor${devN && devN <= 4 ? " (" + esc(list(devAbs.map(d => d.dev))) + ")" : ""}.`);
-    if (ownP && othP) S.push(`Rata-rata harga per m² luas bangunan Pororo Land ${B(rp(ownP))}, ${Math.abs(gap) < .05 ? "sama dengan" : B(nf(Math.abs(gap), 1) + "% " + (gap > 0 ? "lebih tinggi" : "lebih rendah")) + " dari"} rata-rata kompetitor (${rp(othP)}).`);
-    else if (ownP || othP) S.push(`Rata-rata harga per m² luas bangunan ${ownP ? "Pororo Land" : "kompetitor"} ${B(rp(ownP || othP))}; ${ownP ? "kompetitor" : "Pororo Land"} belum punya data harga dan luas bangunan.`);
+    S.push(["units", `Dipantau ${B(nf(rows.length) + " tipe unit")}${tier === "all" ? "" : " di segmen " + esc(tier)}: ${nf(own.length)} milik Pororo Land dan ${nf(oth.length)} dari ${nf(devN)} developer kompetitor${devN && devN <= 4 ? " (" + esc(list(devAbs.map(d => d.dev))) + ")" : ""}.`]);
+    if (ownP && othP) S.push(["tag", `Rata-rata harga per m² luas bangunan Pororo Land ${B(rp(ownP))}, ${Math.abs(gap) < .05 ? "sama dengan" : B(`<i class="tr nt" aria-hidden="true">${gap > 0 ? "▲" : "▼"}</i>` + nf(Math.abs(gap), 1) + "% " + (gap > 0 ? "lebih tinggi" : "lebih rendah")) + " dari"} rata-rata kompetitor (${rp(othP)}).`]);
+    else if (ownP || othP) S.push(["tag", `Rata-rata harga per m² luas bangunan ${ownP ? "Pororo Land" : "kompetitor"} ${B(rp(ownP || othP))}; ${ownP ? "kompetitor" : "Pororo Land"} belum punya data harga dan luas bangunan.`]);
     const withA = devAbs.filter(d => d.a !== null), noA = devAbs.filter(d => d.a === null);
-    S.push(`Serapan (rata-rata unit terjual per bulan, per cluster)${ownAbs.length ? `: Pororo Land ${B(nf(ownA, 1) + " unit per bulan")}` : ": Pororo Land belum ada data"}${withA.length ? ", " + withA.slice(0, 4).map(d => `${esc(d.dev)} ${B(nf(d.a, 1) + " unit per bulan")}`).join(", ") : ""}.${noA.length ? ` ${esc(list(noA.slice(0, 4).map(d => d.dev)))}${noA.length > 4 ? " dan lainnya" : ""} belum punya data serapan (stok dan unit terjual belum diisi).` : ""}`);
-    if (top) S.push(`Serapan tertinggi: ${B(esc(top.cluster))} milik ${esc(top.developer)}, ${B(nf(absorb(top), 1) + " unit per bulan")}.`);
-    $("#compSum").innerHTML = S.map(t => `<span>${t}</span>`).join(" "); $("#compSum").hidden = false; }
+    S.push(["speed", `Serapan (rata-rata unit terjual per bulan, per cluster)${ownAbs.length ? `: Pororo Land ${B(nf(ownA, 1) + " unit per bulan")}` : ": Pororo Land belum ada data"}${withA.length ? ", " + withA.slice(0, 4).map(d => `${esc(d.dev)} ${B(nf(d.a, 1) + " unit per bulan")}`).join(", ") : ""}.${noA.length ? ` ${esc(list(noA.slice(0, 4).map(d => d.dev)))}${noA.length > 4 ? " dan lainnya" : ""} belum punya data serapan (stok dan unit terjual belum diisi).` : ""}`]);
+    if (top) S.push(["star", `Serapan tertinggi: ${B(esc(top.cluster))} milik ${esc(top.developer)}, ${B(nf(absorb(top), 1) + " unit per bulan")}.`]);
+    $("#compSum").innerHTML = sumHtml(S); $("#compSum").hidden = false; }
   const ab = c => absorb(c) ?? -1;
   const sorted = [...rows].sort((a,b)=> (b.isOwn-a.isOwn) || String(a.developer).localeCompare(b.developer) || ab(b)-ab(a));
   const pos = v => num(v) > 0 ? v : null;
@@ -3918,22 +3923,26 @@ function sparkSvg(arr){
   const d = pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join("");
   return `<svg class="spark" viewBox="0 0 100 36" preserveAspectRatio="none" aria-hidden="true"><path class="a" d="${d}L100 36L0 36Z"/><path class="l" d="${d}" vector-effect="non-scaling-stroke"/></svg>`;
 }
+const SUM_ICON = {sum:'<path d="M4 20V11M10 20V4M16 20v-7M22 20H2"/>', compare:'<path d="M7 20V5m0 0L3 9m4-4 4 4M17 4v15m0 0-4-4m4 4 4-4"/>', tag:'<path d="M20 12l-8 8-8-8V4h8z"/><circle cx="8.5" cy="8.5" r="1.3"/>', card:'<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10.5h18"/>',
+  units:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>', speed:'<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>', star:'<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/>'};
+const sumHtml = items => items.map(x => `<div class="hs"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24">${SUM_ICON[x[0]]}</svg></span><span>${x[1]}</span></div>`).join("");
 /** Ringkasan 4 panel KPI dalam kalimat: dihitung langsung dari angkanya, tanpa AI. Tiap perubahan ditulis lengkap: apa yang berubah, berapa persen, dari berapa menjadi berapa. */
 function salesSentence(A){
   const [val, unit, k3, k4] = A.kpi, B = t => `<b>${t}</b>`, rng = ks => `${keyLabel(ks[0])} – ${keyLabel(ks.at(-1))}`;
   const f = (k, v) => k.fmt === "rp" ? rp(v) : k.fmt === "pct" ? nf(v, 1) + "%" : nf(v) + " unit";
   const d = k => k.fmt === "pct" ? k.v - k.pv : k.pv ? (k.v - k.pv)/k.pv*100 : 0, dir = k => Math.abs(d(k)) < .05 ? 0 : d(k) > 0 ? 1 : -1, word = k => dir(k) > 0 ? "naik" : "turun";
   // angka jumlah / rupiah: "naik 7,3% (dari 55 unit menjadi 59 unit)"; angka persen: "turun 5,4 poin persentase (dari 54,5% menjadi 49,2%)"
-  const chg = (name, k) => !dir(k) ? `${name} tetap ${B(f(k, k.v))}` : `${name} ${word(k)} ${B(nf(Math.abs(d(k)), 1) + (k.fmt === "pct" ? " poin persentase" : "%"))} (dari ${f(k, k.pv)} menjadi ${B(f(k, k.v))})`;
+  const arrow = k => `<i class="tr ${(k.inverse ? dir(k) < 0 : dir(k) > 0) ? "up" : "dn"}" aria-hidden="true">${dir(k) > 0 ? "▲" : "▼"}</i>`;      // warna mengikuti lencana di panel: hijau = membaik, merah = memburuk
+  const chg = (name, k) => !dir(k) ? `${name} tetap ${B(f(k, k.v))}` : `${name} ${word(k)} ${B(arrow(k) + nf(Math.abs(d(k)), 1) + (k.fmt === "pct" ? " poin persentase" : "%"))} (dari ${f(k, k.pv)} menjadi ${B(f(k, k.v))})`;
   const NAME = [[/harga/i, "rata-rata harga per unit"], [/KPR/, "porsi pembeli yang membayar dengan KPR"], [/batal/i, "tingkat pembatalan"], [/konversi/i, "konversi leads menjadi booking"]], nameOf = k => (NAME.find(x => x[0].test(k.l)) || [0, k.l])[1], cap = t => t[0].toUpperCase() + t.slice(1);
-  const out = [`Dalam ${nf(A.P)} bulan terakhir (${rng(A.cur)}) terjual ${B(f(unit, unit.v))} dengan total nilai penjualan ${B(rp(val.v))}.`];
-  out.push(`Dibanding ${nf(A.P)} bulan sebelumnya (${rng(A.prev)}): ${chg("jumlah unit terjual", unit)}${dir(unit) && dir(val) && dir(unit) !== dir(val) ? ", tetapi" : " dan"} ${chg("total nilai penjualan", val)}.`);
+  const out = [["sum", `Dalam ${nf(A.P)} bulan terakhir (${rng(A.cur)}) terjual ${B(f(unit, unit.v))} dengan total nilai penjualan ${B(rp(val.v))}.`]];
+  out.push(["compare", `Dibanding ${nf(A.P)} bulan sebelumnya (${rng(A.prev)}): ${chg("jumlah unit terjual", unit)}${dir(unit) && dir(val) && dir(unit) !== dir(val) ? ", tetapi" : " dan"} ${chg("total nilai penjualan", val)}.`]);
   const avg = /harga/i.test(k3.l) ? k3 : null, explains = avg && dir(unit) && dir(val) && dir(unit) !== dir(val) && dir(avg) === dir(val);
-  out.push(explains ? `Nilai penjualan ${word(val)} walaupun unitnya ${word(unit)} karena ${chg(nameOf(avg), avg)}.` : cap(chg(nameOf(k3), k3)) + ".");
+  out.push([avg ? "tag" : "speed", explains ? `Nilai penjualan ${word(val)} walaupun unitnya ${word(unit)} karena ${chg(nameOf(avg), avg)}.` : cap(chg(nameOf(k3), k3)) + "."]);
   let cnt = "";                                                                        // porsi KPR: sebut juga jumlah unitnya
   if (/KPR/.test(k4.l)){ const paid = A.net(A.S).filter(x => x.payment || x.payCat); if (paid.length) cnt = ` Sekarang ${B(nf(paid.filter(x => payOf(x) === "KPR").length) + " dari " + nf(paid.length) + " unit")} dibayar dengan KPR.`; }
-  out.push(cap(chg(nameOf(k4), k4)) + "." + cnt);
-  return out.map(t => `<span>${t}</span>`).join(" ");
+  out.push(["card", cap(chg(nameOf(k4), k4)) + "." + cnt]);
+  return sumHtml(out);
 }
 function renderSales(){
   const A = salesAgg(salesP);
