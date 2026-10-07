@@ -1954,13 +1954,18 @@ async function mergeDups(){ const blank = v => v === null || v === undefined || 
   if (rows.length) await api("import", {sheet:"Competitors", rows});
   await deleteComps(gone); return gone.length; }
 const galName = c => c.unitType && c.unitType !== c.cluster ? c.unitType : c.cluster;
-// Judul kartu yang seragam: "Nama tipe - ukuran kavling". Ukuran = lebar x panjang bila tertulis di nama tipe, kalau tidak ada dipakai luas tanah.
-// Tipe yang namanya hanya ukuran (mis. "5x17") diberi nama "Standard", karena yang dicatat memang unit standarnya.
-const LOT_RX = /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)(?:\s*m\b)?/i;
-function typeLabel(c){ const raw = String(galName(c) || "").trim(), m = raw.match(LOT_RX);
-  const size = m ? `${m[1]}x${m[2]}` : num(c.lt) > 0 ? `${nf(c.lt)} m²` : "";
-  const name = raw.replace(LOT_RX, " ").replace(/\bLT\s*\d+(?:[.,]\d+)?\s*(?:m2|m²)?/gi, " ").replace(/\b(tipe|type)\b/gi, " ").replace(/\(\s*\)|\[\s*\]/g, " ").replace(/\s{2,}/g, " ").replace(/^[\s·\-–—:,/]+|[\s·\-–—:,/]+$/g, "") || "Standard";
-  return size ? `${name} - ${size}` : name; }
+// Judul kartu yang seragam: "Nama produk/cluster - ukuran kavling + varian", mis. "Diamond Commercial - 5x17 Standard", "Kartawijaya Business Loft - Corner".
+// Ukuran kavling (lebar x panjang) diambil dari nama tipenya. Tipe yang namanya hanya ukuran diberi varian "Standard", karena yang dicatat memang unit standarnya.
+const LOT_RX = /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)(?:\s*m\b)?/i, VARIANT_RX = /^(standard|standar|corner|hook|sudut|irregular|badan|tengah|regular|reguler)?$/i;
+function typeLabel(c){ const cl = String(c.cluster || "").trim(), ut = String(c.unitType || "").trim(), own = ut && pKey(ut) !== pKey(cl), raw = own ? ut : cl, m = raw.match(LOT_RX), size = m ? `${m[1]}x${m[2]}` : "";
+  const v = raw.replace(LOT_RX, " ").replace(/\b(tipe|type)\b/gi, " ").replace(/\(\s*\)|\[\s*\]/g, " ").replace(/\s{2,}/g, " ").replace(/^[\s·\-–—:,/]+|[\s·\-–—:,/]+$/g, "");
+  const type = [size, v || (size ? "Standard" : "")].filter(Boolean).join(" ");
+  if (own) return cl ? `${cl} - ${type}` : type;
+  // tanpa nama cluster tersendiri: kalau isinya hanya ukuran/varian (mis. "5x17 Irregular"), nama proyeknya yang dipakai di depan
+  const proj = String(c.project || "").trim();
+  return size && VARIANT_RX.test(v) && proj && pKey(proj) !== pKey(raw) ? `${proj} - ${type}` : raw; }
+/** Teks abu-abu kecil di bawah judul: proyek/kawasan, bila belum tersebut di judul atau di nama developer. */
+const galSub = c => { const proj = String(c.project || "").trim(); return proj && !pKey(typeLabel(c)).includes(pKey(proj)) && pKey(proj) !== pKey(c.developer) ? proj : ""; };
 const galKamar = c => [num(c.kt) ? nf(c.kt) + " KT" : "", num(c.km) ? nf(c.km) + " KM" : "", num(c.floors) ? nf(c.floors) + " lantai" : ""].filter(Boolean).join(" · ");
 const PHOTO_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18M5 20V9l7-5 7 5v11M10 20v-6h4v6"/></svg>';
 function renderGallery(rows){
@@ -1987,7 +1992,7 @@ function renderGallery(rows){
         <span class="gdev" style="--c:${c.isOwn ? "var(--accent)" : devColor(c.developer, false)}"><i></i>${esc(c.developer || "–")}</span>
         <label class="gcmp"><input type="checkbox" data-gcmp="${esc(c.id)}" ${sel ? "checked" : ""}> Bandingkan</label></div>
       <div class="gbody"><h4 title="${esc(galName(c))}">${esc(typeLabel(c))}</h4>
-        <div class="gsub">${galName(c) !== c.cluster ? `<span>${esc(c.cluster)}</span>` : c.project ? `<span>${esc(c.project)}</span>` : ""}<span class="chip">${esc(c.tier || "–")}</span>${c.isOwn ? '<span class="chip own">Kita</span>' : ""}</div>
+        <div class="gsub">${galSub(c) ? `<span>${esc(galSub(c))}</span>` : ""}<span class="chip">${esc(c.tier || "–")}</span>${c.isOwn ? '<span class="chip own">Kita</span>' : ""}</div>
         <dl class="gspec"><div><dt>LT / LB</dt><dd>${dash(num(c.lt) || null, nf)} / ${dash(num(c.lb) || null, nf)} <small>m²</small></dd></div><div><dt>Kamar & lantai</dt><dd>${kamar ? esc(kamar) : "–"}</dd></div>
           <div><dt>Harga</dt><dd>${num(c.price) > 0 ? rp(c.price) : "–"}${c.priceBasis ? `<br><small>${esc(c.priceBasis)}</small>` : ""}</dd></div><div><dt>Harga per m² LB</dt><dd>${dash(pm2(c), rp)}</dd></div></dl>
         ${W ? `<div class="gacts"><button class="btn sm" data-gphoto="${esc(c.id)}">${has ? "Ganti " : "Tambah "}${K.l}</button>${has ? `<button class="btn sm" data-gdel="${esc(c.id)}">Hapus ${K.l}</button>` : ""}<button class="btn sm" data-edit-comp="${esc(c.id)}">Edit</button></div>` : ""}</div></article>`; }).join("")
@@ -1998,7 +2003,7 @@ function renderGallery(rows){
     const line = (label, f, best) => `<tr><td>${label}</td>${C.map((c, i) => `<td${best && best(i) ? ' class="best"' : ""}>${f(c, i)}</td>`).join("")}</tr>`;
     box.innerHTML = `<div class="ch"><h3 style="margin:0">Perbandingan ${nf(C.length)} tipe</h3><span style="display:flex;gap:8px;flex-wrap:wrap">${C.filter(c => okImg(c.plan)).length >= 2 ? '<button class="btn sm primary" id="galPlans">Bandingkan denah</button>' : ""}<button class="btn sm" id="galClear">Kosongkan pilihan</button></span></div>
       <table><thead><tr><th></th>${C.map(c => `<th><div class="cimg">${okImg(c.image) ? `<img src="${c.image}" alt="Fasad ${esc(galName(c))}" data-gzoom="${esc(c.id)}">` : "Belum ada foto"}</div>${esc(typeLabel(c))}</th>`).join("")}</tr></thead><tbody>
-      ${C.some(c => okImg(c.plan)) ? line("Denah", c => `<div class="cimg plan">${okImg(c.plan) ? `<img src="${c.plan}" alt="Denah ${esc(galName(c))}" data-gplans title="Klik untuk bandingkan denah di layar penuh">` : "Belum ada denah"}</div>`) : ""}${line("Developer", c => esc(c.developer || "–") + (c.isOwn ? ' <span class="chip own">Kita</span>' : ""))}${line("Cluster / proyek", c => esc(galName(c) !== c.cluster ? c.cluster : c.project || "–"))}${line("Segmen", c => esc(c.tier || "–"))}
+      ${C.some(c => okImg(c.plan)) ? line("Denah", c => `<div class="cimg plan">${okImg(c.plan) ? `<img src="${c.plan}" alt="Denah ${esc(galName(c))}" data-gplans title="Klik untuk bandingkan denah di layar penuh">` : "Belum ada denah"}</div>`) : ""}${line("Developer", c => esc(c.developer || "–") + (c.isOwn ? ' <span class="chip own">Kita</span>' : ""))}${line("Proyek / kawasan", c => esc(c.project || "–"))}${line("Segmen", c => esc(c.tier || "–"))}
       ${line("Luas tanah", c => num(c.lt) > 0 ? nf(c.lt) + " m²" : "–")}${line("Luas bangunan", c => num(c.lb) > 0 ? nf(c.lb) + " m²" : "–")}${line("Kamar & lantai", c => esc(galKamar(c)) || "–")}
       ${line("Harga", (c, i) => pr[i] === null ? "–" : rp(pr[i]) + (c.priceBasis ? `<div class="note">${esc(c.priceBasis)}</div>` : ""), i => pr[i] !== null && pr[i] === minPr && pr.filter(v => v !== null).length > 1)}
       ${line("Harga per m² LB", (c, i) => pm[i] === null ? "–" : rp(pm[i]), i => pm[i] !== null && pm[i] === minPm && pm.filter(v => v !== null).length > 1)}
