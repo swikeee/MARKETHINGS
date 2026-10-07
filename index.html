@@ -214,7 +214,7 @@ mark.num i,.air-list .lead i{font-style:normal;font-size:.7em;margin-right:4px;c
 .fold-note{margin:0;padding:14px 16px;border:1px dashed var(--line);border-radius:var(--r);background:var(--surface);color:var(--muted);font-size:13px}
 /* ringkasan satu kalimat di bawah 4 panel KPI */
 .hero-sum{margin:0;padding:11px 15px;border-radius:12px;font-size:14px;line-height:1.55;max-width:96ch;text-wrap:pretty;background:color-mix(in srgb,var(--surface) 78%,transparent);-webkit-backdrop-filter:blur(12px) saturate(1.3);backdrop-filter:blur(12px) saturate(1.3);border:1px solid color-mix(in srgb,var(--surface) 60%,transparent);box-shadow:inset 3px 0 0 var(--accent)}
-.hero-sum b{font-weight:600}
+.hero-sum b{font-weight:600} .hero-sum span{display:block} .hero-sum span + span{margin-top:4px}
 /* stok & alert (Sales Report) */
 .st-alerts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:8px}
 .st-alerts .act{grid-template-columns:auto minmax(0,1fr);align-items:start} .st-alerts .act p{margin:0;font-size:13px;line-height:1.4;overflow-wrap:anywhere} .st-alerts .act small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
@@ -3903,23 +3903,22 @@ function sparkSvg(arr){
   const d = pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join("");
   return `<svg class="spark" viewBox="0 0 100 36" preserveAspectRatio="none" aria-hidden="true"><path class="a" d="${d}L100 36L0 36Z"/><path class="l" d="${d}" vector-effect="non-scaling-stroke"/></svg>`;
 }
-/** Ringkasan singkat 4 panel KPI dalam kalimat: dihitung langsung dari angkanya, tanpa AI. */
+/** Ringkasan 4 panel KPI dalam kalimat: dihitung langsung dari angkanya, tanpa AI. Tiap perubahan ditulis lengkap: apa yang berubah, berapa persen, dari berapa menjadi berapa. */
 function salesSentence(A){
-  const [val, unit, k3, k4] = A.kpi, B = t => `<b>${t}</b>`, f = (k, v) => k.fmt === "rp" ? rp(v) : k.fmt === "pct" ? nf(v, 1) + "%" : nf(v);
-  const d = k => k.fmt === "pct" ? k.v - k.pv : k.pv ? (k.v - k.pv)/k.pv*100 : 0, dir = k => Math.abs(d(k)) < .05 ? 0 : d(k) > 0 ? 1 : -1;
-  const chg = k => !dir(k) ? "tetap" : `${dir(k) > 0 ? "naik" : "turun"} ${B(nf(Math.abs(d(k)), 1) + (k.fmt === "pct" ? " poin" : "%"))}`;
-  const from = k => dir(k) ? ` dari ${f(k, k.pv)}` : "", prev = `${keyLabel(A.prev[0])} – ${keyLabel(A.prev.at(-1))}`;      // pembanding = periode sama panjang tepat sebelumnya
-  const out = [`${nf(A.P)} bulan terakhir terjual ${B(nf(unit.v) + " unit")} senilai ${B(rp(val.v))}.`];
+  const [val, unit, k3, k4] = A.kpi, B = t => `<b>${t}</b>`, rng = ks => `${keyLabel(ks[0])} – ${keyLabel(ks.at(-1))}`;
+  const f = (k, v) => k.fmt === "rp" ? rp(v) : k.fmt === "pct" ? nf(v, 1) + "%" : nf(v) + " unit";
+  const d = k => k.fmt === "pct" ? k.v - k.pv : k.pv ? (k.v - k.pv)/k.pv*100 : 0, dir = k => Math.abs(d(k)) < .05 ? 0 : d(k) > 0 ? 1 : -1, word = k => dir(k) > 0 ? "naik" : "turun";
+  // angka jumlah / rupiah: "naik 7,3% (dari 55 unit menjadi 59 unit)"; angka persen: "turun 5,4 poin persentase (dari 54,5% menjadi 49,2%)"
+  const chg = (name, k) => !dir(k) ? `${name} tetap ${B(f(k, k.v))}` : `${name} ${word(k)} ${B(nf(Math.abs(d(k)), 1) + (k.fmt === "pct" ? " poin persentase" : "%"))} (dari ${f(k, k.pv)} menjadi ${B(f(k, k.v))})`;
+  const NAME = [[/harga/i, "rata-rata harga per unit"], [/KPR/, "porsi pembeli yang membayar dengan KPR"], [/batal/i, "tingkat pembatalan"], [/konversi/i, "konversi leads menjadi booking"]], nameOf = k => (NAME.find(x => x[0].test(k.l)) || [0, k.l])[1], cap = t => t[0].toUpperCase() + t.slice(1);
+  const out = [`Dalam ${nf(A.P)} bulan terakhir (${rng(A.cur)}) terjual ${B(f(unit, unit.v))} dengan total nilai penjualan ${B(rp(val.v))}.`];
+  out.push(`Dibanding ${nf(A.P)} bulan sebelumnya (${rng(A.prev)}): ${chg("jumlah unit terjual", unit)}${dir(unit) && dir(val) && dir(unit) !== dir(val) ? ", tetapi" : " dan"} ${chg("total nilai penjualan", val)}.`);
   const avg = /harga/i.test(k3.l) ? k3 : null, explains = avg && dir(unit) && dir(val) && dir(unit) !== dir(val) && dir(avg) === dir(val);
-  let s2 = !dir(unit) && !dir(val) ? `Unit dan nilai penjualan sama dengan ${nf(A.P)} bulan sebelumnya (${prev})`
-    : `Dibanding ${nf(A.P)} bulan sebelumnya (${prev}), unit ${chg(unit)}${from(unit)}${dir(unit) === dir(val) ? " dan" : ", tetapi"} nilai penjualan ${chg(val)}${from(val)}`;
-  if (explains) s2 += ` karena rata-rata harga per unit ${chg(avg)}${from(avg)} ke ${B(rp(avg.v))}`;
-  out.push(s2 + ".");
-  if (!explains) out.push(`${k3.l.replace(" / unit", " per unit")} ${B(f(k3, k3.v))}, ${chg(k3)}${from(k3)}.`);
+  out.push(explains ? `Nilai penjualan ${word(val)} walaupun unitnya ${word(unit)} karena ${chg(nameOf(avg), avg)}.` : cap(chg(nameOf(k3), k3)) + ".");
   let cnt = "";                                                                        // porsi KPR: sebut juga jumlah unitnya
-  if (/KPR/.test(k4.l)){ const paid = A.net(A.S).filter(x => x.payment || x.payCat); if (paid.length) cnt = ` (${nf(paid.filter(x => payOf(x) === "KPR").length)} dari ${nf(paid.length)} unit)`; }
-  out.push(`${k4.l} ${B(f(k4, k4.v))}${cnt}, ${chg(k4)}${from(k4)}.`);
-  return out.join(" ");
+  if (/KPR/.test(k4.l)){ const paid = A.net(A.S).filter(x => x.payment || x.payCat); if (paid.length) cnt = ` Sekarang ${B(nf(paid.filter(x => payOf(x) === "KPR").length) + " dari " + nf(paid.length) + " unit")} dibayar dengan KPR.`; }
+  out.push(cap(chg(nameOf(k4), k4)) + "." + cnt);
+  return out.map(t => `<span>${t}</span>`).join(" ");
 }
 function renderSales(){
   const A = salesAgg(salesP);
