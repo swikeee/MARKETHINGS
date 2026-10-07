@@ -220,6 +220,7 @@ mark.num i,.air-list .lead i{font-style:normal;font-size:.7em;margin-right:4px;c
 .hs .ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)} .hs .ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .hs .tr{font-style:normal;font-size:.72em;margin-right:3px;position:relative;top:-1px} .hs .tr.up{color:var(--ok)} .hs .tr.dn{color:var(--bad)} .hs .tr.nt{color:var(--muted)}
 @media (max-width:860px){.hero-sum{grid-template-columns:minmax(0,1fr)}}
+#absSeg button:disabled{opacity:.4;cursor:not-allowed} #absSegPanel{margin-top:16px} #absSegBox{height:300px}
 /* stok & alert (Sales Report) */
 .st-alerts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:8px}
 .st-alerts .act{grid-template-columns:auto minmax(0,1fr);align-items:start} .st-alerts .act p{margin:0;font-size:13px;line-height:1.4;overflow-wrap:anywhere} .st-alerts .act small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
@@ -1026,10 +1027,21 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
         <div class="legend" id="scLegend"></div>
       </div>
       <div class="panel">
-        <h3>Serapan (unit / bulan)</h3>
-        <div class="chartbox"><canvas id="chAbs" aria-label="Serapan per cluster"></canvas></div>
+        <div class="ph" style="margin-bottom:8px"><h3>Serapan (unit / bulan)</h3>
+          <div class="seg" id="absSeg" aria-label="Saring serapan per segmen"><button aria-pressed="true" data-s="all">Semua</button><button aria-pressed="false" data-s="Milenial">Milenial</button><button aria-pressed="false" data-s="Deluxe">Deluxe</button><button aria-pressed="false" data-s="Premium">Premium</button><button aria-pressed="false" data-s="Shophouse">Shophouse</button><button aria-pressed="false" data-s="Student House">Student House</button></div></div>
+        <div class="chartbox" id="absBox"><canvas id="chAbs" aria-label="Serapan per cluster"></canvas></div>
+        <p class="note" id="absEmpty" style="margin:0" hidden></p>
+        <div class="legend" id="absLegend"></div>
       </div>
     </div>
+      <div class="panel" id="absSegPanel">
+        <h3>Serapan rata-rata per segmen · Pororo Land vs kompetitor</h3>
+        <p class="desc">Rata-rata unit terjual per bulan tiap cluster, dikelompokkan per segmen dan developer. Segmen tanpa batang berarti developer itu belum punya data stok dan unit terjual di segmen tersebut.</p>
+        <div class="chartbox" id="absSegBox"><canvas id="chAbsSeg" aria-label="Serapan rata-rata per segmen per developer"></canvas></div>
+        <p class="note" id="absSegEmpty" style="margin:0" hidden></p>
+        <div class="legend" id="absSegLegend"></div>
+        <p class="note" id="absSegNote" style="margin:8px 0 0" hidden></p>
+      </div>
     </div>
     <div class="sec reveal">
       <div class="sec-h scene"><span class="eyebrow">04</span><h2>Perubahan harga terbaru</h2></div>
@@ -1788,12 +1800,31 @@ function drawCompCharts(rows, animate){
     {label:"Pororo Land", data:plotted.filter(c=>c.isOwn).map(pt), backgroundColor:A, borderColor:edge, borderWidth:1.5, pointRadius:8, pointHoverRadius:10, pointStyle:"rectRot"}]}, options:o}, {text:c => c.raw.c.cluster, size:10, strict:true, filter:c => !!c.raw.c.isOwn});   // label hanya cluster Pororo Land
   $("#scLegend").innerHTML = (plotted.some(c=>c.isOwn) ? `<span><i style="background:var(--accent);border-radius:2px;transform:rotate(45deg)"></i>Pororo Land</span>` : "")
     + scDevs.map(d => `<span><i style="background:${devColor(d,false)}"></i>${esc(d)}</span>`).join("");
-  const s=rows.filter(c=>absorb(c)!==null).sort((a,b)=>absorb(b)-absorb(a)).slice(0,12);
+  // saringan segmen khusus grafik serapan (hanya saat halaman menampilkan semua segmen)
+  $("#absSeg").hidden = tier !== "all"; if (tier !== "all") absTier = "all";
+  $("#absSeg").querySelectorAll("button").forEach(b => { const has = b.dataset.s === "all" || rows.some(c => c.tier === b.dataset.s && absorb(c) !== null); b.disabled = !has; b.setAttribute("aria-pressed", b.dataset.s === absTier); });
+  const s=rows.filter(c=>absorb(c)!==null && (absTier === "all" || c.tier === absTier)).sort((a,b)=>absorb(b)-absorb(a)).slice(0,12);
+  const legDevs = list => (list.some(c => c.isOwn) ? `<span><i style="background:var(--accent)"></i>Pororo Land</span>` : "") + [...new Set(list.filter(c => !c.isOwn).map(c => c.developer))].sort().map(d => `<span><i style="background:${devColor(d,false)}"></i>${esc(d)}</span>`).join("");
+  $("#absBox").hidden = !s.length; $("#absEmpty").hidden = !!s.length; $("#absEmpty").textContent = s.length ? "" : `Belum ada data serapan${absTier === "all" ? "" : " untuk segmen " + absTier}. Isi stok, unit terjual, dan bulan sejak launching lewat Edit.`;
+  $("#absLegend").innerHTML = legDevs(s);
   const ob = chartBase(); ob.indexAxis="y"; ob.scales.y.grid={display:false};
   if (animate) ob.animation = {duration:1000, easing:"easeOutQuart", delay:ctx=>ctx.dataIndex*60};
   ob.plugins.tooltip.callbacks={label:ctx=>`${nf(ctx.raw,1)} unit/bln`};
-  mk("chAbs",{type:"bar",data:{labels:s.map(c=>c.cluster),datasets:[{data:s.map(absorb),backgroundColor:s.map(c=>c.isOwn?A:devColor(c.developer,false)),borderRadius:3,barThickness:14}]},options:ob}, {fmt:v => nf(v,1)});
+  ob.plugins.tooltip.callbacks={title:items=>{ const c = s[items[0].dataIndex]; return `${c.cluster} · ${c.developer}`; }, label:ctx=>`${nf(ctx.raw,1)} unit/bln · ${s[ctx.dataIndex].tier}`};
+  if (s.length) mk("chAbs",{type:"bar",data:{labels:s.map(c=>c.cluster),datasets:[{data:s.map(absorb),backgroundColor:s.map(c=>c.isOwn?A:devColor(c.developer,false)),borderRadius:3,barThickness:14}]},options:ob}, {fmt:v => nf(v,1)});
+  // serapan rata-rata per segmen, satu batang per developer (warna developer sama dengan grafik lain)
+  const withA = rows.filter(c => absorb(c) !== null), segs = TIERS.filter(t => withA.some(c => c.tier === t));
+  const dv = [...(withA.some(c => c.isOwn) ? [{name:"Pororo Land", own:true}] : []), ...[...new Set(withA.filter(c => !c.isOwn).map(c => c.developer))].sort().map(d => ({name:d, own:false}))];
+  const cell = (d, t) => withA.filter(c => c.tier === t && (d.own ? c.isOwn : !c.isOwn && c.developer === d.name)).map(absorb);
+  $("#absSegBox").hidden = !segs.length; $("#absSegEmpty").hidden = !!segs.length; $("#absSegEmpty").textContent = segs.length ? "" : "Belum ada data serapan untuk dibandingkan.";
+  $("#absSegLegend").innerHTML = legDevs(withA); $("#absSegNote").hidden = !withA.some(absDummy); $("#absSegNote").textContent = "Angka serapan kompetitor masih dummy.";
+  if (segs.length){ const og = chartBase(); og.scales.x.grid = {display:false}; og.scales.y.title = {display:true, text:"unit / bulan", color:css("--muted")};
+    if (animate) og.animation = {duration:900, easing:"easeOutQuart"};
+    og.plugins.tooltip.callbacks = {label:ctx => { const v = cell(dv[ctx.datasetIndex], segs[ctx.dataIndex]); return `${ctx.dataset.label}: ${nf(ctx.raw,1)} unit/bln · rata-rata ${nf(v.length)} cluster`; }};
+    mk("chAbsSeg",{type:"bar",data:{labels:segs,datasets:dv.map(d => ({label:d.name, data:segs.map(t => { const v = cell(d, t); return v.length ? v.reduce((a, b) => a + b, 0)/v.length : null; }), backgroundColor:d.own ? A : devColor(d.name,false), borderRadius:3, maxBarThickness:34, categoryPercentage:.72, barPercentage:.88}))},options:og}, {fmt:v => nf(v,1)}); }
 }
+let absTier = "all";
+$("#absSeg").onclick = e => { const b = e.target.closest("button"); if (!b || b.disabled) return; absTier = b.dataset.s; drawCompCharts(lastChartRows); };
 
 function renderHist(){
   const el = $("#histList");
