@@ -1471,6 +1471,7 @@ async function load(silent){
     if (dbState === "loading"){
       const lc = readJson("li.comps");
       comps = Array.isArray(lc) ? lc : clone(DEMO.competitors);
+      if (Array.isArray(lc) && comps.some(c => /^podo\u006doro park$/i.test(String(c.developer || "").trim()))){ comps.forEach(c => { if (/^podo\u006doro park$/i.test(String(c.developer || "").trim())) c.developer = "Pororo Land"; }); store.set("li.comps", JSON.stringify(comps)); }   // nama developer lama -> nama samaran
       if (Array.isArray(lc) && comps.some(c => aliasOf(c))){ comps = comps.filter(c => !aliasOf(c) || !comps.some(x => x.id === aliasOf(c)[0])).map(c => { const a = aliasOf(c); return a ? {...c, id:a[0], cluster:a[1]} : c; }); store.set("li.comps", JSON.stringify(comps)); }   // nama cluster lama -> nama samaran
       if (Array.isArray(lc) && !store.get("li.mig.student")){ if (!comps.some(c => c.id === "pp-cikonengraya")) comps.push(clone(DEMO.competitors.find(c => c.id === "pp-cikonengraya"))); store.set("li.mig.student", "1"); store.set("li.comps", JSON.stringify(comps)); }
       if (Array.isArray(lc) && !store.get("li.mig.student2")){ const i = comps.findIndex(c => c.id === "pp-cikonengraya" && c.dummy && num(c.price) === 850000000); if (i >= 0) comps[i] = clone(DEMO.competitors.find(c => c.id === "pp-cikonengraya")); store.set("li.mig.student2", "1"); store.set("li.comps", JSON.stringify(comps)); }
