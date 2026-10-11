@@ -1470,7 +1470,7 @@ async function load(silent){
   if (mode === "demo"){
     if (dbState === "loading"){
       const lc = readJson("li.comps");
-      comps = Array.isArray(lc) ? lc : clone(DEMO.competitors);
+      comps = canonDevs(Array.isArray(lc) ? lc : clone(DEMO.competitors));
       if (Array.isArray(lc) && comps.some(c => /^podo\u006doro park$/i.test(String(c.developer || "").trim()))){ comps.forEach(c => { if (/^podo\u006doro park$/i.test(String(c.developer || "").trim())) c.developer = "Pororo Land"; }); store.set("li.comps", JSON.stringify(comps)); }   // nama developer lama -> nama samaran
       if (Array.isArray(lc) && comps.some(c => aliasOf(c))){ comps = comps.filter(c => !aliasOf(c) || !comps.some(x => x.id === aliasOf(c)[0])).map(c => { const a = aliasOf(c); return a ? {...c, id:a[0], cluster:a[1]} : c; }); store.set("li.comps", JSON.stringify(comps)); }   // nama cluster lama -> nama samaran
       if (Array.isArray(lc) && !store.get("li.mig.student")){ if (!comps.some(c => c.id === "pp-cikonengraya")) comps.push(clone(DEMO.competitors.find(c => c.id === "pp-cikonengraya"))); store.set("li.mig.student", "1"); store.set("li.comps", JSON.stringify(comps)); }
@@ -1493,7 +1493,7 @@ async function load(silent){
     if (evReady) loadEvents(true);          // event ikut diperbarui tiap data backend dimuat ulang
     if (silent && sig === lastSnapSig && dbState === "ready") return false;      // tidak ada yang berubah: jangan gambar ulang
     lastSnapSig = sig;
-    comps = j.competitors || []; sources = j.sources || []; history = j.history || [];
+    comps = canonDevs(j.competitors || []); sources = j.sources || []; history = j.history || [];
     lastSync = j.lastSync; aiReady = !!j.ai; dbState = "ready"; loadError = ""; remoteFiles = j.files || [];
     seedDone = !!j.settings?.seedComps;
     if (j.settings?.kom){ try { KOM = {...KOM_DEFAULT, ...JSON.parse(j.settings.kom)}; } catch {} }   // ketentuan sewa & jual dipakai bersama lewat Sheet
@@ -1505,6 +1505,22 @@ async function load(silent){
     if (!comps.length){ comps = clone(DEMO.competitors); loadError += " Menampilkan data contoh."; } }
   renderAll(); seedDefaults(); migrateAliasLive(); return true;
 }
+// ---------- nama developer yang sebenarnya sama ("Summarecon", "Summarecon Bandung", "Summarecon Agung Tbk") dihitung satu ----------
+/** Kata inti nama developer: tanpa badan hukum (PT, Tbk), kata umum (Group, Land, Property) dan nama kota. */
+function devTokens(name){ const N = devTokens.N ||= new Set(["pt", "tbk", "persero", "group", "grup", "property", "properti", "properties", "development", "developer", "realty", "land", "city", "indonesia", "bandung", "jakarta", "surabaya", "bekasi", "tangerang", "bogor", "depok", "cimahi", "the"]);
+  return String(name || "").toLowerCase().split(/[^a-z0-9]+/).filter(w => w && !N.has(w)); }
+/** Sama bila kata inti yang satu adalah awalan yang lain: "Summarecon" = "Summarecon Bandung" = "Summarecon Agung Tbk"; "Agung Podomoro" ≠ "Agung Sedayu". */
+function sameDev(a, b){ const A = devTokens(a), B = devTokens(b);
+  if (!A.length || !B.length) return String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+  const [S, L] = A.length <= B.length ? [A, B] : [B, A]; return S.every((w, i) => L[i] === w); }
+/** Satukan nama developer di data: nama yang paling banyak dipakai (developer sendiri selalu menang) jadi nama resminya; nama aslinya disimpan di devRaw. */
+function canonDevs(rows){ const n = {}, own = new Set(); rows.forEach(c => { const d = String(c.developer || "").trim(); if (!d) return; n[d] = (n[d] || 0) + 1; if (c.isOwn) own.add(d); });
+  const names = Object.keys(n).sort((a, b) => own.has(b) - own.has(a) || n[b] - n[a] || /\b(pt|tbk)\b/i.test(a) - /\b(pt|tbk)\b/i.test(b) || a.length - b.length), canon = [], map = {};
+  names.forEach(d => { const c = canon.find(x => sameDev(x, d)); if (c) map[d] = c; else { canon.push(d); map[d] = d; } });
+  rows.forEach(c => { const d = String(c.developer || "").trim(); if (d && map[d] !== c.developer){ c.devRaw = c.developer; c.developer = map[d]; } });
+  return rows; }
+/** Nama developer resmi untuk nama yang diketik / dibaca AI (mis. "Summarecon Agung Tbk" → "Summarecon Bandung" bila itu yang sudah ada). */
+const canonName = d => comps.map(c => c.developer).find(x => x && sameDev(x, d)) || d;
 // Data bawaan Market Research. Saat pertama tersambung dan sheet Competitors belum berisi input manual,
 // kirim produk Pororo Land + data publik Summarecon Bandung & Kota Baru Parahyangan yang sudah ada di dashboard.
 // Hanya sekali: penandanya disimpan di sheet Settings (seedComps), jadi data yang sengaja dihapus tidak muncul lagi.
@@ -1927,15 +1943,23 @@ const pKey = v => String(v || "").toLowerCase().replace(/×/g, "x").replace(/\b(
 const pType = c => pKey(c.unitType || c.cluster);
 const pFits = (a, b) => !(num(a) > 0 && num(b) > 0) || Math.abs(num(a) - num(b)) <= 1;      // tidak bertentangan (salah satu boleh kosong)
 const pBoth = (a, b) => num(a) > 0 && num(b) > 0 && Math.abs(num(a) - num(b)) <= 1;         // dua-duanya terisi dan sama
+/** Kata-kata nama produk (cluster + tipe) untuk dibandingkan: tanpa kata "cluster/tipe", ukuran ditulis seragam ("10x20m" = "10 x 20"). */
+const pName = c => [c.cluster, c.unitType].filter((v, i, a) => v && a.findIndex(x => pKey(x) === pKey(v)) === i).join(" ");
+const pTokens = c => [...new Set(pName(c).toLowerCase().replace(/×/g, "x").replace(/(\d+)\s*x\s*(\d+)\s*m\b/g, "$1x$2").replace(/(\d+)\s*x\s*(\d+)/g, "$1x$2")
+  .split(/[^a-z0-9]+/).filter(w => w && !["cluster", "tipe", "type", "unit", "rumah", "the"].includes(w)))];
 function sameProduct(a, b){
-  if (pKey(a.developer) !== pKey(b.developer) || !pType(a) || pType(a) !== pType(b)) return false;
+  if (!sameDev(a.developer, b.developer)) return false;
   if (!pFits(a.lt, b.lt) || !pFits(a.lb, b.lb)) return false;
-  if (pKey(a.cluster) === pKey(b.cluster)) return true;
-  // nama cluster berbeda: hanya dianggap sama bila luasnya terbukti sama dan harganya tidak bertentangan (nama tipe seperti "6x12" bisa ada di beberapa cluster)
-  const pa = num(a.price), pb = num(b.price);
-  return (pBoth(a.lt, b.lt) || pBoth(a.lb, b.lb)) && (!(pa > 0 && pb > 0) || Math.abs(pa - pb) <= .01*Math.max(pa, pb));
+  const pa = num(a.price), pb = num(b.price), priceOk = !(pa > 0 && pb > 0) || Math.abs(pa - pb) <= .01*Math.max(pa, pb);
+  // 1) nama tipe sama ("Tipe 5x17" = "5x17"): cluster sama, atau luasnya terbukti sama dan harganya tidak bertentangan (nama seperti "6x12" bisa ada di beberapa cluster)
+  if (pType(a) && pType(a) === pType(b) && (pKey(a.cluster) === pKey(b.cluster) || ((pBoth(a.lt, b.lt) || pBoth(a.lb, b.lb)) && priceOk))) return true;
+  // 2) kata-kata namanya sama walau urutannya lain ("Cluster Hillary · Basic 10x20" = "Hillary Cluster - Basic (10x20m)")
+  const A = pTokens(a), B = pTokens(b);
+  if (A.length && A.length === B.length && A.every(w => B.includes(w))) return true;      // harga boleh beda: itu perubahan harga
+  // 3) luas tanah, luas bangunan, dan harga persis sama, dan namanya punya kata yang sama ("Cluster Chyntia · 4 KT" = "Chyntia - Minimalis Hook")
+  return pBoth(a.lt, b.lt) && pBoth(a.lb, b.lb) && pa > 0 && pb > 0 && Math.abs(pa - pb) <= .005*Math.max(pa, pb) && A.some(w => w.length >= 3 && !/^\d/.test(w) && B.includes(w));
 }
-const dupPool = () => comps.filter(c => !c.isOwn && !c.auto);      // produk sendiri dan baris sinkron otomatis tidak ikut digabung
+const dupPool = () => comps.filter(c => !c.isOwn);      // produk sendiri tidak ikut digabung
 function dupGroups(){ const P = dupPool(), used = new Set(), out = [];
   P.forEach((a, i) => { if (used.has(a.id)) return; const g = [a];
     for (let j = i + 1; j < P.length; j++){ const b = P[j]; if (!used.has(b.id) && g.every(x => sameProduct(x, b))){ g.push(b); used.add(b.id); } }
@@ -1943,7 +1967,7 @@ function dupGroups(){ const P = dupPool(), used = new Set(), out = [];
   return out; }
 /** Gabungkan tipe ganda: baris terbaru dipertahankan, kolom kosongnya diisi dari baris lama, lalu baris lama dihapus. */
 async function mergeDups(){ const blank = v => v === null || v === undefined || v === "", groups = dupGroups(), rows = [], gone = [];
-  for (const g of groups){ const keep = g[0], patch = {id:keep.id};
+  for (const g of groups){ const keep = g[0], patch = {id:keep.id}; if (keep.devRaw) patch.developer = keep.developer;      // nama developer ikut diseragamkan
     for (const o of g.slice(1)){ gone.push(o.id);
       for (const k of ["project", "lt", "lb", "kt", "km", "floors", "promo", "notes", "image", "plan", "sourceUrl"]) if (blank(keep[k]) && blank(patch[k]) && !blank(o[k]) && !(num(o[k]) === 0 && ["lt", "lb", "kt", "km", "floors"].includes(k))) patch[k] = o[k];
       if (!(num(keep.price) > 0) && !patch.price && num(o.price) > 0){ patch.price = o.price; patch.priceBasis = o.priceBasis || ""; for (const k of ["notes", "source", "sourceDate"]) if (!blank(o[k])) patch[k] = o[k]; }      // harga dari baris lama: catatan dan sumbernya ikut
@@ -1985,7 +2009,7 @@ function renderGallery(rows){
   gal.cmp = gal.cmp.filter(id => rows.some(c => c.id === id));
   const dups = canWrite() ? dupGroups() : [], bar = $("#galDup"); bar.hidden = !dups.length;
   if (dups.length){ const extra = dups.reduce((t, g) => t + g.length - 1, 0), nm = c => galName(c) + (c.cluster && galName(c) !== c.cluster ? " (" + c.cluster + ")" : "");
-    bar.innerHTML = `<span><b>${nf(dups.length)} tipe tercatat lebih dari sekali</b> (developer, nama tipe, dan luasnya sama): ${dups.slice(0, 3).map(g => esc(g.map(nm).join(" = "))).join("; ")}${dups.length > 3 ? "; dan lainnya" : ""}. Gabungkan = data terbaru dipertahankan, kolom kosongnya (harga, fasad, denah) diisi dari yang lama, lalu ${nf(extra)} baris lama dihapus.</span><button class="btn sm primary" id="galMerge">Gabungkan</button>`; }
+    bar.innerHTML = `<span><b>${nf(dups.length)} tipe tercatat lebih dari sekali</b> (developer dan tipenya sama): ${dups.slice(0, 3).map(g => esc(g.map(nm).join(" = "))).join("; ")}${dups.length > 3 ? "; dan lainnya" : ""}. Gabungkan = data terbaru dipertahankan, kolom kosongnya (harga, fasad, denah) diisi dari yang lama, lalu ${nf(extra)} baris lama dihapus.</span><button class="btn sm primary" id="galMerge">Gabungkan</button>`; }
   $("#galCount").textContent = rows.length ? `${nf(list.length)} tipe ditampilkan` + (gal.cmp.length ? ` · ${nf(gal.cmp.length)} dipilih untuk dibandingkan` : "") : "";
   const W = canWrite();
   el.innerHTML = list.length ? list.map(c => { const has = okImg(pic(c)), kamar = galKamar(c), sel = gal.cmp.includes(c.id);
@@ -3935,7 +3959,7 @@ function reviewUnits(res, fileName, files = [], srcs = []){
         <td class="n">${u.price ? rp(u.price) + (u.priceBasis ? `<small>${esc(u.priceBasis)}</small>` : "") : '<span class="miss">–</span>'}</td><td class="src">${u.file || u.page ? esc([u.file, u.page ? "hal " + nf(u.page) : ""].filter(Boolean).join(" · ")) : '<span class="miss">–</span>'}</td></tr>`).join("")}</tbody>`;
     const on = units.filter(u => u.on), noPrice = on.filter(u => !u.price).length, noSize = on.filter(u => !u.lb && !u.lt).length;
     $("#rvNote").textContent = [noPrice ? `${nf(noPrice)} tipe tanpa harga` : "", noSize ? `${nf(noSize)} tipe tanpa luas` : ""].filter(Boolean).join(" · ") + (noPrice || noSize ? ". Tetap bisa disimpan, lalu dilengkapi lewat Edit." : "");
-    $("#rvDupWrap").hidden = !tw.size; if (tw.size) $("#rvDupText").textContent = `Timpa ${nf(tw.size)} tipe yang sudah ada (developer, nama tipe, dan luasnya sama: ${[...tw.values()].slice(0, 3).map(c => galName(c)).join(", ")}${tw.size > 3 ? ", …" : ""}) supaya tidak tercatat ganda. Angka lama yang tidak ada di brosur ini tetap dipertahankan.`;
+    $("#rvDupWrap").hidden = !tw.size; if (tw.size) $("#rvDupText").textContent = `Timpa ${nf(tw.size)} tipe yang sudah ada (developer dan tipenya sama: ${[...tw.values()].slice(0, 3).map(c => galName(c)).join(", ")}${tw.size > 3 ? ", …" : ""}) supaya tidak tercatat ganda. Angka lama yang tidak ada di brosur ini tetap dipertahankan.`;
     const old = stale(); $("#rvRepWrap").hidden = !old.length;
     if (old.length) $("#rvRepText").textContent = `Ganti data lama dari file yang sama: hapus ${nf(old.length)} produk yang tidak ada di hasil baca ini (${[...new Set(old.map(c => c.developer).filter(Boolean))].join(", ")})`;
     save.textContent = `Simpan ${nf(on.length)} produk`; save.disabled = !on.length; };
@@ -3948,7 +3972,7 @@ function reviewUnits(res, fileName, files = [], srcs = []){
     const r = await pickCrop(srcs, {src:at.src, page:at.page, box:u[K.k + "At"] ? at.box : null, allowNone:true, what:K.l}); if (!r) return; u[K.k] = r.image; u[K.k + "At"] = r.image ? {src:r.src, page:r.page, box:r.box} : null; draw(); };
   $("#rvTable").onchange = e => { if (e.target.dataset.seg !== undefined){ units[+e.target.dataset.seg].tier = e.target.value; return; } if (e.target.id === "rvAll") units.forEach(u => u.on = e.target.checked); else if (e.target.dataset.rv !== undefined) units[+e.target.dataset.rv].on = e.target.checked; draw(); };
   $("#rvDev").oninput = () => { const h = $("#rvDevHint"), pt = /^pt\.?\s/i.test($("#rvDev").value.trim()); if (res.devIsLegal){ h.hidden = !pt; } draw(); };
-  save.onclick = async () => { const dev = $("#rvDev").value.trim(), proj = $("#rvProj").value.trim();
+  save.onclick = async () => { const dev = canonName($("#rvDev").value.trim()), proj = $("#rvProj").value.trim();
     if (!dev){ $("#rvNote").textContent = "Isi nama developer dulu."; $("#rvDev").focus(); return; }
     const tw = $("#rvDup").checked ? twins() : new Map(), have = new Set(comps.map(c => String(c.id))); let over = 0;
     const rows = units.filter(u => u.on).map(u => ({_u:u.i, id:tw.has(u.i) ? tw.get(u.i).id : idOf(u), developer:dev, project:proj, cluster:u.cluster || u.type, unitType:u.type, tier:TIERS.includes(u.tier) ? u.tier : "Deluxe",

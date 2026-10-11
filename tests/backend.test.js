@@ -79,6 +79,18 @@ post('syncNow', {}); ok('perubahan harga masuk PriceHistory', get().history.some
   env.setFetch((url) => url.includes('api.anthropic.com') ? {code:200, type:'application/json', body:JSON.stringify({content:[{type:'text', text:'[{"developer":"Summarecon Bandung","cluster":"Cluster Uji","lb":100,"price":2700000000,"stock":60,"sold":20,"months":10}]'}]})} : {code:200, type:'text/html', body:'<p>ada stok</p>'});
   post('syncNow', {}); c = get().competitors.find(x => x.id === 'auto-summarecon-bandung-cluster-uji');
   ok('sumber memuat stok asli → angka sumber dipakai dan tanda dummy dilepas', c.stock === 60 && c.sold === 20 && c.months === 10 && c.dummy === false, JSON.stringify([c.stock, c.sold, c.months, c.dummy])); }
+// sinkron tidak boleh menggandakan developer / produk yang sama dengan ejaan lain
+{ A.upsert('Competitors', {id:'auto-summarecon-bandung-hillary-basic', developer:'Summarecon Bandung', cluster:'Cluster Hillary · Basic 10x20', lt:200, price:4500000000, stock:16, sold:11, months:26, dummy:true, auto:true, isOwn:false});
+  A.upsert('Competitors', {id:'bro-summarecon-bandung-chyntia', developer:'Summarecon Bandung', cluster:'Chyntia', unitType:'4 KT', lt:164, lb:150, price:2800000000, auto:false, isOwn:false});
+  const n0 = A.readTable('Competitors').length;
+  env.setFetch((url) => url.includes('api.anthropic.com') ? {code:200, type:'application/json', body:JSON.stringify({content:[{type:'text', text:JSON.stringify([
+    {developer:'Summarecon Agung Tbk', cluster:'Hillary Cluster - Basic (10x20m)', lt:200, price:4600000000},
+    {developer:'Summarecon', cluster:'Chyntia - Minimalis Hook', lt:164, lb:150, price:2800000000},
+    {developer:'Summarecon Agung Tbk', cluster:'Cluster Baru Uji', lt:90, lb:70, price:1500000000}])}]})} : {code:200, type:'text/html', body:'<p>sumber summarecon ' + Math.random() + '</p>'});
+  post('syncNow', {}); const C = A.readTable('Competitors'), h = C.find(c => c.id === 'auto-summarecon-bandung-hillary-basic'), nb = C.find(c => /cluster-baru-uji/.test(c.id));
+  ok('sinkron: produk sama beda ejaan (Hillary) memperbarui baris lama, stok contoh tetap', h && h.price === 4600000000 && h.stock === 16 && h.developer === 'Summarecon Bandung' && !C.some(c => /hillary-cluster-basic/.test(c.id)), JSON.stringify(h && [h.price, h.stock, h.developer]));
+  ok('sinkron: produk yang sudah diisi manual tidak digandakan dan tidak ditimpa', !C.some(c => /chyntia-minimalis-hook/.test(c.id)) && C.find(c => c.id === 'bro-summarecon-bandung-chyntia').auto === false);
+  ok('sinkron: produk baru memakai nama developer yang sudah ada ("Summarecon Bandung"), bukan nama PT', nb && nb.developer === 'Summarecon Bandung' && nb.id === 'auto-summarecon-bandung-cluster-baru-uji' && C.length === n0 + 1, JSON.stringify(nb && [nb.id, nb.developer]) + ' n=' + (C.length - n0)); }
 // event marketing: tersimpan di tab Events (dibuat sendiri), ikut di data GET, bisa diubah & dihapus
 { delete env.sheets.Events;      // seperti Sheet lama yang belum punya tab Events: tab dibuat sendiri
   r = post('saveEvent', {id:'ev1', name:'Open House Akhir Pekan', type:'Open house', start:'2026-09-12', end:'2026-09-13', notes:'di marketing gallery'});

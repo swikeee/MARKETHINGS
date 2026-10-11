@@ -274,14 +274,52 @@ function fetchOne(url, note, developer) {
   return { rows: r.rows, priceChanges: r.priceChanges, summary: r.rows ? `${r.rows} tipe unit ditambahkan/diperbarui` : 'Tidak ditemukan data harga di halaman ini' };
 }
 
+/* ---------- produk / developer yang sama jangan tercatat dua kali (logika sama dengan dashboard) ---------- */
+const num0 = v => { const n = Number(v); return isFinite(n) ? n : 0; };
+function devTokens(name){ const N = devTokens.N = devTokens.N || new Set(["pt", "tbk", "persero", "group", "grup", "property", "properti", "properties", "development", "developer", "realty", "land", "city", "indonesia", "bandung", "jakarta", "surabaya", "bekasi", "tangerang", "bogor", "depok", "cimahi", "the"]);
+  return String(name || "").toLowerCase().split(/[^a-z0-9]+/).filter(w => w && !N.has(w)); }
+/** Sama bila kata inti yang satu adalah awalan yang lain: "Summarecon" = "Summarecon Bandung" = "Summarecon Agung Tbk"; "Agung Podomoro" ≠ "Agung Sedayu". */
+function sameDev(a, b){ const A = devTokens(a), B = devTokens(b);
+  if (!A.length || !B.length) return String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+  const [S, L] = A.length <= B.length ? [A, B] : [B, A]; return S.every((w, i) => L[i] === w); }
+const pKey = v => String(v || "").toLowerCase().replace(/×/g, "x").replace(/\b(tipe|type)\b/g, " ").replace(/[^a-z0-9]+/g, "");
+const pType = c => pKey(c.unitType || c.cluster);
+const pFits = (a, b) => !(num0(a) > 0 && num0(b) > 0) || Math.abs(num0(a) - num0(b)) <= 1;      // tidak bertentangan (salah satu boleh kosong)
+const pBoth = (a, b) => num0(a) > 0 && num0(b) > 0 && Math.abs(num0(a) - num0(b)) <= 1;         // dua-duanya terisi dan sama
+/** Kata-kata nama produk (cluster + tipe) untuk dibandingkan: tanpa kata "cluster/tipe", ukuran ditulis seragam ("10x20m" = "10 x 20"). */
+const pName = c => [c.cluster, c.unitType].filter((v, i, a) => v && a.findIndex(x => pKey(x) === pKey(v)) === i).join(" ");
+const pTokens = c => [...new Set(pName(c).toLowerCase().replace(/×/g, "x").replace(/(\d+)\s*x\s*(\d+)\s*m\b/g, "$1x$2").replace(/(\d+)\s*x\s*(\d+)/g, "$1x$2")
+  .split(/[^a-z0-9]+/).filter(w => w && !["cluster", "tipe", "type", "unit", "rumah", "the"].includes(w)))];
+function sameProduct(a, b){
+  if (!sameDev(a.developer, b.developer)) return false;
+  if (!pFits(a.lt, b.lt) || !pFits(a.lb, b.lb)) return false;
+  const pa = num0(a.price), pb = num0(b.price), priceOk = !(pa > 0 && pb > 0) || Math.abs(pa - pb) <= .01*Math.max(pa, pb);
+  // 1) nama tipe sama ("Tipe 5x17" = "5x17"): cluster sama, atau luasnya terbukti sama dan harganya tidak bertentangan (nama seperti "6x12" bisa ada di beberapa cluster)
+  if (pType(a) && pType(a) === pType(b) && (pKey(a.cluster) === pKey(b.cluster) || ((pBoth(a.lt, b.lt) || pBoth(a.lb, b.lb)) && priceOk))) return true;
+  // 2) kata-kata namanya sama walau urutannya lain ("Cluster Hillary · Basic 10x20" = "Hillary Cluster - Basic (10x20m)")
+  const A = pTokens(a), B = pTokens(b);
+  if (A.length && A.length === B.length && A.every(w => B.includes(w))) return true;      // harga boleh beda: itu perubahan harga
+  // 3) luas tanah, luas bangunan, dan harga persis sama, dan namanya punya kata yang sama ("Cluster Chyntia · 4 KT" = "Chyntia - Minimalis Hook")
+  return pBoth(a.lt, b.lt) && pBoth(a.lb, b.lb) && pa > 0 && pb > 0 && Math.abs(pa - pb) <= .005*Math.max(pa, pb) && A.some(w => w.length >= 3 && !/^\d/.test(w) && B.includes(w));
+}
+/** Nama developer resmi: kalau sudah ada di Sheet dengan ejaan lain ("Summarecon Agung Tbk" vs "Summarecon Bandung"), pakai yang paling banyak dipakai. */
+function canonDev(name, rows) { const n = {}; rows.forEach(c => { const d = String(c.developer || '').trim(); if (d && sameDev(d, name)) n[d] = (n[d] || 0) + 1; });
+  const best = Object.keys(n).sort((a, b) => n[b] - n[a] || a.length - b.length)[0]; return best || name; }
+
 function upsertUnits(units, s) {
-  const existing = readTable('Competitors');
+  const existing = readTable('Competitors'), used = {};
   let rows = 0, priceChanges = 0;
   units.forEach(u => {
     if (!u || !u.cluster) return;
-    const dev = u.developer || s.developer || '';
-    const id = 'auto-' + slug(dev) + '-' + slug(u.cluster);
-    const prev = existing.find(c => c.id === id);
+    // ejaan developer dari AI bisa berbeda tiap kali ("Summarecon Agung Tbk", "Summarecon"): diseragamkan dengan nama sumber / nama yang sudah ada di Sheet
+    const raw = u.developer || s.developer || '', dev = canonDev(s.developer && sameDev(raw, s.developer) ? s.developer : raw, existing);
+    let id = 'auto-' + slug(dev) + '-' + slug(u.cluster);
+    let prev = existing.find(c => c.id === id);
+    if (!prev) {      // produk yang sama dengan nama lain ("Hillary Cluster - Basic (10x20m)" = "Cluster Hillary · Basic 10x20"): perbarui baris itu, bukan menambah baris
+      const twin = existing.find(c => !c.isOwn && !used[c.id] && sameProduct({ developer: dev, cluster: u.cluster, lt: num(u.lt), lb: num(u.lb), price: num(u.price) }, c));
+      if (twin) { prev = twin; id = twin.id; }
+    }
+    used[id] = true;
     if (prev && prev.auto === false) return; // jangan timpa data yang sudah diedit manual
     const price = num(u.price);
     if (prev && prev.price && price && Math.abs(price - prev.price) > 1) {
@@ -297,6 +335,7 @@ function upsertUnits(units, s) {
       promo: u.promo || '', notes: u.notes || '', source: s.label, sourceUrl: s.url, sourceDate: u.sourceDate || 'tanggal tidak tercantum',
       isOwn: false, auto: true, dummy: fromSrc ? false : !!(prev && prev.dummy), syncedAt: now(), updatedAt: now(),
     });
+    if (!prev) existing.push({ id, developer: dev, cluster: u.cluster, lt: num(u.lt), lb: num(u.lb), price, isOwn: false, auto: true });
     rows++;
   });
   return { rows, priceChanges };
