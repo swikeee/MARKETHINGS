@@ -354,8 +354,14 @@ function upsertUnits(units, s) {
     // ejaan developer dari AI bisa berbeda tiap kali ("Summarecon Agung Tbk", "Summarecon"): diseragamkan dengan nama sumber / nama yang sudah ada di Sheet
     const raw = u.developer || s.developer || '', dev = canonDev(s.developer && sameDev(raw, s.developer) ? s.developer : raw, existing);
     const type = String(u.type || '').trim(), name = type && type !== u.cluster ? u.cluster + ' · ' + type : u.cluster;
-    let id = 'auto-' + slug(dev) + '-' + slug(name);
-    let prev = existing.find(c => c.id === id);
+    const base = 'auto-' + slug(dev) + '-' + slug(name), fits = c => pFits(num(u.lt), c.lt) && pFits(num(u.lb), c.lb);
+    let id = base, prev = existing.find(c => c.id === id), variant = '';
+    if (prev && used[id] && fits(prev)) return;      // tipe yang sama muncul dua kali di satu sumber: cukup sekali
+    if (prev && !fits(prev)) {      // nama sama tetapi luasnya beda (mis. dua listing "Modern 2 Lantai"): produk lain, dicatat terpisah, bukan dianggap perubahan harga
+      variant = 'LT ' + (num(u.lt) || '–') + ' / LB ' + (num(u.lb) || '–');
+      id = base + '-' + slug([num(u.lt), num(u.lb)].filter(v => v !== null).join(' ') || 'varian'); prev = existing.find(c => c.id === id);
+      if (prev && used[id]) return;
+    }
     if (!prev) {      // produk yang sama dengan nama lain ("Hillary Cluster - Basic (10x20m)" = "Cluster Hillary · Basic 10x20"): perbarui baris itu, bukan menambah baris
       const twin = existing.find(c => !c.isOwn && !used[c.id] && sameProduct({ developer: dev, cluster: u.cluster, unitType: type, lt: num(u.lt), lb: num(u.lb), price: num(u.price) }, c));
       if (twin) { prev = twin; id = twin.id; }
@@ -363,7 +369,7 @@ function upsertUnits(units, s) {
     used[id] = true;
     if (prev && prev.auto === false) return; // jangan timpa data yang sudah diedit manual
     const price = num(u.price);
-    if (prev && prev.price && price && Math.abs(price - prev.price) > 1) {
+    if (prev && prev.price && price && Math.abs(price - prev.price) > 1 && fits(prev)) {      // perubahan harga hanya untuk produk yang luasnya sama
       appendRow('PriceHistory', { at: now(), competitorId: id, developer: dev, cluster: u.cluster, oldPrice: prev.price, newPrice: price, changePct: Math.round((price - prev.price) / prev.price * 1000) / 10, source: s.label });
       priceChanges++;
     }
@@ -373,14 +379,14 @@ function upsertUnits(units, s) {
     const old = k => num(u[k]) !== null ? num(u[k]) : (prev ? num(prev[k]) : null), txt = k => String(u[k] || '').trim() || (prev ? String(prev[k] || '') : '');
     const pr = price !== null ? price : (prev ? num(prev.price) : null);
     upsert('Competitors', {
-      id, developer: dev, project: u.project || (prev && prev.project) || '', cluster: u.cluster, unitType: type || (prev && prev.unitType) || '',
+      id, developer: dev, project: u.project || (prev && prev.project) || '', cluster: u.cluster, unitType: type || variant || (prev && prev.unitType) || '',
       tier: tierOf(old('lb'), pr, u.tier, name), lt: old('lt'), lb: old('lb'), kt: old('kt'), km: old('km'), floors: old('floors'), price: pr,
       priceBasis: price !== null ? (u.priceBasis || '') : txt('priceBasis'), stock: keep('stock'), sold: keep('sold'), months: keep('months'),
       promo: txt('promo'), notes: txt('notes'), source: s.label, sourceUrl: s.url, sourceDate: u.sourceDate || (prev && prev.sourceDate) || 'tanggal tidak tercantum',
       ...(u.image && !(prev && prev.image) ? { image: u.image } : {}), ...(u.plan && !(prev && prev.plan) ? { plan: u.plan } : {}),
       isOwn: false, auto: true, dummy: fromSrc ? false : !!(prev && prev.dummy), syncedAt: now(), updatedAt: now(),
     });
-    if (!prev) existing.push({ id, developer: dev, cluster: u.cluster, unitType: type, lt: num(u.lt), lb: num(u.lb), price, isOwn: false, auto: true });
+    if (!prev) existing.push({ id, developer: dev, cluster: u.cluster, unitType: type || variant, lt: num(u.lt), lb: num(u.lb), price, isOwn: false, auto: true });
     rows++;
   });
   return { rows, priceChanges };

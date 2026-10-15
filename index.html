@@ -1885,15 +1885,20 @@ function drawCompCharts(rows, animate){
   // saringan segmen khusus grafik serapan (hanya saat halaman menampilkan semua segmen)
   $("#absSeg").hidden = tier !== "all"; if (tier !== "all") absTier = "all";
   $("#absSeg").querySelectorAll("button").forEach(b => { const has = b.dataset.s === "all" || rows.some(c => c.tier === b.dataset.s && absorb(c) !== null); b.disabled = !has; b.setAttribute("aria-pressed", b.dataset.s === absTier); });
-  const s=rows.filter(c=>absorb(c)!==null && (absTier === "all" || c.tier === absTier)).sort((a,b)=>absorb(b)-absorb(a)).slice(0,12);
+  // satu batang per tipe; kompetitor selalu ikut tampil (paling sedikit 4) supaya bisa dibandingkan
+  const allA = rows.filter(c=>absorb(c)!==null && (absTier === "all" || c.tier === absTier)).sort((a,b)=>absorb(b)-absorb(a)), lim = absTier === "all" ? 12 : 20;
+  const s = allA.slice(0, lim); allA.filter(c => !c.isOwn && !s.includes(c)).slice(0, Math.max(0, 4 - s.filter(c => !c.isOwn).length)).forEach(c => s.push(c)); s.sort((a,b)=>absorb(b)-absorb(a));
+  const absLabel = c => c.isOwn ? c.cluster : typeLabel(c), short = v => String(v).length > 26 ? String(v).slice(0, 25) + "…" : String(v);
+  const cut = v => { const i = String(v).indexOf(" - "); return i > 0 ? [short(String(v).slice(0, i)), short(String(v).slice(i + 3))] : short(v); };      // nama produk dan tipe dalam dua baris supaya tidak terpotong
+  $("#absBox").style.height = Math.max(220, s.length*36 + 60) + "px";
   const legDevs = list => (list.some(c => c.isOwn) ? `<span><i style="background:var(--accent)"></i>Pororo Land</span>` : "") + [...new Set(list.filter(c => !c.isOwn).map(c => c.developer))].sort().map(d => `<span><i style="background:${devColor(d,false)}"></i>${esc(d)}</span>`).join("");
   $("#absBox").hidden = !s.length; $("#absEmpty").hidden = !!s.length; $("#absEmpty").textContent = s.length ? "" : `Belum ada data serapan${absTier === "all" ? "" : " untuk segmen " + absTier}. Isi stok, unit terjual, dan bulan sejak launching lewat Edit.`;
   $("#absLegend").innerHTML = legDevs(s);
   const ob = chartBase(); ob.indexAxis="y"; ob.scales.y.grid={display:false};
   if (animate) ob.animation = {duration:1000, easing:"easeOutQuart", delay:ctx=>ctx.dataIndex*60};
   ob.plugins.tooltip.callbacks={label:ctx=>`${nf(ctx.raw,1)} unit/bln`};
-  ob.plugins.tooltip.callbacks={title:items=>{ const c = s[items[0].dataIndex]; return `${c.cluster} · ${c.developer}`; }, label:ctx=>`${nf(ctx.raw,1)} unit/bln · ${s[ctx.dataIndex].tier}`};
-  if (s.length) mk("chAbs",{type:"bar",data:{labels:s.map(c=>c.cluster),datasets:[{data:s.map(absorb),backgroundColor:s.map(c=>c.isOwn?A:devColor(c.developer,false)),borderRadius:3,barThickness:14}]},options:ob}, {fmt:v => nf(v,1)});
+  ob.plugins.tooltip.callbacks={title:items=>{ const c = s[items[0].dataIndex]; return `${absLabel(c)} · ${c.developer}`; }, label:ctx=>`${nf(ctx.raw,1)} unit/bln · ${s[ctx.dataIndex].tier}${absDummy(s[ctx.dataIndex]) ? " · dummy" : ""}`};
+  if (s.length) mk("chAbs",{type:"bar",data:{labels:s.map(c=>cut(absLabel(c))),datasets:[{data:s.map(absorb),backgroundColor:s.map(c=>c.isOwn?A:devColor(c.developer,false)),borderRadius:3,barThickness:14}]},options:ob}, {fmt:v => nf(v,1)});
   // serapan rata-rata per segmen, satu batang per developer (warna developer sama dengan grafik lain)
   const withA = rows.filter(c => absorb(c) !== null), segs = TIERS.filter(t => withA.some(c => c.tier === t));
   const dv = [...(withA.some(c => c.isOwn) ? [{name:"Pororo Land", own:true}] : []), ...[...new Set(withA.filter(c => !c.isOwn).map(c => c.developer))].sort().map(d => ({name:d, own:false}))];
@@ -1912,7 +1917,8 @@ function typeAbsorbRows(rows){
   const out = []; let V = null; try { V = stockState() === "none" ? null : stockView(); } catch {}
   rows.filter(c => absorb(c) !== null).forEach(c => { const a = absorb(c);
     if (!c.isOwn || (c.unitType && c.unitType !== c.cluster)){ const parts = String(c.cluster || "").split(" · "), ut = c.unitType && c.unitType !== c.cluster ? c.unitType : "";
-      out.push({own:!!c.isOwn, dev:c.developer, name:ut || (parts.length > 1 ? parts.slice(1).join(" · ") : c.cluster), sub:ut ? c.cluster : (parts.length > 1 ? parts[0] : ""), seg:c.tier, v:a, dummy:!!c.dummy, tip:`${nf(num(c.sold))} unit terjual dalam ${nf(num(c.months))} bulan`}); return; }
+      const tl = ut ? typeLabel(c) : "", cutAt = tl.indexOf(" - ");      // nama tipe seragam dengan galeri: "5x17 Standard", "Corner"
+      out.push({own:!!c.isOwn, dev:c.developer, name:ut ? (cutAt > 0 ? tl.slice(cutAt + 3) : tl) : (parts.length > 1 ? parts.slice(1).join(" · ") : c.cluster), sub:ut ? (cutAt > 0 ? tl.slice(0, cutAt) : c.cluster) : (parts.length > 1 ? parts[0] : ""), seg:c.tier, v:a, dummy:!!c.dummy, tip:`${nf(num(c.sold))} unit terjual dalam ${nf(num(c.months))} bulan`}); return; }
     const types = V ? V.rows.filter(r => tnorm(r.cluster) === tnorm(c.cluster)) : [], sold = types.reduce((x, r) => x + r.sold, 0);
     if (!types.length || !sold){ out.push({own:true, dev:c.developer, name:c.cluster, sub:"semua tipe", seg:c.tier, v:a, dummy:!!c.dummy, tip:`${nf(num(c.sold))} unit terjual dalam ${nf(num(c.months))} bulan`}); return; }
     types.forEach(r => out.push({own:true, dev:c.developer, name:r.type, sub:titleCase(c.cluster), seg:r.seg || c.tier, v:a*r.sold/sold, dummy:!!c.dummy, split:true, tip:`${nf(Math.round(r.sold/sold*100))}% dari penjualan ${titleCase(c.cluster)} (${nf(r.sold)} dari ${nf(sold)} unit di rekap) × serapan cluster ${nf(a, 1)} unit/bln`})); });
@@ -1926,7 +1932,8 @@ function renderTypeAbs(){
   el.innerHTML = segs.length ? segs.map(t => { const L = T.filter(x => x.seg === t).sort((a, b) => b.v - a.v || a.name.localeCompare(b.name)), own = L.filter(x => x.own), oth = L.filter(x => !x.own), SHOW = 8;
       const avg = a => a.length ? nf(a.reduce((s2, x) => s2 + x.v, 0)/a.length, 1) : null;
       return `<div class="abs-seg"><h4>${esc(t)}</h4><p class="sub">${[own.length ? `Pororo Land ${nf(own.length)} tipe, rata-rata ${avg(own)}` : "", oth.length ? `kompetitor ${nf(oth.length)} tipe, rata-rata ${avg(oth)}` : "kompetitor belum ada data"].filter(Boolean).join(" · ")}</p>
-        ${L.slice(0, SHOW).map(row).join("")}${L.length > SHOW ? `<details class="abs-more"><summary>+${nf(L.length - SHOW)} tipe lain</summary>${L.slice(SHOW).map(row).join("")}</details>` : ""}</div>`; }).join("")
+        ${(() => { const top = L.slice(0, SHOW); oth.filter(x => !top.includes(x)).slice(0, Math.max(0, 3 - top.filter(x => !x.own).length)).forEach(x => top.push(x)); top.sort((a, b) => b.v - a.v || a.name.localeCompare(b.name)); const rest = L.filter(x => !top.includes(x));      // kompetitor selalu tampil (paling sedikit 3)
+          return top.map(row).join("") + (rest.length ? `<details class="abs-more"><summary>+${nf(rest.length)} tipe lain</summary>${rest.map(row).join("")}</details>` : ""); })()}</div>`; }).join("")
     : `<p class="note" style="margin:0">Belum ada data serapan. Isi stok, unit terjual, dan bulan sejak launching lewat Edit.</p>`;
   $("#absTypeLegend").innerHTML = (T.some(x => x.own) ? `<span><i style="background:var(--accent)"></i>Pororo Land</span>` : "") + [...new Set(T.filter(x => !x.own).map(x => x.dev))].sort().map(d => `<span><i style="background:${devColor(d, false)}"></i>${esc(d)}</span>`).join("");
   const notes = []; if (T.some(x => x.split)) notes.push("Pororo Land: serapan tiap cluster dibagi ke tipe-tipenya menurut porsi penjualan tiap tipe di rekap, jadi jumlah semua tipe sama dengan serapan clusternya.");
