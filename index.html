@@ -5310,6 +5310,25 @@ async function compPhoto(c, ar){
   if (!out) out = await broPhoto(c, ar).catch(() => null);
   if (!out && c._broFrom) out = await broPhoto(c._broFrom, ar).catch(() => null);
   PHOTO_CACHE.set(key, out); return out; }
+// ---- produk terbaru per developer kompetitor (laporan PPT): baris tipe digabung per produk / cluster ----
+const MON_IX = {jan:0, feb:1, mar:2, apr:3, mei:4, may:4, jun:5, jul:6, agu:7, aug:7, ags:7, sep:8, okt:9, oct:9, nov:10, des:11, dec:11};
+const dateIn = v => { const t = String(v || ""), m = t.match(/(\d{1,2})\s+([a-z]{3})[a-z]*\.?\s+(\d{4})/i);
+  if (m && MON_IX[m[2].toLowerCase()] !== undefined) return new Date(+m[3], MON_IX[m[2].toLowerCase()], +m[1]).getTime();
+  const iso = t.match(/\d{4}-\d{2}-\d{2}/); return iso ? new Date(iso[0]).getTime() : 0; };
+const prodName = c => String(c.cluster || c.project || "Produk").split(/\s+[·\-–—]\s+|\s*\(/)[0].replace(/\s+cluster$/i, "").trim();
+const normU = u => String(u || "").toLowerCase().replace(/^https?:\/\/(www\.)?/, "").replace(/[#?].*$/, "").replace(/\/+$/, "");
+function devProducts(){
+  const all = comps.filter(c => !c.isOwn), best = {};
+  all.map(c => fillComp(c, all)).forEach(c => { const k = [canonName(c.developer), num(c.lt), num(c.lb), pKey(typeLabel(c))].join("|"); if (!best[k] || compScore(c) > compScore(best[k])) best[k] = c; });
+  const groups = {};
+  Object.values(best).forEach(c => { const dev = canonName(c.developer || "Tanpa nama"), nm = prodName(c), k = dev + "|" + pKey(nm.replace(/^cluster\s+/i, ""));
+    const g = groups[k] ??= {dev, names:[], rows:[]}; g.names.push(nm); g.rows.push(c); });
+  return Object.values(groups).map(g => {
+    const name = g.names.sort((a, b) => a.length - b.length)[0], src = g.rows.map(c => normU(c.sourceUrl)).filter(Boolean);
+    const match = sources.filter(x => src.includes(normU(x.url))), onSale = match.some(x => x.active && !/sold out/i.test(x.label || "")), soldOut = !onSale && match.some(x => /sold out/i.test(x.label || ""));
+    const date = Math.max(0, ...g.rows.map(c => Math.max(dateIn(c.sourceDate), /launch/i.test(c.notes || "") ? dateIn(String(c.notes).replace(/^.*?launch\w*/i, "")) : 0, dateIn(c.syncedAt || c.updatedAt)/1e3)));
+    return {...g, name, onSale, soldOut, date}; });
+}
 /** Semua angka untuk satu kuartal. Murni hitungan dari data yang sudah dimuat dashboard. */
 function quarterData(q){
   const ms = qMonths(q), pq = qShift(q, -1), yq = qShift(q, -4), nq = qShift(q, 1);
@@ -5470,7 +5489,7 @@ async function buildQuarterPpt(q){
     Tx(s, "Daftar Isi", {x:.6, y:.45, w:6, h:.55, fontFace:HF, fontSize:26, bold:true, color:C.navy, valign:"middle"});
     Tx(s, `Laporan Serapan Penjualan · ${QL}`, {x:.6, y:1.02, w:6, h:.25, fontSize:9.5, color:C.or, valign:"middle"}); R(s, .6, 1.35, 3.4, .05, C.or);
     const items = [["Ringkasan Eksekutif", "Unit terjual, revenue, highlight & risiko kuartal ini"], ["Data Serapan Per Cluster", "Unit terjual vs tersedia per tipe, per cluster"], ["Serapan Free PPN", "Unit yang memenuhi syarat PPN DTP"], ["Revenue Penjualan", "Revenue per bulan dan per cluster"],
-      ["Profil Pembeli", "Usia, tujuan pembelian, dan cara bayar"], ["Analisis Kompetitor", "Produk pembanding per segmen dari market research"], ["Update Market", "Inflasi, suku bunga, kurs, keyakinan konsumen"], ["Rencana & Rekomendasi", `Target dan strategi ${NQL}`]];
+      ["Profil Pembeli", "Usia, tujuan pembelian, dan cara bayar"], ["Analisis Kompetitor", "Produk terbaru developer pembanding: LT/LB, harga, serapan"], ["Update Market", "Inflasi, suku bunga, kurs, keyakinan konsumen"], ["Rencana & Rekomendasi", `Target dan strategi ${NQL}`]];
     items.forEach(([t, d], i) => { const col = i < 4 ? 0 : 1, row = i % 4, x = .6 + col*6.3, y = 1.85 + row*1.25;
       Tx(s, String(i + 1).padStart(2, "0"), {x, y, w:.7, h:.45, fontFace:HF, fontSize:20, bold:true, color:C.or, valign:"middle"});
       Tx(s, t, {x:x + .8, y, w:5, h:.35, fontFace:HF, fontSize:14, bold:true, color:C.navy, valign:"middle"});
@@ -5561,32 +5580,39 @@ async function buildQuarterPpt(q){
     box(1, "Tujuan pembelian", B.purpose.slice(0, 5), "pie", pur[0] ? `${pur[0][0]}: ${nf(pur[0][1])} unit` + (pur[1] ? ` · ${pur[1][0]}: ${nf(pur[1][1])} unit` : "") : "Kolom TUJUAN belum diisi");
     box(2, "Cara bayar", B.pay.slice(0, 5), "pie", T.pay[0] ? `${T.pay.map(p => `${p[0]} ${nf(p[1])}`).slice(0, 3).join(" · ")} unit` : "Kolom CARA BAYAR belum diisi"); }
 
-  // 8 · kompetitor per segmen (satu slide per segmen)
-  const segList = D.segs.length ? D.segs : [null];
-  for (const g of segList){
-    if (!g){ const s = page(`PRODUK KOMPETITOR  –  ${QL}`, "Perbandingan produk per segmen", "Belum ada data kompetitor yang bisa dibandingkan untuk segmen yang terjual di kuartal ini", MR_SRC); empty(s, X, 1.95, CW, 4.9, "Tambahkan data kompetitor di Market Research"); continue; }
-    const d = T.chg(g.ownAvg, g.med), pos = d === null ? "" : Math.abs(d) < 3 ? "setara median" : `${nf(Math.abs(d))}% ${d > 0 ? "di atas" : "di bawah"} median`;
-    const s = page(`PRODUK KOMPETITOR  –  ${g.seg.toUpperCase()}  –  ${QL}`, `Produk pembanding segmen ${g.seg} dari market research (${nf(g.n)} produk, ${nf(g.devs)} developer)`,
-      `${g.seg}: harga rata-rata ${g.own.name} ${rp(g.ownAvg)}, ${pos} kompetitor (${rp(g.med)})`, MR_SRC);
-    const ownType = g.topT.type && g.topT.type !== "Semua tipe" ? g.topT.type : "";
-    const cards = [...g.comps.map(c => ({c, own:false})), {c:{...g.ownC, developer:"Pororo Land", cluster:g.own.name, unitType:ownType, project:"", price:g.ownAvg, priceBasis:"", lt:g.topT.lt ?? g.ownC.lt, lb:g.topT.lb ?? g.ownC.lb, kt:g.topT.kt ?? g.ownC.kt, km:g.topT.km ?? g.ownC.km, floors:g.topT.floors ?? g.ownC.floors}, own:true}];
-    const w = (CW - 2*.3)/3, iy = 1.95, ih = 2.6, by = iy + ih + .08, bh = 2.32;
-    for (let i = 0; i < 3; i++){ const card = cards[i], x = X + i*(w + .3);
-      if (!card){ empty(s, x, iy, w, ih + bh + .08, "Belum ada pembanding lain"); continue; }
-      const c = card.c, img = card.own ? (okImg(c.image) ? await pptImg(c.image, w/ih, "contain") : null) : await compPhoto(c, w/ih);
-      if (img) s.addImage({data:img, x, y:iy, w, h:ih}); else { R(s, x, iy, w, ih, C.lt, C.ln); Tx(s, card.own ? "[ foto produk kita ]" : "[ foto belum ada di arsip ]", {x, y:iy, w, h:ih, align:"center", valign:"middle", italic:true, color:C.gr, fontSize:10}); }
-      R(s, x, by, w, bh, card.own ? C.navy : C.lt, card.own ? C.navy : C.ln);
-      const proj = String(c.project || "").trim(), ck = pKey(c.cluster).replace(/^cluster/, ""), title = typeLabel(c).replace(/\s*·\s*/g, " - ");
-      const sub = card.own ? `Pororo Land · cluster terlaris ${g.seg}` : [c.developer, galSub(c) && !(ck && pKey(proj).includes(ck)) ? proj : ""].filter(Boolean).join(" · ");
-      const size = `LT ${num(c.lt) > 0 ? nf(c.lt) + " m²" : "–"}  •  LB ${num(c.lb) > 0 ? nf(c.lb) + " m²" : "–"}`;
-      const price = num(c.price) > 0 ? `${rp(c.price)}  ${card.own ? "(rata-rata harga jual " + QL + ")" : c.priceBasis ? "(" + c.priceBasis + ")" : "(harga mulai)"}` : "Harga belum ada di sumber";
-      const spec = [["kt", "KT"], ["km", "KM"], ["floors", "lantai"]].map(([k, l]) => `${num(c[k]) > 0 ? nf(c[k]) : "–"} ${l}`).join("  •  ");
-      const sold = card.own ? (g.soldPct !== null ? `Sold ${pctS(g.soldPct)} (${nf(g.sold)}/${nf(g.total)} unit)` : `Terjual ${nf(g.own.units)} unit di ${QL}`) : num(c.stock) > 0 && has(c.sold) ? `Sold ${pctS(pctOf(num(c.sold), num(c.stock)))} (${nf(c.sold)}/${nf(c.stock)} unit)` : "Data serapan belum ada";
-      const src = card.own ? "Sumber: data penjualan internal" : "Sumber: " + String(c.source || "market research").replace(/\s+/g, " ").slice(0, 70);
-      const fg = card.own ? C.wh : C.ink, P = (text, o) => ({text, options:{fontSize:10, color:fg, breakLine:true, paraSpaceAfter:4, ...o}});
-      Tx(s, [P(title, {fontFace:HF, fontSize:13, bold:true, color:card.own ? C.or : C.navy, paraSpaceAfter:1}), P(sub, {fontSize:9, color:card.own ? C.mut : C.gr, paraSpaceAfter:7}),
-        P(size), P(price, {bold:num(c.price) > 0}), P(spec), P(sold), P(src, {fontSize:7.5, italic:true, color:card.own ? C.mut : C.gr, paraSpaceAfter:0})],
-        {x:x + .2, y:by + .14, w:w - .4, h:bh - .24, fit:"shrink"}); } }
+  // 8 · produk terbaru kompetitor utama: per developer, 3 produk per slide berjejer (foto + keterangan)
+  const prods = devProducts(), byDev = {}; prods.forEach(g => (byDev[g.dev] ??= []).push(g));
+  const devList = Object.entries(byDev).filter(([, l]) => l.length >= 2).sort((a, b) => b[1].length - a[1].length).slice(0, 3);
+  if (!devList.length){ const s = page(`PRODUK KOMPETITOR  –  ${QL}`, "Produk terbaru developer pembanding", "Belum ada data kompetitor di Market Research", MR_SRC); empty(s, X, 1.95, CW, 4.9, "Tambahkan data kompetitor di Market Research"); }
+  const rng = (vals, f) => { const v = vals.filter(x => x > 0); if (!v.length) return "–"; const a = Math.min(...v), b = Math.max(...v); return a === b ? f(a) : `${f(a)} – ${f(b)}`; };
+  for (const [dev, list] of devList){
+    const sorted = [...list].sort((a, b) => (b.onSale ? 1 : 0) - (a.onSale ? 1 : 0) || b.date - a.date || b.rows.length - a.rows.length).slice(0, 6), pages = Math.ceil(sorted.length/3);
+    for (let pg = 0; pg < pages; pg++){
+      const part = sorted.slice(pg*3, pg*3 + 3), allP = list.flatMap(g => g.rows).map(c => num(c.price)).filter(v => v > 0);
+      const s = page(`PRODUK KOMPETITOR  –  ${dev.toUpperCase()}`, `Produk terbaru ${dev} dari market research · ${QL}` + (pages > 1 ? `  (${pg + 1}/${pages})` : ""),
+        `${dev}: ${nf(list.length)} produk tercatat` + (list.some(g => g.onSale) ? `, ${nf(list.filter(g => g.onSale).length)} sedang dijual` : "") + ` · terbaru: ${sorted.slice(0, 3).map(g => g.name).join(", ")}` + (allP.length ? ` · harga ${rp(Math.min(...allP))} – ${rp(Math.max(...allP))}` : ""), MR_SRC);
+      const w = (CW - 2*.3)/3, iy = 1.95, ih = 2.35, by = iy + ih + .08, bh = 6.98 - by;
+      for (let i = 0; i < 3; i++){ const g = part[i], x = X + i*(w + .3);
+        if (!g){ R(s, x, iy, w, ih + bh + .08, C.lt, C.ln); continue; }
+        const rows = [...g.rows].sort((a, b) => num(a.lt) - num(b.lt) || num(a.lb) - num(b.lb));
+        let img = null; for (const c of [...rows].sort((a, b) => (okImg(b.image) ? 1 : 0) - (okImg(a.image) ? 1 : 0)).slice(0, 4)){ img = await compPhoto(c, w/ih); if (img) break; }
+        if (img) s.addImage({data:img, x, y:iy, w, h:ih}); else { R(s, x, iy, w, ih, C.lt, C.ln); Tx(s, "[ foto belum ada di arsip ]", {x, y:iy, w, h:ih, align:"center", valign:"middle", italic:true, color:C.gr, fontSize:10}); }
+        if (g.onSale || g.soldOut){ const tag = g.onSale ? "DIJUAL" : "SOLD OUT"; R(s, x + .12, iy + .12, .95, .28, g.onSale ? C.or : C.mid); Tx(s, tag, {x:x + .12, y:iy + .12, w:.95, h:.28, fontSize:8, bold:true, charSpacing:1, color:C.wh, align:"center", valign:"middle"}); }
+        R(s, x, by, w, bh, C.lt, C.ln); R(s, x, by, .07, bh, C.or);
+        const types = rows.map(c => { const t = typeLabel(c).replace(/\s*·\s*/g, " - "), cut = t.split(/\s+-\s+/); return cut.length > 1 && pKey(cut[0]).includes(pKey(g.name).replace(/^cluster/, "")) ? cut.slice(1).join(" - ") : t; });
+        const tiers = [...new Set(rows.map(c => c.tier).filter(Boolean))].join(" / "), proj = [...new Set(rows.map(c => String(c.project || "").trim()).filter(p => p && !pKey(p).includes(pKey(g.name).replace(/^cluster/, "")) && pKey(p) !== pKey(dev)))][0] || "";
+        const pr = rows.filter(c => num(c.price) > 0), lo = pr.sort((a, b) => num(a.price) - num(b.price))[0];
+        const price = pr.length ? rng(pr.map(c => num(c.price)), rp) + (lo.priceBasis ? `  (${lo.priceBasis})` : "") : "Harga belum ada di sumber";
+        const st = rows.filter(c => num(c.stock) > 0 && has(c.sold)), stk = st.reduce((a, c) => a + num(c.stock), 0), sld = st.reduce((a, c) => a + num(c.sold), 0), mo = Math.max(0, ...st.map(c => num(c.months)));
+        const absorb = stk ? `Sold ${pctS(sld/stk*100)} (${nf(sld)}/${nf(stk)} unit)` + (mo ? ` · ±${nf(sld/mo, 1)} unit/bln` : "") : "Belum ada data serapan";
+        const Pp = (text, o) => ({text, options:{fontSize:9.5, color:C.ink, breakLine:true, paraSpaceAfter:3, ...o}}), L = (k, v, o) => [{text:k + "  ", options:{fontSize:8, bold:true, color:C.gr, charSpacing:1}}, {text:v, options:{fontSize:9.5, color:C.ink, breakLine:true, paraSpaceAfter:3, ...o}}];
+        Tx(s, [Pp(g.name, {fontFace:HF, fontSize:14, bold:true, color:C.navy, paraSpaceAfter:1}), Pp([proj, tiers].filter(Boolean).join(" · ") || dev, {fontSize:8.5, color:C.gr, paraSpaceAfter:6}),
+          ...L("TIPE", types.slice(0, 4).join(", ") + (types.length > 4 ? `, +${types.length - 4} lagi` : "")),
+          ...L("LT / LB", `${rng(rows.map(c => num(c.lt)), v => nf(v))} / ${rng(rows.map(c => num(c.lb)), v => nf(v))} m²`),
+          ...L("KT / KM", `${rng(rows.map(c => num(c.kt)), v => nf(v))} / ${rng(rows.map(c => num(c.km)), v => nf(v))}`),
+          ...L("HARGA", price, {bold:pr.length > 0}), ...L("SERAPAN", absorb),
+          Pp("Sumber: " + [...new Set(rows.map(c => String(c.source || "").split(/\s+–\s+|\s+·\s+/)[0]).filter(Boolean))].slice(0, 2).join(", "), {fontSize:7.5, italic:true, color:C.gr, paraSpaceAfter:0})],
+          {x:x + .22, y:by + .12, w:w - .38, h:bh - .2, fit:"shrink"}); } } }
 
   // 9 · makro
   { const m = D.m, mp = D.mp, inf = decList(m.inf), bi = decId(m.bi), kurs = decId(m.kurs), ikk = decId(m.ikk), infL = inf.length ? inf.at(-1) : null;
