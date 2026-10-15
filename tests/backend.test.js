@@ -91,6 +91,33 @@ post('syncNow', {}); ok('perubahan harga masuk PriceHistory', get().history.some
   ok('sinkron: produk sama beda ejaan (Hillary) memperbarui baris lama, stok contoh tetap', h && h.price === 4600000000 && h.stock === 16 && h.developer === 'Summarecon Bandung' && !C.some(c => /hillary-cluster-basic/.test(c.id)), JSON.stringify(h && [h.price, h.stock, h.developer]));
   ok('sinkron: produk yang sudah diisi manual tidak digandakan dan tidak ditimpa', !C.some(c => /chyntia-minimalis-hook/.test(c.id)) && C.find(c => c.id === 'bro-summarecon-bandung-chyntia').auto === false);
   ok('sinkron: produk baru memakai nama developer yang sudah ada ("Summarecon Bandung"), bukan nama PT', nb && nb.developer === 'Summarecon Bandung' && nb.id === 'auto-summarecon-bandung-cluster-baru-uji' && C.length === n0 + 1, JSON.stringify(nb && [nb.id, nb.developer]) + ' n=' + (C.length - n0)); }
+// situs resmi developer: beranda -> halaman proyek didaftarkan otomatis; tipe tanpa harga dan gambar tipe ikut tercatat
+{ const HOME = '<html><body><a href="https://www.summareconbandung.com/project/cluster-uji-resmi">Cluster</a><a href="/project/diamond-uji/">Diamond</a><a href="/project/detail/cluster-uji-resmi">detail</a><a href="https://lain.test/project/x">lain</a><a href="/news/berita-uji">berita</a></body></html>';
+  const PROJ = '<html><body><h1>Cluster Uji Resmi</h1><p>Tipe unit terbaru</p><img src="https://img.test/logo-uji.svg"><img src="https://img.test/Uji-Type-10x20-01.webp"><img data-src="//img.test/Uji-Type-10x20-02.webp"><img src="https://img.test/Uji-Banner.webp"></body></html>';
+  const bodies = []; let ans = [{developer:'Summarecon Bandung', cluster:'Cluster Uji Resmi', type:'10x20', lt:null, lb:180, kt:4, km:3, floors:2, price:null, imageNo:1, planNo:2}];
+  const fx = (url, o) => { if (url.includes('api.anthropic.com')) { bodies.push(JSON.parse(o.payload)); return {code:200, type:'application/json', body:JSON.stringify({content:[{type:'text', text:JSON.stringify(ans)}]})}; }
+    if (url.includes('img.test')) return {code:200, type:'image/webp', body:'RIFF0000WEBPVP8 uji'};
+    if (/\/project\//.test(url)) return {code:200, type:'text/html', body:PROJ + (url.includes('diamond') ? '<p>diamond</p>' : '')};
+    return {code:200, type:'text/html', body:HOME}; };
+  env.setFetch(fx);
+  A.readTable('Sources').forEach(x => A.upsert('Sources', {id:x.id, active:false}));      // hanya sumber uji ini yang aktif
+  A.upsert('Sources', {id:'src-home-uji', developer:'Summarecon Bandung', label:'Website resmi Summarecon Bandung', url:'https://www.summareconbandung.com', active:true});
+  post('syncNow', {});
+  let S = A.readTable('Sources'), kids = S.filter(x => x.parent === 'src-home-uji');
+  ok('situs resmi: halaman proyek di beranda didaftarkan sebagai sumber (bukan /detail/, domain lain, atau berita)', kids.length === 2 && kids.every(k => /^https:\/\/www\.summareconbandung\.com\/project\/(cluster-uji-resmi|diamond-uji\/?)$/.test(k.url) && k.developer === 'Summarecon Bandung' && k.active), JSON.stringify(kids.map(k => k.url)));
+  ok('situs resmi: status beranda menyebut jumlah halaman proyek', /2 halaman proyek dipantau/.test(S.find(x => x.id === 'src-home-uji').lastStatus), S.find(x => x.id === 'src-home-uji').lastStatus);
+  post('syncNow', {}); ok('situs resmi: sinkron berikutnya tidak menggandakan sumber', A.readTable('Sources').filter(x => x.parent === 'src-home-uji').length === 2);
+  const withImg = bodies.find(b => b.messages[0].content.some(c => c.type === 'image')), txt = withImg ? withImg.messages[0].content.filter(c => c.type === 'text').map(c => c.text).join(' ') : '';
+  ok('situs resmi: gambar tipe (bukan logo / banner) ikut dikirim ke AI, prompt minta semua tipe walau tanpa harga', withImg && withImg.messages[0].content.filter(c => c.type === 'image').length === 2 && /GAMBAR 1 \(file: Uji-Type-10x20-01\.webp\)/.test(txt) && /halaman RESMI developer/.test(txt) && /tidak mencantumkan harga/.test(txt));
+  let c = A.readTable('Competitors').find(x => x.cluster === 'Cluster Uji Resmi' && x.unitType === '10x20');
+  ok('situs resmi: tipe tanpa harga tersimpan dengan spesifikasi dan URL gambar fasad & denah', c && (c.price === null || c.price === '') && c.lb === 180 && c.kt === 4 && c.floors === 2 && c.image === 'https://img.test/Uji-Type-10x20-01.webp' && c.plan === 'https://img.test/Uji-Type-10x20-02.webp' && c.auto === true, JSON.stringify(c && [c.id, c.price, c.lb, c.image, c.plan]));
+  ok('situs resmi: satu tipe dari dua halaman tidak jadi dua baris', A.readTable('Competitors').filter(x => x.cluster === 'Cluster Uji Resmi').length === 1);
+  A.upsert('Competitors', {id:c.id, price:3100000000, priceBasis:'pricelist'}); post('syncNow', {}); c = A.readTable('Competitors').find(x => x.id === c.id);
+  ok('situs resmi tanpa harga tidak menghapus harga yang sudah ada', c.price === 3100000000 && c.priceBasis === 'pricelist' && c.lb === 180, JSON.stringify([c.price, c.priceBasis]));
+  ans = [{developer:'Summarecon Bandung', cluster:'Cluster Uji Resmi', type:'10x20', lb:180, price:3300000000, priceBasis:'cash', imageNo:2}]; post('syncNow', {}); c = A.readTable('Competitors').find(x => x.id === c.id);
+  ok('harga baru dari sumber dipakai; gambar yang sudah ada tidak ditimpa', c.price === 3300000000 && c.image === 'https://img.test/Uji-Type-10x20-01.webp', JSON.stringify([c.price, c.image]));
+  ok('URL gambar https boleh disimpan, javascript: ditolak', (A.upsert('Competitors', {id:'img-url', developer:'X', cluster:'Y', image:'https://img.test/a.webp', plan:'javascript:alert(1)'}), A.readTable('Competitors').find(x => x.id === 'img-url').image === 'https://img.test/a.webp' && A.readTable('Competitors').find(x => x.id === 'img-url').plan === ''));
+  A.readTable('Sources').forEach(x => A.upsert('Sources', {id:x.id, active:true})); }
 // event marketing: tersimpan di tab Events (dibuat sendiri), ikut di data GET, bisa diubah & dihapus
 { delete env.sheets.Events;      // seperti Sheet lama yang belum punya tab Events: tab dibuat sendiri
   r = post('saveEvent', {id:'ev1', name:'Open House Akhir Pekan', type:'Open house', start:'2026-09-12', end:'2026-09-13', notes:'di marketing gallery'});
