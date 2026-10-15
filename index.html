@@ -853,6 +853,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
       <div class="grp">
         <div class="seg" id="salesPeriod"><button aria-pressed="false" data-p="3">3 bulan</button><button aria-pressed="false" data-p="6">6 bulan</button><button aria-pressed="true" data-p="12">12 bulan</button></div>
         <button class="btn" id="btnOpenSheet" hidden><svg viewBox="0 0 24 24" width="15" height="15" style="fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>Buka data sheet<span aria-hidden="true" style="opacity:.6">🔒</span></button>
+        <button class="btn" id="btnSalesPpt" data-ppt title="Laporan per kuartal dalam PowerPoint, disusun dari data (tanpa AI)"><svg viewBox="0 0 24 24" width="15" height="15" style="fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 17v3M8 20h8M7 13l3-3 2 2 4-4"/></svg>Laporan PPT</button>
         <button class="btn ai" id="btnSalesAI" data-ai>Ringkasan AI</button>
       </div>
     </div>
@@ -1032,6 +1033,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
         </div>
       </div>
       <div class="grp">
+        <button class="btn" id="btnCompPpt" data-ppt title="Laporan per kuartal dalam PowerPoint, disusun dari data (tanpa AI)"><svg viewBox="0 0 24 24" width="15" height="15" style="fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 17v3M8 20h8M7 13l3-3 2 2 4-4"/></svg>Laporan PPT</button>
         <button class="btn ai" id="btnExtract" data-ai>Ekstrak brosur</button>
         <button class="btn ai" id="btnInsight" data-ai>Insight AI</button>
         <button class="btn primary" id="btnAddComp" data-w>+ Tambah produk</button>
@@ -1497,6 +1499,7 @@ async function load(silent){
     comps = canonDevs(j.competitors || []); sources = j.sources || []; history = j.history || [];
     lastSync = j.lastSync; aiReady = !!j.ai; dbState = "ready"; loadError = ""; remoteFiles = j.files || [];
     seedDone = !!j.settings?.seedComps;
+    if (j.settings?.ppt){ try { PPT_SET = {...PPT_SET, ...JSON.parse(j.settings.ppt)}; } catch {} }   // indikator makro & target laporan PPT per kuartal
     if (j.settings?.kom){ try { KOM = {...KOM_DEFAULT, ...JSON.parse(j.settings.kom)}; } catch {} }   // ketentuan sewa & jual dipakai bersama lewat Sheet
     if (salesSource !== "sheet"){
       salesDemo = !(j.sales && j.sales.length); salesSource = salesDemo ? "demo" : "api";
@@ -4471,10 +4474,10 @@ function parseDateID(s, fallbackMonth){
 }
 const titleCase = s => String(s||"").toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
 function rekapToSales(rows){
-  const FIELDS = {cluster:"CLUSTER", unitType:"TIPE", hook:"TIPE STD/HOOK", kavling:"UK KAVLING", unit:"UNIT", date:"TGL.", month:"BULAN", city:"DOMISILI", age:"UMUR", purpose:"TUJUAN", price:"REV.", payment:"CARA BAYAR", payCat:"KATEGORI BAYAR", job:"PEKERJAAN", agent:"SALES", channel:"SUMBER INFORMASI", status:"STATUS", seg:["SEGMEN","SEGMENT","SEGMEN CLUSTER"]};
+  const FIELDS = {cluster:"CLUSTER", unitType:"TIPE", hook:"TIPE STD/HOOK", kavling:"UK KAVLING", unit:"UNIT", date:"TGL.", month:"BULAN", city:"DOMISILI", age:"UMUR", purpose:"TUJUAN", price:"REV.", payment:"CARA BAYAR", payCat:"KATEGORI BAYAR", job:"PEKERJAAN", agent:"SALES", channel:"SUMBER INFORMASI", status:"STATUS", seg:["SEGMEN","SEGMENT","SEGMEN CLUSTER"], ppn:["FREE PPN","PPN DTP","PROGRAM PPN","STATUS PPN"]};
   let best = -1, bestScore = 0, map = {};
   rows.slice(0, 12).forEach((r, i) => { const m = {}; let sc = 0;
-    Object.entries(FIELDS).forEach(([k, hs]) => { const j = r.findIndex(c => { const u = String(c).toUpperCase().replace(/\s+/g," ").trim(); return [].concat(hs).some(h => u === h || u.endsWith(" " + h)); }); if (j >= 0){ m[k] = j; if (k !== "seg") sc++; } });
+    Object.entries(FIELDS).forEach(([k, hs]) => { const j = r.findIndex(c => { const u = String(c).toUpperCase().replace(/\s+/g," ").trim(); return [].concat(hs).some(h => u === h || u.endsWith(" " + h)); }); if (j >= 0){ m[k] = j; if (k !== "seg" && k !== "ppn") sc++; } });
     if (sc > bestScore){ bestScore = sc; best = i; map = m; } });
   if (best < 0 || map.cluster === undefined || map.price === undefined) throw new Error("Kolom CLUSTER / REV. tidak ditemukan. Pastikan tab yang dipilih adalah REKAP ALL TIME.");
   const known = Object.fromEntries(CLUSTERS.map(c => [c.name.toUpperCase(), c.name]));
@@ -4488,7 +4491,7 @@ function rekapToSales(rows){
     const st = g("status").toUpperCase();
     out.push({id:"r"+i, date, cluster: known[cl.toUpperCase()] || titleCase(cl), price: pr, channel: g("channel") || "Tidak tercatat", agent: g("agent") || "Tidak tercatat",
       status: /BATAL/.test(st) ? "Batal" : /BOOK/.test(st) ? "Booking" : "Akad", unitType:g("unitType"), hook:g("hook"), kavling:g("kavling"), unit:g("unit"), payment:g("payment"), payCat:g("payCat"), purpose:g("purpose").toUpperCase(),
-      job:g("job"), city:g("city"), age: num(g("age")) || null, seg:g("seg")});
+      job:g("job"), city:g("city"), age: num(g("age")) || null, seg:g("seg"), ppn:g("ppn")});
   });
   return out;
 }
@@ -5216,6 +5219,372 @@ $("#heatPop").addEventListener("click", e => {
 $("#heatPop").addEventListener("mouseover", e => { const m = e.target.closest("[data-k]"); if (m && heatDraft?.from && !heatDraft.to && heatHover !== m.dataset.k){ heatHover = m.dataset.k; renderHeatPop(); } });
 document.addEventListener("click", e => { if (!$("#heatPop").hidden && !e.target.closest(".rp")) openHeatPop(false); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#heatPop").hidden) openHeatPop(false); });
+
+// ================= LAPORAN KUARTAL (PPT) =================
+// Disusun langsung dari data Sales Report + Market Research dengan aturan tetap (tanpa AI, tanpa token).
+// Struktur mengikuti template laporan serapan per kuartal: cover, daftar isi, ringkasan, serapan per tipe, Free PPN,
+// revenue, profil pembeli, kompetitor per segmen, makro, rencana & rekomendasi, penutup.
+const MONTHS_FULL = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+const qOf = k => `${String(k).slice(0,4)}-Q${Math.floor((+String(k).slice(5,7)-1)/3)+1}`;
+const qMonths = q => [1,2,3].map(i => `${q.slice(0,4)}-${String((+q.slice(-1)-1)*3+i).padStart(2,"0")}`);
+const qShift = (q, d) => { let y = +q.slice(0,4), n = +q.slice(-1) + d; while (n < 1){ n += 4; y--; } while (n > 4){ n -= 4; y++; } return `${y}-Q${n}`; };
+const qLabel = q => `Q${q.slice(-1)} ${q.slice(0,4)}`;
+const reportQuarters = () => [...new Set(allSalesMonths().map(qOf))].sort().reverse();
+const AGE_BANDS = [["< 25", 1, 24], ["25–34", 25, 34], ["35–44", 35, 44], ["45–54", 45, 54], ["55+", 55, 200]];
+let PPT_SET = readJson("li.ppt") || {};
+const decId = s => { const t = String(s ?? "").replace(/\s/g, "").replace(/%$/, ""); if (!t) return null; const v = parseFloat(t.replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")); return isFinite(v) ? v : null; };
+const decList = s => String(s ?? "").split(/\s*[;|\/]\s*|,\s+|\s+/).map(decId).filter(v => v !== null);
+const pctOf = (a, b) => b ? a/b*100 : null;
+const pctS = (v, d=0) => v === null || v === undefined || !isFinite(v) ? "–" : nf(v, d) + "%";
+
+/** Semua angka untuk satu kuartal. Murni hitungan dari data yang sudah dimuat dashboard. */
+function quarterData(q){
+  const ms = qMonths(q), pq = qShift(q, -1), yq = qShift(q, -4), nq = qShift(q, 1);
+  const mOf = x => String(x.date).slice(0,7), net = a => a.filter(x => x.status !== "Batal"), rev = a => a.reduce((t, x) => t + num(x.price), 0);
+  const inQ = qq => { const k = qMonths(qq); return sales.filter(x => k.includes(mOf(x))); };
+  const all = inQ(q), N = net(all), NP = net(inQ(pq)), NY = net(inQ(yq)), NNY = net(inQ(qShift(nq, -4)));
+  const end = allSalesMonths().at(-1) || ms[2], partial = end < ms[2];
+  const count = (list, f) => { const o = {}; list.forEach(x => { const k = f(x); if (k) o[k] = (o[k]||0) + 1; }); return Object.entries(o).sort((a, b) => b[1] - a[1]); };
+  const ord = n => { const i = CLUSTERS.findIndex(c => c.name === n), s = SEGMENTS.indexOf(segOf(n)); return (s < 0 ? 9 : s)*100 + (i < 0 ? 99 : i); };
+  const clusters = [...new Set([...CLUSTERS.map(c => c.name), ...N.map(x => x.cluster), ...NP.map(x => x.cluster)])].map(name => {
+    const l = N.filter(x => x.cluster === name), lp = NP.filter(x => x.cluster === name);
+    return {name, seg:segOf(name), units:l.length, rev:rev(l), pUnits:lp.length, pRev:rev(lp)}; }).filter(c => c.units || c.pUnits).sort((a, b) => ord(a.name) - ord(b.name));
+  // stok per tipe: tersedia di awal kuartal, terjual di kuartal ini, sisa di akhir kuartal
+  const rows = curStock().map(r => ({...r, k:r.key || skey(r.cluster, r.type), soldQ:0, before:0, toEnd:0, revQ:0}));
+  const by = Object.fromEntries(rows.map(r => [r.k, r]));
+  net(sales).forEach(x => { const r = by[skey(x.cluster, x.unitType)]; if (!r) return; const m = mOf(x); if (m < ms[0]) r.before++; if (m <= ms[2]) r.toEnd++; if (ms.includes(m)){ r.soldQ++; r.revQ += num(x.price); } });
+  rows.forEach(r => { r.availStart = Math.max(0, r.total - r.before); r.availEnd = Math.max(0, r.total - r.toEnd); });
+  const tot = k => rows.reduce((a, r) => a + r[k], 0);
+  const stock = rows.length ? {start:tot("availStart"), end:tot("availEnd"), soldQ:tot("soldQ"), total:tot("total")} : null;
+  // Free PPN: kolom PPN di sheet bila ada, selain itu perkiraan dari syarat harga (≤ Rp5 M)
+  const ppnCol = sales.some(x => /^(y|ya|yes|free|dtp|ppn dtp|1|true|v|✓|t|tidak|no|n|non|-)\b/i.test(String(x.ppn ?? "").trim()));
+  const isPpn = x => ppnCol ? /^(y|ya|yes|free|dtp|ppn dtp|1|true|v|✓)\b/i.test(String(x.ppn ?? "").trim()) : num(x.price) > 0 && num(x.price) <= 5e9;
+  const P = N.filter(isPpn), pt = {};
+  P.forEach(x => { const t = typeBase(x.unitType) || "Semua tipe", k = x.cluster + "|" + t, r = by[skey(x.cluster, x.unitType)] || {};
+    const o = pt[k] ??= {cluster:x.cluster, type:t, lt:r.lt, lb:r.lb, units:0, min:Infinity}; o.units++; if (num(x.price) > 0) o.min = Math.min(o.min, num(x.price)); });
+  const ppn = {col:ppnCol, units:P.length, share:pctOf(P.length, N.length), rev:rev(P),
+    byCluster:clusters.map(c => ({name:c.name, units:P.filter(x => x.cluster === c.name).length})).filter(c => c.units),
+    byType:Object.values(pt).sort((a, b) => b.units - a.units || ord(a.cluster) - ord(b.cluster))};
+  // pembeli
+  const ageN = N.filter(x => num(x.age) > 0).length;
+  const buyers = {ageN, ages:AGE_BANDS.map(([l, a, b]) => [l, N.filter(x => num(x.age) >= a && num(x.age) <= b).length]),
+    purpose:count(N, x => x.purpose ? titleCase(x.purpose) : "Tidak tercatat"), pay:count(N, x => payOf(x) || "Tidak tercatat"),
+    job:count(N, x => x.job ? titleCase(x.job) : ""), city:count(N, x => x.city ? titleCase(x.city) : ""), channel:count(N, x => x.channel && !/tidak tercatat/i.test(x.channel) ? x.channel : "")};
+  const months = ms.map((k, i) => { const l = N.filter(x => mOf(x) === k), y = NY.filter(x => mOf(x) === qMonths(yq)[i]); return {k, units:l.length, rev:rev(l), yUnits:y.length, yRev:rev(y)}; });
+  const evIn = (qq, f) => { const k = qMonths(qq); return events.filter(e => e.start && k.includes(String(e.start).slice(0,7))).map(f).sort((a, b) => String(a.start).localeCompare(String(b.start))); };
+  const evQ = evIn(q, e => ({...e, imp:impactOf(e)})), evNext = evIn(nq, e => e);
+  // kompetitor per segmen: cluster kita yang paling laku vs 2 produk kompetitor dengan harga terdekat
+  const segs = SEGMENTS.map(seg => {
+    const own = clusters.filter(c => c.seg === seg && c.units).sort((a, b) => b.units - a.units)[0]; if (!own) return null;
+    const ownC = comps.find(c => c.isOwn && c.cluster === own.name) || {}, ownAvg = own.rev/own.units;
+    const pool = comps.filter(c => !c.isOwn && c.tier === seg && num(c.price) > 0); if (!pool.length) return null;
+    const sorted = [...pool].sort((a, b) => (okImg(b.image) ? 1 : 0) - (okImg(a.image) ? 1 : 0) || Math.abs(num(a.price) - ownAvg) - Math.abs(num(b.price) - ownAvg));
+    const pick = []; for (const c of sorted){ if (pick.length < 2 && !pick.some(p => sameDev(p.developer, c.developer))) pick.push(c); } for (const c of sorted){ if (pick.length < 2 && !pick.includes(c)) pick.push(c); }
+    const pr = pool.map(c => num(c.price)).sort((a, b) => a - b), med = pr.length % 2 ? pr[(pr.length-1)/2] : (pr[pr.length/2-1] + pr[pr.length/2])/2;
+    const types = rows.filter(r => r.cluster === own.name), topT = [...types].sort((a, b) => b.soldQ - a.soldQ)[0] || {}, ct = types.reduce((a, r) => a + r.total, 0), cs = types.reduce((a, r) => a + r.toEnd, 0);
+    return {seg, own, ownC, ownAvg, topT, soldPct:ct ? cs/ct*100 : null, sold:cs, total:ct, comps:pick, med, n:pool.length, devs:new Set(pool.map(c => canonName(c.developer))).size};
+  }).filter(Boolean);
+  const m = PPT_SET[q] || {}, mp = PPT_SET[pq] || {};
+  const avgP = N.length ? rev(N)/N.length : 0, autoT = Math.max(1, Math.round(Math.max(N.length, NNY.length)*1.05));
+  const target = num(m.target) > 0 ? Math.round(num(m.target)) : autoT;
+  const hasStock = r => r.total > 0;
+  const low = rows.filter(r => hasStock(r) && r.availEnd > 0 && r.availEnd/r.total <= .1).sort((a, b) => a.availEnd/a.total - b.availEnd/b.total);
+  const out = rows.filter(r => hasStock(r) && r.availEnd === 0 && r.soldQ > 0);
+  const slow = rows.filter(r => hasStock(r) && r.availEnd > 0 && r.soldQ === 0 && r.availEnd/r.total >= .5).sort((a, b) => b.availEnd - a.availEnd);
+  const topT = [...rows].sort((a, b) => b.soldQ - a.soldQ)[0];
+  const focus = [...clusters].filter(c => c.units).sort((a, b) => { const la = rows.filter(r => r.cluster === a.name).reduce((t, r) => t + r.availEnd, 0) > 0, lb = rows.filter(r => r.cluster === b.name).reduce((t, r) => t + r.availEnd, 0) > 0;
+    return (rows.length ? (lb ? 1 : 0) - (la ? 1 : 0) : 0) || b.units - a.units; })[0];
+  return {q, pq, yq, nq, ms, partial, end, all, N, NP, NY, rev, clusters, rows, stock, ppn, buyers, months, evQ, evNext, segs, m, mp, avgP, target, autoT:!(num(m.target) > 0), low, out, slow, topT, focus,
+    R:rev(N), RP:rev(NP), RY:rev(NY), cancel:pctOf(all.filter(x => x.status === "Batal").length, all.length)};
+}
+
+/** Kalimat-kalimat laporan: aturan tetap dari angka (tanpa AI). */
+function quarterText(D){
+  const chg = (a, b) => b ? (a - b)/b*100 : null, dir = v => v === null ? "" : Math.abs(v) < .5 ? "stabil" : v > 0 ? "naik " + nf(Math.abs(v), 1) + "%" : "turun " + nf(Math.abs(v), 1) + "%";
+  const U = D.N.length, top = [...D.clusters].sort((a, b) => b.units - a.units)[0], pay = D.buyers.pay.filter(p => p[0] !== "Tidak tercatat"), payN = pay.reduce((a, p) => a + p[1], 0);
+  const age = [...D.buyers.ages].sort((a, b) => b[1] - a[1])[0], ch = D.buyers.channel[0];
+  const hi = [], risk = [], good = [];
+  if (top && top.units) hi.push(`${top.name} mencatat serapan tertinggi: ${nf(top.units)} unit (${pctS(pctOf(top.units, U))} dari total), ${rp(top.rev)}`);
+  if (D.RP) hi.push(`Revenue ${dir(chg(D.R, D.RP))} dibanding ${qLabel(D.pq)} (${rp(D.RP)} → ${rp(D.R)})`);
+  if (D.NY.length) hi.push(`Unit terjual ${dir(chg(U, D.NY.length))} dibanding ${qLabel(D.yq)} (${nf(D.NY.length)} → ${nf(U)} unit)`);
+  if (pay.length) hi.push(`Cara bayar dominan: ${pay[0][0]} (${pctS(pctOf(pay[0][1], payN))} unit)` + (pay[1] ? `, disusul ${pay[1][0]} (${pctS(pctOf(pay[1][1], payN))})` : ""));
+  if (age && age[1] && D.buyers.ageN) hi.push(`${pctS(pctOf(age[1], D.buyers.ageN))} pembeli berusia ${age[0]} tahun`);
+  const bestEv = D.evQ.filter(e => isFinite(e.imp.chg)).sort((a, b) => b.imp.chg - a.imp.chg)[0];
+  if (bestEv && bestEv.imp.chg > 0) hi.push(`${nf(D.evQ.length)} event di kuartal ini; dampak terbesar ${bestEv.name} (+${nf(bestEv.imp.chg)}% unit/hari)`);
+  else if (ch) hi.push(`Sumber konsumen terbanyak: ${ch[0]} (${nf(ch[1])} unit)`);
+  if (D.low.length) risk.push(`${nf(D.low.length)} tipe hampir habis (sisa ≤ 10%): ${D.low.slice(0, 3).map(r => `${r.type} (${r.cluster})`).join(", ")}`);
+  if (D.out.length) risk.push(`${nf(D.out.length)} tipe habis terjual di kuartal ini: ${D.out.slice(0, 3).map(r => `${r.type} (${r.cluster})`).join(", ")}`);
+  const du = chg(U, D.NP.length); if (du !== null && du <= -10) risk.push(`Unit terjual turun ${nf(-du, 1)}% dibanding ${qLabel(D.pq)}`);
+  if (D.cancel !== null && D.cancel >= 8) risk.push(`Tingkat pembatalan ${pctS(D.cancel, 1)} dari seluruh booking`);
+  D.segs.forEach(s => { const d = chg(s.ownAvg, s.med); if (d !== null && d >= 15) risk.push(`Harga rata-rata ${s.seg} kita ${nf(d)}% di atas median kompetitor`); });
+  const bi = decId(D.m.bi), biP = decId(D.mp.bi);
+  if (bi !== null && biP !== null && bi > biP) risk.push(`BI Rate naik ke ${nf(bi, 2)}%: cicilan KPR bisa lebih berat`);
+  const grow = D.clusters.filter(c => c.pUnits >= 3).map(c => ({...c, g:chg(c.units, c.pUnits)})).sort((a, b) => b.g - a.g)[0];
+  if (grow && grow.g > 10) good.push(`${grow.name} tumbuh ${nf(grow.g)}% dibanding kuartal lalu (${nf(grow.pUnits)} → ${nf(grow.units)} unit)`);
+  if (D.evNext.length) good.push(`Event terjadwal ${qLabel(D.nq)}: ${D.evNext.slice(0, 2).map(e => `${e.name} (${fmtDay(e.start)})`).join(", ")}`);
+  else if (bi !== null && biP !== null && bi < biP) good.push(`BI Rate turun ke ${nf(bi, 2)}%: momen mendorong KPR`);
+  else if (D.slow.length) good.push(`${nf(D.slow.length)} tipe masih punya stok > 50%: ruang promo untuk kuartal depan`);
+  if (!risk.length) risk.push("Tidak ada risiko besar dari data kuartal ini");
+  return {hi:hi.slice(0, 6), risk:risk.slice(0, 3), good:good.slice(0, 2), top, pay, payN, age, chg, dir};
+}
+
+async function loadPptx(){
+  if (window.PptxGenJS) return;
+  for (const src of ["vendor/pptxgen.bundle.js", "https://cdn.jsdelivr.net/npm/pptxgenjs@4.0.1/dist/pptxgen.bundle.js"]){ try { await loadScript(src); if (window.PptxGenJS) return; } catch {} }
+  throw new Error("Library PPT gagal dimuat. Cek koneksi internet lalu coba lagi.");
+}
+/** Gambar → JPEG data URI, dipotong (cover) atau dimuat utuh (contain) sesuai rasio kotak. null bila gagal (mis. gambar luar tanpa izin CORS). */
+async function pptImg(src, ar, fit, maxW = 1400){
+  if (!src) return null;
+  try { const img = new Image(); if (/^https?:/i.test(src)){ img.crossOrigin = "anonymous"; img.referrerPolicy = "no-referrer"; } img.src = src; await img.decode();
+    let sw = img.naturalWidth, sh = img.naturalHeight, sx = 0, sy = 0; if (!sw || !sh) return null;
+    const c = document.createElement("canvas"), g = c.getContext("2d"); c.width = Math.min(maxW, fit === "cover" ? Math.round(Math.min(sw, sh*ar)) : Math.round(Math.max(sw, sh*ar))); c.height = Math.round(c.width/ar);
+    g.fillStyle = "#ffffff"; g.fillRect(0, 0, c.width, c.height);
+    if (fit === "cover"){ if (sw/sh > ar){ const nw = sh*ar; sx = (sw - nw)/2; sw = nw; } else { const nh = sw/ar; sy = (sh - nh)/2; sh = nh; } g.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height); }
+    else { const s = Math.min(c.width/sw, c.height/sh)*.94, w = sw*s, h = sh*s; g.drawImage(img, 0, 0, sw, sh, (c.width - w)/2, (c.height - h)/2, w, h); }
+    return c.toDataURL("image/jpeg", .86);
+  } catch { return null; }
+}
+
+async function buildQuarterPpt(q){
+  await loadPptx();
+  const D = quarterData(q), T = quarterText(D), QL = qLabel(q), NQL = qLabel(D.nq);
+  const C = {navy:"14253A", navy2:"1A2C3D", or:"E8913A", lt:"F0F4F7", ln:"D0DCE6", mid:"3D5A73", mut:"A0B4C6", ink:"1F2D3A", gr:"5E7183", wh:"FFFFFF"}, HF = "Cambria", BF = "Calibri";
+  const W = 13.333, X = .45, CW = W - 2*X;
+  const pptx = new PptxGenJS(); pptx.layout = "LAYOUT_WIDE"; pptx.author = "Prodev · Pororo Land Bandung"; pptx.company = "Pororo Land"; pptx.title = `Laporan Serapan Penjualan ${QL}`;
+  const R = (s, x, y, w, h, fill, line) => s.addShape(pptx.ShapeType.rect, {x, y, w, h, fill:{color:fill}, line:line ? {color:line, width:.75} : {color:fill, width:0}});
+  const Tx = (s, t, o) => s.addText(t, {fontFace:BF, fontSize:11, color:C.ink, margin:0, valign:"top", ...o});
+  const CONF = "This report contains confidential internal sales data. Reproduction, distribution, or disclosure to external parties without prior written consent is strictly prohibited.";
+  const dummyTag = salesDemo ? " · DATA DUMMY" : "";
+  const page = (title, sub, key, src) => { const s = pptx.addSlide(); s.background = {color:C.wh};
+    R(s, 0, 0, W, 1.2, C.navy); Tx(s, title, {x:X, y:.27, w:CW, h:.5, fontFace:HF, fontSize:24, bold:true, color:C.wh, valign:"middle"});
+    Tx(s, sub, {x:X, y:.8, w:CW, h:.3, fontSize:12, italic:true, color:C.or, valign:"middle"});
+    if (key) Tx(s, key, {x:X, y:1.35, w:CW, h:.42, fontSize:13, bold:true, italic:true, color:C.or, valign:"middle", fit:"shrink"});
+    s.addShape(pptx.ShapeType.line, {x:X, y:7.05, w:CW, h:0, line:{color:C.ln, width:1}});
+    Tx(s, CONF, {x:X, y:7.1, w:7.6, h:.25, fontSize:7, color:C.mut, valign:"middle"});
+    Tx(s, "Sumber: " + src + dummyTag, {x:8.2, y:7.1, w:W - X - 8.2, h:.25, fontSize:7, color:C.mut, align:"right", valign:"middle"});
+    return s; };
+  const panel = (s, x, y, w, h, title, dark) => { R(s, x, y, w, h, dark ? C.navy : C.lt, dark ? C.navy : C.ln);
+    if (title){ Tx(s, title.toUpperCase(), {x:x + .22, y:y + .16, w:w - .44, h:.28, fontSize:9, bold:true, charSpacing:3, color:dark ? C.wh : C.navy, valign:"middle"});
+      s.addShape(pptx.ShapeType.line, {x:x + .22, y:y + .52, w:w - .44, h:0, line:{color:C.or, width:1.5}}); } };
+  const kpi = (s, x, y, w, h, v, l, sub) => { R(s, x, y, w, h, C.lt, C.ln); R(s, x, y, .07, h, C.or);
+    Tx(s, v, {x:x + .25, y:y + .14, w:w - .35, h:.55, fontFace:HF, fontSize:26, bold:true, color:C.or, valign:"middle", fit:"shrink"});
+    Tx(s, l.toUpperCase(), {x:x + .25, y:y + .74, w:w - .35, h:.22, fontSize:8.5, bold:true, charSpacing:2, color:C.navy});
+    Tx(s, sub, {x:x + .25, y:y + .98, w:w - .35, h:.22, fontSize:8, color:C.gr}); };
+  const lbl = (s, t, x, y, w) => Tx(s, t.toUpperCase(), {x, y, w, h:.25, fontSize:8.5, bold:true, charSpacing:2, color:C.navy, valign:"middle"});
+  const ax = {catAxisLabelFontFace:BF, valAxisLabelFontFace:BF, catAxisLabelFontSize:9, valAxisLabelFontSize:8, catAxisLabelColor:C.gr, valAxisLabelColor:C.gr, valGridLine:{color:"E3E9EF", size:.5}, catAxisLineShow:false, valAxisLineShow:false,
+    dataLabelFontFace:BF, dataLabelFontSize:8, dataLabelColor:C.ink, legendFontFace:BF, legendFontSize:9, legendColor:C.ink};
+  const M = v => Math.round(v/1e7)/100;      // Rp → miliar, 2 desimal
+  const empty = (s, x, y, w, h, t) => { R(s, x, y, w, h, C.lt, C.ln); Tx(s, t, {x:x + .3, y, w:w - .6, h, fontSize:11, italic:true, color:C.gr, align:"center", valign:"middle"}); };
+  const SALES_SRC = "Data internal penjualan Pororo Land (REKAP ALL TIME, STOK)", MR_SRC = "Market research MARKETHINGS (situs resmi developer, pricelist, berita)";
+  const monthsTxt = D.ms.map(k => MONTHS_FULL[+k.slice(5,7)-1]).join(" ") + " " + q.slice(0,4);
+  const scene = await pptImg((getComputedStyle(document.documentElement).getPropertyValue("--scene").match(/url\(["']?(data:[^"')]+)/) || [])[1], W/3.6, "cover", 1800);
+
+  // 1 · cover
+  { const s = pptx.addSlide(); s.background = {color:C.navy};
+    if (scene){ s.addImage({data:scene, x:0, y:0, w:W, h:3.6}); s.addShape(pptx.ShapeType.rect, {x:0, y:0, w:W, h:3.6, fill:{color:C.navy, transparency:58}, line:{color:C.navy, width:0}}); }
+    R(s, 0, 3.6, W, 2.05, C.navy2);
+    Tx(s, "LAPORAN SERAPAN PENJUALAN & MARKET RESEARCH", {x:.6, y:3.78, w:10, h:.28, fontSize:9, charSpacing:5, color:C.or, valign:"middle"});
+    Tx(s, `Kuartal Q${q.slice(-1)} – Tahun ${q.slice(0,4)}`, {x:.6, y:4.2, w:11, h:.9, fontFace:HF, fontSize:36, bold:true, color:C.wh, valign:"middle"});
+    if (D.partial || salesDemo) Tx(s, [D.partial ? `Kuartal berjalan · data s/d ${keyLabel(D.end)}` : "", salesDemo ? "DATA DUMMY" : ""].filter(Boolean).join(" · "), {x:.6, y:5.12, w:10, h:.3, fontSize:10, bold:true, color:C.or, valign:"middle"});
+    Tx(s, "Prodev  •  Pororo Land Bandung", {x:.6, y:5.9, w:10, h:.3, fontSize:12, color:C.wh, valign:"middle"});
+    Tx(s, monthsTxt, {x:.6, y:6.3, w:10, h:.25, fontSize:9.5, color:C.mut, valign:"middle"});
+    Tx(s, "Data for Internal Use Only  |  Pororo Land Bandung – Prodev", {x:7, y:7.05, w:W - 7.45, h:.25, fontSize:7, color:C.mut, align:"right", valign:"middle"}); }
+
+  // 2 · daftar isi
+  { const s = pptx.addSlide(); s.background = {color:C.lt};
+    Tx(s, "Daftar Isi", {x:.6, y:.45, w:6, h:.55, fontFace:HF, fontSize:26, bold:true, color:C.navy, valign:"middle"});
+    Tx(s, `Laporan Serapan Penjualan · ${QL}`, {x:.6, y:1.02, w:6, h:.25, fontSize:9.5, color:C.or, valign:"middle"}); R(s, .6, 1.35, 3.4, .05, C.or);
+    const items = [["Ringkasan Eksekutif", "Unit terjual, revenue, highlight & risiko kuartal ini"], ["Data Serapan Per Cluster", "Unit terjual vs tersedia per tipe, per cluster"], ["Serapan Free PPN", "Unit yang memenuhi syarat PPN DTP"], ["Revenue Penjualan", "Revenue per bulan dan per cluster"],
+      ["Profil Pembeli", "Usia, tujuan pembelian, dan cara bayar"], ["Analisis Kompetitor", "Produk pembanding per segmen dari market research"], ["Update Market", "Inflasi, suku bunga, kurs, keyakinan konsumen"], ["Rencana & Rekomendasi", `Target dan strategi ${NQL}`]];
+    items.forEach(([t, d], i) => { const col = i < 4 ? 0 : 1, row = i % 4, x = .6 + col*6.3, y = 1.85 + row*1.25;
+      Tx(s, String(i + 1).padStart(2, "0"), {x, y, w:.7, h:.45, fontFace:HF, fontSize:20, bold:true, color:C.or, valign:"middle"});
+      Tx(s, t, {x:x + .8, y, w:5, h:.35, fontFace:HF, fontSize:14, bold:true, color:C.navy, valign:"middle"});
+      Tx(s, d, {x:x + .8, y:y + .38, w:5, h:.3, fontSize:10, color:C.gr, valign:"middle"});
+      s.addShape(pptx.ShapeType.line, {x, y:y + .95, w:5.8, h:0, line:{color:C.ln, width:.75}}); });
+    Tx(s, CONF, {x:.6, y:7.1, w:9, h:.25, fontSize:7, color:C.mut, valign:"middle"}); }
+
+  // 3 · ringkasan eksekutif
+  { const top = T.top, s = page(`RINGKASAN EKSEKUTIF  –  ${QL}`, "Total revenue, unit terjual, dan highlight kinerja kuartal ini",
+      top && top.units ? `${top.name} kontributor terbesar (${pctS(pctOf(top.units, D.N.length))} unit)` + (D.RP ? ` · revenue ${T.dir(T.chg(D.R, D.RP))} vs ${qLabel(D.pq)}` : "") + (D.low.length ? ` · ${D.low.length} tipe hampir habis` : "") : "Belum ada penjualan di kuartal ini", SALES_SRC);
+    const w = (CW - 3*.25)/4, y = 1.95;
+    kpi(s, X, y, w, 1.25, nf(D.N.length) + " Unit", "Unit terjual", D.NP.length ? `${qLabel(D.pq)}: ${nf(D.NP.length)} unit` : "Kuartal ini, tanpa batal");
+    kpi(s, X + (w + .25), y, w, 1.25, "Rp " + nf(D.R/1e9, 1) + " M", "Total revenue", "Miliar rupiah, booking bersih");
+    kpi(s, X + 2*(w + .25), y, w, 1.25, D.stock && D.stock.start ? pctS(pctOf(D.stock.soldQ, D.stock.start), 1) : "–", "Serapan", D.stock ? `Dari ${nf(D.stock.start)} unit tersedia di awal kuartal` : "Isi tab STOK untuk menghitung");
+    kpi(s, X + 3*(w + .25), y, w, 1.25, D.stock ? nf(D.stock.end) + " Unit" : "–", "Available", D.stock ? `Sisa stok akhir ${keyLabel(D.partial ? D.end : D.ms[2])}` : "Isi tab STOK untuk menghitung");
+    const pw = (CW - .3)/2, py = 3.45, ph = 3.4;
+    panel(s, X, py, pw, ph, "Highlight kinerja"); panel(s, X + pw + .3, py, pw, ph, "Catatan & risiko");
+    Tx(s, (T.hi.length ? T.hi : ["Belum ada data penjualan di kuartal ini"]).map(t => ({text:t, options:{bullet:{indent:14}, breakLine:true, paraSpaceAfter:7}})), {x:X + .22, y:py + .68, w:pw - .44, h:ph - .8, fontSize:11, fit:"shrink"});
+    Tx(s, [...T.risk.map(t => ({text:"⚠️  " + t, options:{breakLine:true, paraSpaceAfter:7}})), ...T.good.map(t => ({text:"✓  " + t, options:{breakLine:true, paraSpaceAfter:7}}))], {x:X + pw + .52, y:py + .68, w:pw - .44, h:ph - .8, fontSize:11, fit:"shrink"}); }
+
+  // 4 · serapan per tipe, per cluster
+  { let list = D.rows.filter(r => r.soldQ > 0 || r.availEnd > 0);
+    const ord = n => { const i = D.clusters.findIndex(c => c.name === n); return i < 0 ? 999 : i; };
+    if (list.length > 34) list = list.filter(r => r.soldQ > 0);
+    list = list.sort((a, b) => ord(a.cluster) - ord(b.cluster) || SEGMENTS.indexOf(a.seg) - SEGMENTS.indexOf(b.seg) || a.cluster.localeCompare(b.cluster) || b.soldQ - a.soldQ).slice(0, 40);
+    const tt = D.topT && D.topT.soldQ ? D.topT : null;
+    const s = page(`DATA SERAPAN PER TIPE  –  CLUSTER PORORO LAND`, `Unit terjual ${QL} dibanding unit yang masih tersedia, per tipe`,
+      D.stock ? `${nf(D.stock.soldQ)} unit terserap dari ${nf(D.stock.start)} unit tersedia di awal kuartal (${pctS(pctOf(D.stock.soldQ, D.stock.start), 1)})` + (tt ? ` · tipe terlaris: ${tt.type} (${tt.cluster}, ${nf(tt.soldQ)} unit)` : "") : "Data stok belum ada (tab STOK): grafik hanya menampilkan unit terjual per cluster", SALES_SRC);
+    const cx = X, cy = 1.85, cw = CW, ch = 4.75, L = {x:.045, y:.1, w:.945, h:.62};
+    if (list.length){
+      s.addChart(pptx.ChartType.bar, [{name:"SOLD", labels:list.map(r => r.type === "Semua tipe" ? r.cluster : r.type), values:list.map(r => r.soldQ)}, {name:"AVAILABLE", labels:list.map(r => r.type), values:list.map(r => r.availEnd)}],
+        {...ax, x:cx, y:cy, w:cw, h:ch, layout:L, barDir:"col", barGrouping:"clustered", barGapWidthPct:60, chartColors:[C.or, C.mut], showValue:true, dataLabelFontSize:7, showLegend:true, legendPos:"tr",
+          catAxisLabelFontSize:list.length > 22 ? 7 : 8, catAxisLabelRotate:list.length > 14 ? -55 : 0, valAxisLabelFontSize:7});
+      const groups = []; list.forEach((r, i) => { const g = groups.at(-1); if (g && g.name === r.cluster) g.to = i; else groups.push({name:r.cluster, from:i, to:i}); });
+      const step = cw*L.w/list.length, x0 = cx + cw*L.x;
+      groups.forEach(g => { const gx = x0 + g.from*step + step*.06, gw = (g.to - g.from + 1)*step - step*.12; R(s, gx, 6.62, gw, .32, C.navy);
+        Tx(s, g.name.toUpperCase(), {x:gx, y:6.62, w:gw, h:.32, fontSize:gw < .9 ? 6 : 7.5, bold:true, color:C.wh, align:"center", valign:"middle", fit:"shrink"}); });
+    } else if (D.clusters.length){
+      const cl = D.clusters.filter(c => c.units);
+      s.addChart(pptx.ChartType.bar, [{name:"SOLD", labels:cl.map(c => c.name), values:cl.map(c => c.units)}], {...ax, x:cx, y:cy, w:cw, h:ch + .3, barDir:"col", chartColors:[C.or], showValue:true, showLegend:false});
+    } else empty(s, cx, cy, cw, ch, "Belum ada penjualan di kuartal ini"); }
+
+  // 5 · serapan Free PPN
+  { const P = D.ppn, s = page(`SERAPAN PENJUALAN  –  PROGRAM FREE PPN`, P.col ? `Unit dengan fasilitas PPN DTP (kolom PPN di sheet)` : `Perkiraan: unit dengan harga ≤ Rp5 M (syarat PPN DTP). Tambah kolom PPN di sheet untuk data pasti.`,
+      P.units ? `${nf(P.units)} unit (${pctS(P.share)} dari total penjualan ${QL}) memenuhi Free PPN` + (P.byType[0] ? ` · tipe terbanyak: ${P.byType[0].type} (${P.byType[0].cluster})` : "") : "Belum ada unit Free PPN di kuartal ini", SALES_SRC);
+    const w = (CW - 3*.25)/4, y = 1.95;
+    kpi(s, X, y, w, 1.2, nf(P.units) + " Unit", "Unit Free PPN", QL);
+    kpi(s, X + (w + .25), y, w, 1.2, pctS(P.share), "Porsi penjualan", "Dari total unit terjual");
+    kpi(s, X + 2*(w + .25), y, w, 1.2, "Rp " + nf(P.rev/1e9, 1) + " M", "Revenue Free PPN", "Miliar rupiah");
+    kpi(s, X + 3*(w + .25), y, w, 1.2, P.byType[0] ? P.byType[0].type : "–", "Tipe terlaris", P.byType[0] ? `${P.byType[0].cluster} · ${nf(P.byType[0].units)} unit` : "");
+    const cy = 3.4, chh = 3.5, lw = 5.4;
+    lbl(s, "Unit Free PPN per cluster", X, cy - .02, lw);
+    if (P.byCluster.length) s.addChart(pptx.ChartType.bar, [{name:"Unit", labels:P.byCluster.map(c => c.name), values:P.byCluster.map(c => c.units)}], {...ax, x:X, y:cy + .25, w:lw, h:chh - .25, barDir:"col", chartColors:[C.or], showValue:true, showLegend:false, catAxisLabelFontSize:8, catAxisLabelRotate:P.byCluster.length > 6 ? -40 : 0});
+    else empty(s, X, cy + .25, lw, chh - .25, "Belum ada unit Free PPN");
+    const tx = X + lw + .3, tw = CW - lw - .3; lbl(s, "Detail tipe · Free PPN", tx, cy - .02, tw);
+    const hd = ["Cluster", "Tipe", "LT/LB", "Unit", "Harga mulai"].map(t => ({text:t, options:{bold:true, color:C.wh, fill:{color:C.navy}, fontSize:8.5}}));
+    const rowsT = P.byType.slice(0, 9).map((r, i) => [r.cluster, r.type, r.lt ? `${nf(r.lt)}/${nf(r.lb || 0)}` : "–", {text:nf(r.units), options:{align:"center", bold:true, color:C.or}}, isFinite(r.min) ? rp(r.min) : "–"]
+      .map(c => typeof c === "object" ? {...c, options:{...c.options, fill:{color:i % 2 ? C.wh : C.lt}}} : {text:String(c), options:{fill:{color:i % 2 ? C.wh : C.lt}}}));
+    const totU = P.byType.reduce((a, r) => a + r.units, 0);
+    const ft = [{text:"Total", options:{bold:true, color:C.wh, fill:{color:C.navy}, colspan:3}}, {text:nf(totU), options:{bold:true, color:C.or, fill:{color:C.navy}, align:"center"}}, {text:P.byType.length > 9 ? `+${P.byType.length - 9} tipe lain` : "", options:{color:C.mut, fill:{color:C.navy}}}];
+    s.addTable([hd, ...rowsT, ft], {x:tx, y:cy + .25, w:tw, colW:[tw*.26, tw*.27, tw*.14, tw*.1, tw*.23], fontFace:BF, fontSize:8.5, color:C.ink, border:{type:"solid", pt:.5, color:C.ln}, rowH:.27, margin:[2, 5, 2, 5], valign:"middle"}); }
+
+  // 6 · revenue
+  { const mx = [...D.months].sort((a, b) => b.rev - a.rev)[0], tc = [...D.clusters].sort((a, b) => b.rev - a.rev)[0];
+    const s = page(`REKAP REVENUE PENJUALAN  –  ${QL} (MILIAR)`, "Revenue booking bersih (tanpa batal) per bulan dan per cluster",
+      D.R ? `Total revenue ${QL} ${rp(D.R)}` + (D.RY ? ` (${T.dir(T.chg(D.R, D.RY))} vs ${qLabel(D.yq)})` : "") + (mx ? ` · tertinggi ${MONTHS_FULL[+mx.k.slice(5,7)-1]} (${rp(mx.rev)})` : "") + (tc ? ` · cluster terbesar ${tc.name} (${pctS(pctOf(tc.rev, D.R))})` : "") : "Belum ada revenue di kuartal ini", SALES_SRC);
+    const w = (CW - .3)/2;
+    lbl(s, "Revenue per bulan (Miliar Rp)", X, 1.95, w); lbl(s, "Revenue per cluster (Miliar Rp)", X + w + .3, 1.95, w);
+    const mdata = [{name:QL, labels:D.months.map(m => MONTHS_FULL[+m.k.slice(5,7)-1]), values:D.months.map(m => M(m.rev))}];
+    if (D.RY) mdata.push({name:qLabel(D.yq), labels:mdata[0].labels, values:D.months.map(m => M(m.yRev))});
+    s.addChart(pptx.ChartType.bar, mdata, {...ax, x:X, y:2.25, w, h:4.65, barDir:"col", chartColors:[C.or, C.mut], showValue:true, dataLabelFormatCode:"0.00", valAxisLabelFormatCode:"0", showLegend:mdata.length > 1, legendPos:"t", barGapWidthPct:70});
+    const cl = D.clusters.filter(c => c.rev > 0).sort((a, b) => b.rev - a.rev);
+    if (cl.length) s.addChart(pptx.ChartType.bar, [{name:"Revenue", labels:cl.map(c => c.name), values:cl.map(c => M(c.rev))}], {...ax, x:X + w + .3, y:2.25, w, h:4.65, barDir:"bar", catAxisOrientation:"maxMin", chartColors:[C.navy], showValue:true, dataLabelFormatCode:"0.00", valAxisHidden:true, valGridLine:{style:"none"}, showLegend:false, barGapWidthPct:45});
+    else empty(s, X + w + .3, 2.25, w, 4.65, "Belum ada revenue"); }
+
+  // 7 · profil pembeli
+  { const B = D.buyers, pur = B.purpose.filter(p => p[0] !== "Tidak tercatat"), purN = pur.reduce((a, p) => a + p[1], 0), city = B.city[0], job = B.job[0];
+    const s = page(`PROFIL PEMBELI  –  ${QL}`, "Segmentasi usia, tujuan pembelian, dan cara bayar",
+      [T.age && T.age[1] && B.ageN ? `Mayoritas usia ${T.age[0]} (${pctS(pctOf(T.age[1], B.ageN))})` : "", pur[0] ? `${pur[0][0]} ${pctS(pctOf(pur[0][1], purN))}` : "", T.pay[0] ? `${T.pay[0][0]} ${pctS(pctOf(T.pay[0][1], T.payN))}` : "", city ? `domisili terbanyak ${city[0]}` : ""].filter(Boolean).join("  |  ") || "Data pembeli belum diisi", SALES_SRC);
+    const w = (CW - 2*.25)/3, y = 1.95, h = 4.1, pal = [C.or, C.navy, C.mut, C.mid, "F3C08F", "6F8AA3"];
+    const box = (i, title, data, kind, note) => { const x = X + i*(w + .25); lbl(s, title, x, y, w); R(s, x, y + .3, w, h, C.lt, C.ln);
+      if (data.length && data.some(d => d[1])){
+        if (kind === "bar") s.addChart(pptx.ChartType.bar, [{name:"Pembeli", labels:data.map(d => d[0]), values:data.map(d => d[1])}], {...ax, x:x + .1, y:y + .4, w:w - .2, h:h - .2, barDir:"col", chartColors:[C.or], showValue:true, showLegend:false, valAxisHidden:true, valGridLine:{style:"none"}, barGapWidthPct:50});
+        else s.addChart(pptx.ChartType.doughnut, [{name:title, labels:data.map(d => d[0]), values:data.map(d => d[1])}], {...ax, x:x + .1, y:y + .4, w:w - .2, h:h - .2, holeSize:55, chartColors:pal, showPercent:true, showValue:false, showLegend:true, legendPos:"b", dataLabelColor:C.wh, dataLabelFontSize:9});
+      } else Tx(s, "Belum ada data", {x, y:y + .3, w, h, align:"center", valign:"middle", italic:true, color:C.gr});
+      Tx(s, note, {x, y:y + h + .4, w, h:.55, fontSize:9.5, color:C.gr}); };
+    box(0, "Usia pembeli", B.ages, "bar", B.ageN ? `${nf(B.ageN)} dari ${nf(D.N.length)} pembeli mengisi umur` + (job ? ` · pekerjaan terbanyak: ${job[0]}` : "") : "Kolom UMUR belum diisi");
+    box(1, "Tujuan pembelian", B.purpose.slice(0, 5), "pie", pur[0] ? `${pur[0][0]}: ${nf(pur[0][1])} unit` + (pur[1] ? ` · ${pur[1][0]}: ${nf(pur[1][1])} unit` : "") : "Kolom TUJUAN belum diisi");
+    box(2, "Cara bayar", B.pay.slice(0, 5), "pie", T.pay[0] ? `${T.pay.map(p => `${p[0]} ${nf(p[1])}`).slice(0, 3).join(" · ")} unit` : "Kolom CARA BAYAR belum diisi"); }
+
+  // 8 · kompetitor per segmen (satu slide per segmen)
+  const segList = D.segs.length ? D.segs : [null];
+  for (const g of segList){
+    if (!g){ const s = page(`PRODUK KOMPETITOR  –  ${QL}`, "Perbandingan produk per segmen", "Belum ada data kompetitor yang bisa dibandingkan untuk segmen yang terjual di kuartal ini", MR_SRC); empty(s, X, 1.95, CW, 4.9, "Tambahkan data kompetitor di Market Research"); continue; }
+    const d = T.chg(g.ownAvg, g.med), pos = d === null ? "" : Math.abs(d) < 3 ? "setara median" : `${nf(Math.abs(d))}% ${d > 0 ? "di atas" : "di bawah"} median`;
+    const s = page(`PRODUK KOMPETITOR  –  ${g.seg.toUpperCase()}  –  ${QL}`, `Produk pembanding segmen ${g.seg} dari market research (${nf(g.n)} produk, ${nf(g.devs)} developer)`,
+      `${g.seg}: harga rata-rata ${g.own.name} ${rp(g.ownAvg)}, ${pos} kompetitor (${rp(g.med)})`, MR_SRC);
+    const cards = [...g.comps.map(c => ({c, own:false})), {c:{...g.ownC, cluster:g.own.name, price:g.ownAvg, lt:g.topT.lt ?? g.ownC.lt, lb:g.topT.lb ?? g.ownC.lb, kt:g.topT.kt ?? g.ownC.kt, km:g.topT.km ?? g.ownC.km, floors:g.topT.floors ?? g.ownC.floors}, own:true}];
+    const w = (CW - 2*.3)/3, iy = 1.95, ih = 2.75, by = iy + ih + .08, bh = 2.05;
+    for (let i = 0; i < 3; i++){ const card = cards[i], x = X + i*(w + .3);
+      if (!card){ empty(s, x, iy, w, ih + bh + .08, "Belum ada pembanding lain"); continue; }
+      const c = card.c, img = await pptImg(okImg(c.image) ? c.image : null, w/ih, "contain");
+      if (img) s.addImage({data:img, x, y:iy, w, h:ih}); else { R(s, x, iy, w, ih, C.lt, C.ln); Tx(s, card.own ? "[ foto produk kita ]" : "[ foto belum tersedia ]", {x, y:iy, w, h:ih, align:"center", valign:"middle", italic:true, color:C.gr, fontSize:10}); }
+      R(s, x, by, w, bh, card.own ? C.navy : C.lt, card.own ? C.navy : C.ln);
+      const name = card.own ? `Pororo Land · ${g.own.name}` : (c.developer || "Kompetitor"), sub = card.own ? `Cluster terlaris ${g.seg}` + (g.topT.type && g.topT.type !== "Semua tipe" ? ` · ${g.topT.type}` : "") : typeLabel(c);
+      const spec = [num(c.kt) ? nf(c.kt) + " KT" : "", num(c.km) ? nf(c.km) + " KM" : "", num(c.floors) ? nf(c.floors) + " lantai" : ""].filter(Boolean).join("  –  ") || "Spesifikasi kamar belum ada";
+      const sold = card.own ? (g.soldPct !== null ? `Sold ${pctS(g.soldPct)} (${nf(g.sold)}/${nf(g.total)})` : `Terjual ${nf(g.own.units)} unit di ${QL}`) : num(c.stock) > 0 && has(c.sold) ? `Sold ${pctS(pctOf(num(c.sold), num(c.stock)))} (${nf(c.sold)}/${nf(c.stock)})` : "Data serapan belum ada";
+      const fg = card.own ? C.wh : C.ink;
+      Tx(s, [{text:name, options:{fontFace:HF, fontSize:13, bold:true, color:card.own ? C.or : C.navy, breakLine:true}}, {text:sub, options:{fontSize:9, italic:true, color:card.own ? C.mut : C.gr, breakLine:true, paraSpaceAfter:6}},
+        {text:`LT ${c.lt ? nf(c.lt) : "–"} / LB ${c.lb ? nf(c.lb) : "–"} m²  •  ${num(c.price) ? rp(c.price) : "–"} ${card.own ? "rata-rata" : (c.priceBasis ? "(" + c.priceBasis + ")" : "start")}`, options:{fontSize:10, color:fg, breakLine:true, paraSpaceAfter:5}},
+        {text:spec, options:{fontSize:10, color:fg, breakLine:true, paraSpaceAfter:5}}, {text:sold, options:{fontSize:10, color:fg, breakLine:true}}],
+        {x:x + .2, y:by + .15, w:w - .4, h:bh - .25, fit:"shrink"}); } }
+
+  // 9 · makro
+  { const m = D.m, mp = D.mp, inf = decList(m.inf), bi = decId(m.bi), kurs = decId(m.kurs), ikk = decId(m.ikk), infL = inf.length ? inf.at(-1) : null;
+    const tr = (v, p, d) => v === null || p === null ? "" : v > p ? ` (naik dari ${nf(p, d)})` : v < p ? ` (turun dari ${nf(p, d)})` : " (tetap)";
+    const ins = [];
+    if (infL !== null) ins.push(infL > 3.5 ? `Inflasi ${nf(infL, 2)}% di atas sasaran BI (2,5 ± 1%): daya beli tertekan, tonjolkan cicilan ringan.` : infL < 1.5 ? `Inflasi ${nf(infL, 2)}% rendah: daya beli relatif terjaga.` : `Inflasi ${nf(infL, 2)}% dalam sasaran BI (2,5 ± 1%): daya beli relatif stabil.`);
+    const kpr = T.pay.find(p => p[0] === "KPR");
+    if (bi !== null) ins.push(`BI Rate ${nf(bi, 2)}%${tr(bi, decId(mp.bi), 2)}` + (kpr ? `; ${pctS(pctOf(kpr[1], T.payN))} pembeli memakai KPR, jadi suku bunga langsung terasa ke cicilan.` : "."));
+    if (ikk !== null) ins.push(ikk >= 100 ? `IKK ${nf(ikk, 1)} (optimis): momentum menjaga promo.` : `IKK ${nf(ikk, 1)} (pesimis): perkuat program cicilan & subsidi.`);
+    const s = page("UPDATE MARKET & MAKROEKONOMI", `Dampak kondisi ekonomi terhadap penjualan properti  –  ${QL}`,
+      [infL !== null ? `Inflasi ${nf(infL, 2)}%` : "", bi !== null ? `BI Rate ${nf(bi, 2)}%` : "", ins[0] ? ins[0].split(":")[1]?.trim().replace(/\.$/, "") || "" : ""].filter(Boolean).join("  |  ") || "Isi indikator makro saat membuat laporan (tombol Laporan PPT)", "BPS, Bank Indonesia (diisi manual) · data penjualan internal");
+    const lw = 7.45; lbl(s, inf.length ? "Tren inflasi vs revenue" : "Tren revenue per bulan", X, 1.95, lw);
+    const labels = D.months.map(x => MONTHS_FULL[+x.k.slice(5,7)-1]);
+    if (inf.length) s.addChart([{type:pptx.ChartType.bar, data:[{name:"Revenue (Miliar Rp)", labels, values:D.months.map(x => M(x.rev))}], options:{chartColors:[C.mut], barGapWidthPct:80}},
+        {type:pptx.ChartType.line, data:[{name:"Inflasi (%)", labels, values:labels.map((_, i) => inf[Math.min(i, inf.length - 1)])}], options:{chartColors:[C.or], lineSize:3, lineDataSymbolSize:8, secondaryValAxis:true, secondaryCatAxis:true}}],
+      {...ax, x:X, y:2.25, w:lw, h:4.7, showLegend:true, legendPos:"t", showValue:true, dataLabelFontSize:8, dataLabelFormatCode:"0.0#", valAxes:[{showValAxisTitle:true, valAxisTitle:"Miliar Rp", valAxisTitleFontSize:8, valAxisLabelFontSize:8}, {showValAxisTitle:true, valAxisTitle:"Inflasi %", valAxisTitleFontSize:8, valAxisLabelFontSize:8, valGridLine:{style:"none"}}], catAxes:[{catAxisTitle:"Bulan"}, {catAxisHidden:true}]});
+    else s.addChart(pptx.ChartType.line, [{name:"Revenue (Miliar Rp)", labels, values:D.months.map(x => M(x.rev))}], {...ax, x:X, y:2.25, w:lw, h:4.7, chartColors:[C.or], lineSize:3, showValue:true, dataLabelFormatCode:"0.00", showLegend:false});
+    const rx = X + lw + .3, rw = CW - lw - .3; lbl(s, "Indikator makroekonomi", rx, 1.95, rw);
+    [["Inflasi Indonesia", infL !== null ? nf(infL, 2) + "%" : "–", "Bulan terakhir kuartal · BPS"], ["Suku Bunga BI (BI Rate)", bi !== null ? nf(bi, 2) + "%" : "–", "Kebijakan terbaru Bank Indonesia" + tr(bi, decId(mp.bi), 2)],
+     ["Kurs USD/IDR", kurs !== null ? nf(kurs) : "–", "Dampak ke harga material impor" + tr(kurs, decId(mp.kurs), 0)], ["Indeks Keyakinan Konsumen", ikk !== null ? nf(ikk, 1) : "–", ikk === null ? "Daya beli konsumen" : ikk >= 100 ? "≥ 100: konsumen optimis" : "< 100: konsumen pesimis"]].forEach(([t, v, d], i) => {
+      const y = 2.25 + i*.93; R(s, rx, y, rw, .85, C.lt, C.ln); R(s, rx, y, .07, .85, C.or);
+      Tx(s, t, {x:rx + .22, y:y + .1, w:rw - 1.7, h:.3, fontSize:10.5, bold:true, color:C.navy}); Tx(s, d, {x:rx + .22, y:y + .45, w:rw - 1.7, h:.3, fontSize:8.5, color:C.gr});
+      Tx(s, v, {x:rx + rw - 1.55, y:y + .1, w:1.4, h:.65, fontFace:HF, fontSize:22, bold:true, color:C.or, align:"right", valign:"middle", fit:"shrink"}); });
+    const iy = 2.25 + 4*.93; R(s, rx, iy, rw, 6.98 - iy, C.lt, C.or);
+    Tx(s, [{text:"💡  INSIGHT", options:{bold:true, fontSize:9, charSpacing:2, color:C.navy, breakLine:true, paraSpaceAfter:4}}, {text:ins.length ? ins.join(" ") : "Isi inflasi, BI Rate, kurs, dan IKK di form Laporan PPT. Nilainya tersimpan per kuartal.", options:{fontSize:9.5, color:C.ink}}],
+      {x:rx + .2, y:iy + .1, w:rw - .4, h:6.98 - iy - .18, fit:"shrink"}); }
+
+  // 10 · rencana & rekomendasi
+  { const fc = D.focus, s = page(`RENCANA & REKOMENDASI  –  TARGET ${NQL}`, "Strategi dan langkah prioritas menuju kuartal berikutnya",
+      `Target ${NQL}: ${nf(D.target)} unit  |  Revenue target: ${rp(D.target*D.avgP)}` + (fc ? `  |  Fokus cluster: ${fc.name}` : ""), "Analisis Prodev dari data penjualan & market research");
+    const pw = (CW - .3)/2, y0 = 1.95;
+    R(s, X, y0, pw, .4, C.navy); Tx(s, "RENCANA KERJA", {x:X + .22, y:y0, w:pw, h:.4, fontSize:9, bold:true, charSpacing:3, color:C.wh, valign:"middle"});
+    R(s, X + pw + .3, y0, pw, .4, C.navy); Tx(s, "REKOMENDASI STRATEGIS", {x:X + pw + .52, y:y0, w:pw, h:.4, fontSize:9, bold:true, charSpacing:3, color:C.wh, valign:"middle"});
+    const card = (col, i, title, body) => { const x = X + col*(pw + .3), y = y0 + .5 + i*1.12; R(s, x, y, pw, 1.02, C.lt, C.ln); R(s, x, y, .07, 1.02, C.or);
+      Tx(s, title, {x:x + .22, y:y + .1, w:pw - .4, h:.28, fontSize:11, bold:true, color:C.navy}); Tx(s, body, {x:x + .22, y:y + .42, w:pw - .4, h:.54, fontSize:9.5, color:C.gr, fit:"shrink"}); };
+    const ch = D.buyers.channel, agent = ch.find(c => /agen|agent/i.test(c[0])), chN = ch.reduce((a, c) => a + c[1], 0), bestEv = D.evQ.filter(e => isFinite(e.imp.chg) && e.imp.chg > 0).sort((a, b) => b.imp.chg - a.imp.chg)[0];
+    card(0, 0, "🎯  Target Penjualan", `${nf(D.target)} unit pada ${NQL} (≈ ${rp(D.target*D.avgP)}, harga rata-rata ${rp(D.avgP)})` + (D.autoT ? `. Dihitung otomatis: tertinggi antara ${QL} dan ${qLabel(qShift(D.nq, -4))}, +5%.` : "."));
+    card(0, 1, "📅  Event / Launching", D.evNext.length ? D.evNext.slice(0, 3).map(e => `${e.name} (${fmtDay(e.start)})`).join(" · ") : bestEv ? `Belum ada event terjadwal. Ulangi format ${bestEv.name} (${bestEv.type}) yang menaikkan penjualan ${nf(bestEv.imp.chg)}%.` : "Belum ada event terjadwal di kalender. Jadwalkan minimal satu open house / pameran.");
+    card(0, 2, "🏗️  Update Produk", D.low.length || D.out.length ? `Siapkan stok / tahap baru untuk ${[...D.out, ...D.low].slice(0, 3).map(r => `${r.type} (${r.cluster})`).join(", ")}: ${D.out.length ? "sudah habis" : "sisa ≤ 10%"}.` : D.stock ? "Stok semua tipe masih aman (sisa > 10%)." : "Isi tab STOK untuk memantau stok per tipe.");
+    card(0, 3, "📣  Program Pemasaran", (ch[0] ? `Perkuat ${ch[0][0]} (${pctS(pctOf(ch[0][1], chN))} penjualan). ` : "") + (D.slow.length ? `Dorong promo untuk tipe yang belum bergerak: ${D.slow.slice(0, 2).map(r => `${r.type} (${r.cluster})`).join(", ")}.` : "Pertahankan program yang berjalan."));
+    const segPos = D.segs.map(g => ({g, d:T.chg(g.ownAvg, g.med)})).filter(x => x.d !== null).sort((a, b) => Math.abs(b.d) - Math.abs(a.d))[0];
+    card(1, 0, "💡  Strategi Harga", segPos ? (segPos.d >= 10 ? `${segPos.g.seg}: harga kita ${nf(segPos.d)}% di atas median kompetitor. Tahan harga dengan bonus (free biaya KPR / furnished) atau bundling, bukan diskon langsung.`
+      : segPos.d <= -10 ? `${segPos.g.seg}: harga kita ${nf(-segPos.d)}% di bawah median kompetitor. Ada ruang kenaikan harga bertahap.` : `${segPos.g.seg}: harga kita setara median kompetitor. Jaga harga, bedakan lewat promo cara bayar.`) : "Lengkapi data kompetitor di Market Research untuk membandingkan harga.");
+    const age = T.age, job = D.buyers.job[0], city = D.buyers.city[0];
+    card(1, 1, "👥  Target Segmen", [age && age[1] ? `Usia ${age[0]} tahun` : "", job ? job[0].toLowerCase() : "", city ? `domisili ${city[0]}` : ""].filter(Boolean).join(", ").replace(/^./, c => c.toUpperCase()) + (T.pay[0] ? `; mayoritas bayar ${T.pay[0][0]}.` : ".") || "Data pembeli belum diisi.");
+    card(1, 2, "🤝  Kolaborasi Agent", agent ? `Agen properti menyumbang ${pctS(pctOf(agent[1], chN))} penjualan (${nf(agent[1])} unit). ${pctOf(agent[1], chN) < 20 ? "Tambah insentif & gathering agen untuk memperluas jangkauan." : "Pertahankan skema komisi, beri bonus tipe yang lambat."}` : "Penjualan lewat agen belum tercatat. Uji program referral agen dengan komisi bertingkat.");
+    card(1, 3, "📊  Produk Unggulan", D.topT && D.topT.soldQ ? `${D.topT.type} (${D.topT.cluster}) terlaris: ${nf(D.topT.soldQ)} unit di ${QL}, sisa ${nf(D.topT.availEnd)} unit. Jadikan materi utama iklan.` : T.top ? `${T.top.name} paling laku (${nf(T.top.units)} unit).` : "Belum ada penjualan."); }
+
+  // 11 · penutup
+  { const s = pptx.addSlide(); s.background = {color:C.navy};
+    if (scene){ s.addImage({data:scene, x:0, y:0, w:W, h:3.6}); s.addShape(pptx.ShapeType.rect, {x:0, y:0, w:W, h:3.6, fill:{color:C.navy, transparency:58}, line:{color:C.navy, width:0}}); }
+    Tx(s, "PORORO LAND BANDUNG", {x:.6, y:3.85, w:10, h:.28, fontSize:9, charSpacing:5, color:C.or, valign:"middle"});
+    Tx(s, "Terima Kasih", {x:.6, y:4.25, w:10, h:.9, fontFace:HF, fontSize:40, bold:true, color:C.wh, valign:"middle"});
+    Tx(s, `Laporan Serapan Penjualan  |  ${QL}`, {x:.6, y:5.25, w:10, h:.3, fontSize:12, color:C.wh, valign:"middle"});
+    Tx(s, "Prodev  •  Pororo Land Bandung", {x:.6, y:5.65, w:10, h:.3, fontSize:10, color:C.mut, valign:"middle"});
+    Tx(s, "Data for Internal Use Only  |  Pororo Land Bandung – Prodev", {x:7, y:7.05, w:W - 7.45, h:.25, fontSize:7, color:C.mut, align:"right", valign:"middle"}); }
+  return {pptx, D, fileName:`Laporan-Kuartal-${QL.replace(" ", "-")}-Pororo-Land${salesDemo ? "-DUMMY" : ""}.pptx`};
+}
+
+function openPptReport(){
+  const qs = reportQuarters(); if (!qs.length) return toast("Belum ada data penjualan untuk dibuat laporan");
+  const end = allSalesMonths().at(-1), lab = q => qLabel(q) + (end < qMonths(q)[2] ? " (berjalan)" : ""), labels = qs.map(lab);
+  const vals = q => { const m = PPT_SET[q] || {}; return {q:lab(q), inf:m.inf || "", bi:m.bi || "", kurs:m.kurs || "", ikk:m.ikk || "", target:m.target ?? null}; };
+  const F = [["q", "Kuartal", "select", labels], ["target", "Target unit kuartal berikutnya (kosong = otomatis)", "number"],
+    ["inf", "Inflasi 3 bulan (%) · mis. 2,3; 2,4; 2,5", "text", "full"], ["bi", "BI Rate (%)", "text"], ["kurs", "Kurs USD/IDR", "text"], ["ikk", "Indeks Keyakinan Konsumen", "text"]];
+  openForm("Laporan PPT per kuartal", F, vals(qs[0]), async v => {
+    const q = qs[labels.indexOf(v.q)] || qs[0];
+    PPT_SET = {...PPT_SET, [q]:{inf:v.inf, bi:v.bi, kurs:v.kurs, ikk:v.ikk, target:v.target}}; store.set("li.ppt", JSON.stringify(PPT_SET));
+    if (mode === "live" && TOKEN) api("saveSetting", {id:"ppt", value:JSON.stringify(PPT_SET)}).catch(() => {});
+    const {pptx, fileName} = await buildQuarterPpt(q); await pptx.writeFile({fileName, compression:true});
+  }, null, "Laporan PPT diunduh");
+  $("#mBody").insertAdjacentHTML("afterbegin", `<p class="note" style="margin:0 0 10px">Disusun otomatis dari Sales Report (penjualan, stok, event) dan Market Research (kompetitor), tanpa AI. Indikator makro diisi manual dan tersimpan per kuartal; kosongkan bila belum ada.</p>`);
+  const sel = $("#f_q"); sel.onchange = () => { const v = vals(qs[labels.indexOf(sel.value)]); for (const k of ["inf","bi","kurs","ikk","target"]) $("#f_" + k).value = v[k] ?? ""; };
+  const ok = $("#mActions .btn.primary"); if (ok) ok.textContent = "Unduh PPT";
+}
+document.addEventListener("click", e => { if (e.target.closest("[data-ppt]")) openPptReport(); });
 
 $("#salesPeriod").onclick = e => { const b=e.target.closest("button"); if(!b) return; salesP = +b.dataset.p;
   $("#salesPeriod").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed", x===b)); trend.gran = "month"; setTrendLast(salesP); renderSales(); };
