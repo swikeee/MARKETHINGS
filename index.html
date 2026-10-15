@@ -1965,7 +1965,10 @@ function sameProduct(a, b){
   const A = pTokens(a), B = pTokens(b);
   if (A.length && A.length === B.length && A.every(w => B.includes(w))) return true;      // harga boleh beda: itu perubahan harga
   // 3) luas tanah, luas bangunan, dan harga persis sama, dan namanya punya kata yang sama ("Cluster Chyntia · 4 KT" = "Chyntia - Minimalis Hook")
-  return pBoth(a.lt, b.lt) && pBoth(a.lb, b.lb) && pa > 0 && pb > 0 && Math.abs(pa - pb) <= .005*Math.max(pa, pb) && A.some(w => w.length >= 3 && !/^\d/.test(w) && B.includes(w));
+  if (pBoth(a.lt, b.lt) && pBoth(a.lb, b.lb) && pa > 0 && pb > 0 && Math.abs(pa - pb) <= .005*Math.max(pa, pb) && A.some(w => w.length >= 3 && !/^\d/.test(w) && B.includes(w))) return true;
+  // 4) nama yang satu bagian dari yang lain dengan ukuran kavling sama, dan harga berdekatan atau luasnya terbukti sama ("Hillary · 10x20" Rp4,5 M = "Hillary Cluster - Basic (10x20m)" Rp4,5 M)
+  const [S, L] = A.length <= B.length ? [A, B] : [B, A], dim = S.find(w => /^\d+x\d+$/.test(w));
+  return !!dim && S.length >= 2 && S.every(w => L.includes(w)) && ((pa > 0 && pb > 0 && Math.abs(pa - pb) <= .15*Math.max(pa, pb)) || pBoth(a.lt, b.lt) || pBoth(a.lb, b.lb));      // selisih harga s.d. 15% = perubahan harga
 }
 const dupPool = () => comps.filter(c => !c.isOwn);      // produk sendiri tidak ikut digabung
 function dupGroups(){ const P = dupPool(), used = new Set(), out = [];

@@ -365,7 +365,10 @@ function sameProduct(a, b){
   const A = pTokens(a), B = pTokens(b);
   if (A.length && A.length === B.length && A.every(w => B.includes(w))) return true;      // harga boleh beda: itu perubahan harga
   // 3) luas tanah, luas bangunan, dan harga persis sama, dan namanya punya kata yang sama ("Cluster Chyntia · 4 KT" = "Chyntia - Minimalis Hook")
-  return pBoth(a.lt, b.lt) && pBoth(a.lb, b.lb) && pa > 0 && pb > 0 && Math.abs(pa - pb) <= .005*Math.max(pa, pb) && A.some(w => w.length >= 3 && !/^\d/.test(w) && B.includes(w));
+  if (pBoth(a.lt, b.lt) && pBoth(a.lb, b.lb) && pa > 0 && pb > 0 && Math.abs(pa - pb) <= .005*Math.max(pa, pb) && A.some(w => w.length >= 3 && !/^\d/.test(w) && B.includes(w))) return true;
+  // 4) nama yang satu bagian dari yang lain dengan ukuran kavling sama, dan harga berdekatan atau luasnya terbukti sama ("Hillary · 10x20" Rp4,5 M = "Hillary Cluster - Basic (10x20m)" Rp4,5 M)
+  const [S, L] = A.length <= B.length ? [A, B] : [B, A], dim = S.find(w => /^\d+x\d+$/.test(w));
+  return !!dim && S.length >= 2 && S.every(w => L.includes(w)) && ((pa > 0 && pb > 0 && Math.abs(pa - pb) <= .15*Math.max(pa, pb)) || pBoth(a.lt, b.lt) || pBoth(a.lb, b.lb));      // selisih harga s.d. 15% = perubahan harga
 }
 /** Nama developer resmi: kalau sudah ada di Sheet dengan ejaan lain ("Summarecon Agung Tbk" vs "Summarecon Bandung"), pakai yang paling banyak dipakai. */
 function canonDev(name, rows) { const n = {}; rows.forEach(c => { const d = String(c.developer || '').trim(); if (d && sameDev(d, name)) n[d] = (n[d] || 0) + 1; });
@@ -376,6 +379,7 @@ function upsertUnits(units, s) {
   let rows = 0, priceChanges = 0;
   units.forEach(u => {
     if (!u || !u.cluster) return;
+    if (num(u.price) === null && num(u.lt) === null && num(u.lb) === null) return;      // hanya nama cluster tanpa harga / luas: tidak bisa dibandingkan, tidak dicatat
     // ejaan developer dari AI bisa berbeda tiap kali ("Summarecon Agung Tbk", "Summarecon"): diseragamkan dengan nama sumber / nama yang sudah ada di Sheet
     const raw = u.developer || s.developer || '', dev = canonDev(s.developer && sameDev(raw, s.developer) ? s.developer : raw, existing);
     const type = String(u.type || '').trim(), name = type && type !== u.cluster ? u.cluster + ' · ' + type : u.cluster;
@@ -399,17 +403,20 @@ function upsertUnits(units, s) {
       priceChanges++;
     }
     // stok / terjual / bulan: sumber publik jarang memuatnya. Bila sumber tidak memberi angkanya, nilai yang sudah ada di Sheet (diisi tangan atau angka contoh) dipertahankan.
-    const fromSrc = ['stock', 'sold', 'months'].some(k => num(u[k]) !== null), keep = k => num(u[k]) !== null ? num(u[k]) : (prev ? num(prev[k]) : null);
+    const fromSrc = ['stock', 'sold', 'months'].some(k => num(u[k]) !== null);
+    // produk baru tanpa data penjualan: diberi serapan contoh (ditandai dummy) supaya langsung ikut di grafik serapan; isi angka asli lewat Edit
+    const fake = !fromSrc && !prev ? dummyAbs(id) : null;
+    const keep = k => num(u[k]) !== null ? num(u[k]) : (prev ? num(prev[k]) : (fake ? fake[k] : null));
     // kolom yang tidak dimuat sumber ini (mis. halaman resmi tanpa harga) tidak menghapus isi lama
     const old = k => num(u[k]) !== null ? num(u[k]) : (prev ? num(prev[k]) : null), txt = k => String(u[k] || '').trim() || (prev ? String(prev[k] || '') : '');
     const pr = price !== null ? price : (prev ? num(prev.price) : null);
     upsert('Competitors', {
       id, developer: dev, project: u.project || (prev && prev.project) || '', cluster: u.cluster, unitType: type || variant || (prev && prev.unitType) || '',
-      tier: tierOf(old('lb'), pr, /commercial/i.test(name + ' ' + (u.project || '')) ? 'Shophouse' : u.tier, name), lt: old('lt'), lb: old('lb'), kt: old('kt'), km: old('km'), floors: old('floors'), price: pr,
+      tier: tierOf(old('lb'), pr, /commercial/i.test(name + ' ' + (u.project || '')) ? 'Shophouse' : u.tier, name, old('lt')), lt: old('lt'), lb: old('lb'), kt: old('kt'), km: old('km'), floors: old('floors'), price: pr,
       priceBasis: price !== null ? (u.priceBasis || '') : txt('priceBasis'), stock: keep('stock'), sold: keep('sold'), months: keep('months'),
       promo: txt('promo'), notes: txt('notes'), source: s.label, sourceUrl: s.url, sourceDate: u.sourceDate || (prev && prev.sourceDate) || 'tanggal tidak tercantum',
       ...(u.image && !(prev && prev.image) ? { image: u.image } : {}), ...(u.plan && !(prev && prev.plan) ? { plan: u.plan } : {}),
-      isOwn: false, auto: true, dummy: fromSrc ? false : !!(prev && prev.dummy), syncedAt: now(), updatedAt: now(),
+      isOwn: false, auto: true, dummy: fromSrc ? false : !!((prev && prev.dummy) || fake), syncedAt: now(), updatedAt: now(),
     });
     if (!prev) existing.push({ id, developer: dev, cluster: u.cluster, unitType: type || variant, lt: num(u.lt), lb: num(u.lb), price, isOwn: false, auto: true });
     rows++;
@@ -417,12 +424,17 @@ function upsertUnits(units, s) {
   return { rows, priceChanges };
 }
 
-function tierOf(lb, price, given, name) {
+/** Serapan contoh yang tetap (dari id): stok 20-80 unit, 4-18 bulan, terjual 25-70%. */
+function dummyAbs(id) { let x = 0; String(id).split('').forEach(ch => { x = (x * 31 + ch.charCodeAt(0)) >>> 0; });
+  const stock = 20 + x % 61, months = 4 + (x >>> 8) % 15; return { stock, months, sold: Math.round(stock * (25 + (x >>> 16) % 46) / 100) }; }
+
+function tierOf(lb, price, given, name, lt) {
   if (/student|cikonengraya/i.test(String(name || ''))) return 'Student House';
   if (/ruko|shophouse|plaza|komersial/i.test(String(name || ''))) return 'Shophouse';
   if (['Milenial','Deluxe','Premium','Shophouse','Student House'].indexOf(given) >= 0) return given;
   if (lb) return lb < 70 ? 'Milenial' : lb <= 130 ? 'Deluxe' : 'Premium';
   if (price) return price < 1.8e9 ? 'Milenial' : price <= 3.5e9 ? 'Deluxe' : 'Premium';
+  if (lt) return lt < 72 ? 'Milenial' : lt < 200 ? 'Deluxe' : 'Premium';      // hanya luas tanah yang diketahui (mis. kavling 12x28)
   return 'Deluxe';
 }
 
