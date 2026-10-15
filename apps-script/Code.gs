@@ -57,9 +57,7 @@ function setup() {
     }
     (TEXT_COLS[name] || []).forEach(k => { if (h.indexOf(k) >= 0) sh.getRange(1, h.indexOf(k) + 1, sh.getMaxRows(), 1).setNumberFormat('@'); });
   });
-  // trigger mingguan: Rabu 07:00-08:00 (zona waktu project, Asia/Jakarta)
-  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'weeklySync').forEach(t => ScriptApp.deleteTrigger(t));
-  ScriptApp.newTrigger('weeklySync').timeBased().onWeekDay(ScriptApp.WeekDay.WEDNESDAY).atHour(7).create();
+  installSchedule();
   // penanda perubahan untuk sinkron otomatis dashboard: tambah/hapus baris, tempel, dll. (edit sel biasa ditangani onEdit di bawah)
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'onSheetChange').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('onSheetChange').forSpreadsheet(ss).onChange().create();
@@ -86,8 +84,23 @@ function seedSources() {
 
 /* ======================= WEB API ======================= */
 
+/* ---------- jadwal sinkron website: Rabu 07.00 dan Jumat 18.00 WIB ---------- */
+const SYNC_SCHEDULE = [['WEDNESDAY', 7], ['FRIDAY', 18]], SCHED_KEY = 'wed07-fri18';
+function installSchedule() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'weeklySync').forEach(t => ScriptApp.deleteTrigger(t));
+  SYNC_SCHEDULE.forEach(([d, h]) => ScriptApp.newTrigger('weeklySync').timeBased().onWeekDay(ScriptApp.WeekDay[d]).atHour(h).nearMinute(0).inTimezone('Asia/Jakarta').create());
+  PropertiesService.getScriptProperties().setProperty('SYNC_SCHEDULE', SCHED_KEY);
+}
+/** Jadwal lama (hanya Rabu) diganti otomatis begitu Code.gs versi ini dipakai, tanpa perlu menjalankan setup() lagi. */
+function ensureSchedule() {
+  if (prop('SYNC_SCHEDULE') === SCHED_KEY) return;
+  const lock = LockService.getScriptLock(); if (!lock.tryLock(3000)) return;
+  try { if (prop('SYNC_SCHEDULE') !== SCHED_KEY) installSchedule(); } catch (e) {} finally { lock.releaseLock(); }
+}
+
 function doGet(e) {
   try {
+    ensureSchedule();
     const p = e.parameter || {};
     const readTok = prop('READ_TOKEN');
     if (readTok && p.token !== readTok && p.token !== prop('WRITE_TOKEN')) return out({ ok: false, error: 'unauthorized' });
@@ -112,6 +125,7 @@ function revision() {
 
 function doPost(e) {
   try {
+    ensureSchedule();
     const body = JSON.parse(e.postData.contents || '{}');
     const tok = prop('WRITE_TOKEN');
     if (!tok || body.token !== tok) return out({ ok: false, error: 'unauthorized' });
@@ -214,7 +228,7 @@ function snapshot() {
 
 /* ======================= SINKRON ======================= */
 
-function weeklySync() { syncAll('jadwal', false); }
+function weeklySync() { syncAll('jadwal', false); }      // dipanggil jadwal Rabu 07.00 & Jumat 18.00 WIB
 
 /**
  * Baca semua sumber aktif. Sumber yang isinya tidak berubah (hash sama) dilewati,

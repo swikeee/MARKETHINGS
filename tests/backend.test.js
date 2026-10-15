@@ -8,7 +8,7 @@ let n = 0; const ok = (name, cond, extra) => { n++; console.log((cond ? '✓' : 
 ok('sebelum setup(): pesan jelas', /Jalankan setup/.test(get().error || ''), get().error);
 A.setup(); A.setup();   // dua kali: aman diulang
 ok('setup membuat semua sheet', Object.keys(A.SHEETS).every(s => env.sheets[s] && env.sheets[s].rows[0].join() === A.SHEETS[s].join()));
-ok('trigger: sinkron mingguan + penanda perubahan, masing-masing satu', env.triggers.length === 2 && env.triggers.filter(x => x === 'weeklySync').length === 1 && env.triggers.filter(x => x === 'onSheetChange').length === 1, env.triggers.join(','));
+ok('trigger: sinkron website dua kali seminggu + penanda perubahan', env.triggers.length === 3 && env.triggers.filter(x => x === 'weeklySync').length === 2 && env.triggers.filter(x => x === 'onSheetChange').length === 1, env.triggers.join(','));
 ok('sumber awal terisi', A.readTable('Sources').length === 9);
 // token
 ok('tanpa WRITE_TOKEN semua tulis ditolak', post('ping', {}).error === 'unauthorized');
@@ -67,7 +67,11 @@ ok('fetchUrl: ambil halaman → ekstrak → simpan kompetitor', r.ok && r.rows =
 ok('fetchUrl: sumber baru tercatat', A.readTable('Sources').some(s => s.url === 'https://contoh.test/pricelist' && /tipe unit/.test(s.lastStatus)));
 r = post('fetchUrl', {url:'https://contoh.test/gagal'}); ok('fetchUrl 404 → pesan jelas', /HTTP 404/.test(r.error || ''), r.error);
 ok('sumber 404 ditandai tidak terjangkau', A.readTable('Sources').some(x => x.url === 'https://contoh.test/gagal' && x.lastStatus === 'HTTP 404' && x.lastFetched));
-ok('jadwal sinkron mingguan: hari Rabu', env.weekdays.weeklySync === 'WEDNESDAY', env.weekdays.weeklySync);
+ok('jadwal sinkron: Rabu 07.00 dan Jumat 18.00 WIB', JSON.stringify(env.weekdays.weeklySync) === JSON.stringify(['WEDNESDAY 7 Asia/Jakarta', 'FRIDAY 18 Asia/Jakarta']), JSON.stringify(env.weekdays.weeklySync));
+{ // backend lama (jadwal hanya Rabu) -> jadwal baru terpasang sendiri saat dashboard memanggil Code.gs versi ini
+  delete env.props.SYNC_SCHEDULE; env.triggers.splice(env.triggers.indexOf('weeklySync'), 1); env.weekdays.weeklySync = ['WEDNESDAY 7 '];
+  get(); ok('jadwal lama diganti otomatis tanpa setup() ulang', env.triggers.filter(x => x === 'weeklySync').length === 2 && JSON.stringify(env.weekdays.weeklySync) === JSON.stringify(['WEDNESDAY 7 Asia/Jakarta', 'FRIDAY 18 Asia/Jakarta']) && env.props.SYNC_SCHEDULE === 'wed07-fri18', JSON.stringify([env.triggers, env.weekdays.weeklySync]));
+  get(); ok('jadwal tidak dipasang berulang', env.triggers.filter(x => x === 'weeklySync').length === 2); }
 r = post('syncNow', {}); ok('syncNow berjalan & mencatat log', r.ok && r.status === 'ok' && A.readTable('SyncLog').length === 1 && get().lastSync.summary === r.summary, r.summary);
 env.setFetch((url) => url.includes('api.anthropic.com') ? {code:200, type:'application/json', body:JSON.stringify({content:[{type:'text', text:'[{"developer":"Summarecon Bandung","cluster":"Cluster Uji","lb":100,"price":2600000000}]'}]})} : {code:200, type:'text/html', body:'<p>berubah</p>'});
 post('syncNow', {}); ok('perubahan harga masuk PriceHistory', get().history.some(h => h.competitorId === 'auto-summarecon-bandung-cluster-uji' && h.oldPrice === 2500000000 && h.newPrice === 2600000000 && h.changePct === 4));

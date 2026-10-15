@@ -2837,24 +2837,26 @@ function applyWrite(){ document.querySelectorAll("[data-w]").forEach(el => el.hi
 
 // ---------- sinkron sumber publik (via Apps Script) ----------
 // Lampu tiap sumber, dari hasil baca terakhir oleh backend: live = situs terbaca (berkedip), err = gagal dibaca,
-// old = sudah lewat jadwal mingguan tanpa dicek lagi, wait = belum pernah dibaca, off = nonaktif.
-const SRC_STALE = 8*864e5;
+// old = sudah lewat lebih dari satu jadwal tanpa dicek lagi, wait = belum pernah dibaca, off = nonaktif.
+const SRC_STALE = 6*864e5;      // jeda terpanjang antar jadwal: Jumat -> Rabu (5 hari)
 function srcState(s){
   if (!s.active) return "off"; if (!s.lastFetched) return "wait";
   if (/^(HTTP \d|gagal)/i.test(s.lastStatus||"")) return "err";
   return Date.now() - new Date(s.lastFetched) > SRC_STALE ? "old" : "live";
 }
 const SRC_DOT = {live:"dot live", err:"dot err", old:"dot run", wait:"dot", off:"dot"};
-const SRC_TIP = {live:"Tersambung: situs terbaca pada pengecekan terakhir", err:"Situs tidak bisa dibaca", old:"Belum dicek lagi lebih dari seminggu", wait:"Belum pernah dibaca", off:"Nonaktif"};
-// Jadwal backend: tiap Rabu 07.00–08.00 WIB (07.00 WIB = 00.00 UTC di tanggal yang sama)
+const SRC_TIP = {live:"Tersambung: situs terbaca pada pengecekan terakhir", err:"Situs tidak bisa dibaca", old:"Terlewat dari jadwal pengecekan terakhir", wait:"Belum pernah dibaca", off:"Nonaktif"};
+// Jadwal backend: Rabu 07.00 WIB dan Jumat 18.00 WIB (±15 menit)
+const SYNC_SLOTS = [[3, 7], [5, 18]];      // [hari (0 = Minggu), jam WIB]
 function nextSyncDate(){
-  const w = new Date(Date.now() + 7*36e5); let d = (3 - w.getUTCDay() + 7) % 7; if (d === 0 && w.getUTCHours() >= 8) d = 7;
-  return new Date(Date.UTC(w.getUTCFullYear(), w.getUTCMonth(), w.getUTCDate() + d));
+  const w = new Date(Date.now() + 7*36e5);      // jam dinding WIB dibaca lewat fungsi UTC
+  const c = SYNC_SLOTS.map(([day, h]) => { let d = (day - w.getUTCDay() + 7) % 7; if (d === 0 && w.getUTCHours() >= h + 1) d = 7; return {d, h, t:Date.UTC(w.getUTCFullYear(), w.getUTCMonth(), w.getUTCDate() + d, h) - 7*36e5}; }).sort((a, b) => a.t - b.t)[0];
+  return new Date(c.t);
 }
 function renderSync(){
   const dot=$("#syncDot"), st=$("#syncStatus");
   const act = sources.filter(s => s.active), states = act.map(srcState), nLive = states.filter(x => x==="live").length, nErr = states.filter(x => x==="err").length;
-  const sched = `Otomatis tiap Rabu ±07.00 WIB · berikutnya ${nextSyncDate().toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"short",timeZone:"Asia/Jakarta"})}`;
+  const nx = nextSyncDate(), sched = `Otomatis tiap Rabu 07.00 & Jumat 18.00 WIB · berikutnya ${nx.toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"short",timeZone:"Asia/Jakarta"})} ${nx.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jakarta"})}`;
   const conn = act.length ? `<b>${nLive}/${act.length}</b> sumber tersambung${nErr?` · <span class="up">${nErr} gagal</span>`:""}` : "";
   if (busy){ dot.className="dot run"; st.textContent = busy; }
   else if (mode==="demo"){ dot.className="dot"; st.innerHTML = "Belum tersambung backend · data tersimpan di browser ini"; }
@@ -2893,7 +2895,7 @@ $("#btnFromUrl").onclick = () => {
     <div class="field"><label for="uUrl">Link halaman cluster, pricelist PDF, atau artikel berita</label><input type="url" id="uUrl" placeholder="https://…"></div>
     <div class="row2"><div class="field"><label for="uDev">Developer</label><input type="text" id="uDev" placeholder="mis. Summarecon Bandung"></div>
     <div class="field"><label for="uNote">Catatan untuk AI (opsional)</label><input type="text" id="uNote" placeholder="mis. ambil semua tipe unit"></div></div>
-    <p class="note">Apps Script membaca halaman ini, AI mengekstrak tipe unit dan harganya, lalu hasilnya masuk ke tabel dengan label <b>Auto</b>. URL juga disimpan sebagai sumber untuk sinkron mingguan. Situs yang memblokir akses otomatis (mis. rumah123) tidak bisa dibaca; gunakan “Ekstrak brosur”.</p></div>`;
+    <p class="note">Apps Script membaca halaman ini, AI mengekstrak tipe unit dan harganya, lalu hasilnya masuk ke tabel dengan label <b>Auto</b>. URL juga disimpan sebagai sumber untuk sinkron otomatis (Rabu 07.00 &amp; Jumat 18.00 WIB). Situs yang memblokir akses otomatis (mis. rumah123) tidak bisa dibaca; gunakan “Ekstrak brosur”.</p></div>`;
   const act=$("#mActions"); act.innerHTML="";
   const c=document.createElement("button"); c.className="btn"; c.textContent="Batal"; c.onclick=closeModal;
   const go=document.createElement("button"); go.className="btn primary"; go.textContent="Ambil data";
