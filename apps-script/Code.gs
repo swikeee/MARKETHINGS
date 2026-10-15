@@ -255,8 +255,8 @@ function processSource(s, force) {
   const blob = res.getBlob();
   const isHtml = !/pdf/i.test(String(blob.getContentType() || '')) && !/\.pdf($|\?)/i.test(s.url);
   // beranda situs resmi developer: tiap halaman proyek di situs itu didaftarkan sebagai sumber sendiri (proyek baru ikut terpantau otomatis)
-  const found = isHtml && isSiteRoot(s.url) ? discoverProjects(s, blob.getDataAsString()) : null;
-  const extra = found && found.total ? ` · ${found.total} halaman proyek dipantau${found.added ? ` (${found.added} baru)` : ''}` : '';
+  const found = isHtml && (isSiteRoot(s.url) || isIndexPage(s.url)) ? discoverProjects(s, blob.getDataAsString()) : null;
+  const extra = found && found.total ? ` · ${found.total} proyek di situs${found.sale || found.sold ? ` (${found.sale} dijual, ${found.sold} sold out)` : ''}${found.added ? `, ${found.added} baru` : ''}` : '';
   const hash = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, blob.getBytes()));
   if (!force && hash === s.lastHash) { upsert('Sources', { id: s.id, lastFetched: now(), lastStatus: 'tidak berubah' + extra }); return { skipped: true, rows: 0, priceChanges: 0, added: found ? found.added : 0 }; }
   let units;
@@ -274,25 +274,50 @@ function hostOf(u) { const m = String(u || '').match(/^https?:\/\/([^\/?#]+)/i);
 function normUrl(u) { return String(u || '').trim().replace(/^http:/i, 'https:').replace(/^https:\/\/www\./i, 'https://').replace(/[?#].*$/, '').replace(/\/+$/, '').toLowerCase(); }
 function isSiteRoot(u) { return /^https?:\/\/[^\/?#]+\/?$/i.test(String(u || '').trim()); }
 /** Halaman resmi developer: beranda situsnya, halaman proyek yang ditemukan dari beranda, atau sumber yang diberi label "resmi". */
-function isOfficial(s) { return !!(s.parent || isSiteRoot(s.url) || /\bresmi\b|official/i.test(String(s.label || '') + ' ' + String(s.note || ''))); }
+function isOfficial(s) { return !!(s.parent || isSiteRoot(s.url) || isIndexPage(s.url) || /\bresmi\b|official/i.test(String(s.label || '') + ' ' + String(s.note || ''))); }
 function absUrl(h, base) { let u = String(h || '').trim().replace(/&amp;/g, '&'); if (/^\/\//.test(u)) return 'https:' + u; if (/^\//.test(u)) return String(base).replace(/^(https?:\/\/[^\/?#]+).*$/i, '$1') + u; return u; }
 /** Tautan ke halaman proyek di domain yang sama (bukan halaman /detail/ yang isinya sama). */
+/** Tautan ke halaman proyek di domain yang sama (bukan halaman /detail/), beserta label status di kartunya: "sale" (On Sale) atau "sold" (Sold Out). */
 function projectLinks(html, base) {
-  const host = hostOf(base), out = [], seen = {};
-  String(html).replace(/href\s*=\s*["']([^"'#]+)["']/gi, (m, h) => {
+  const host = hostOf(base), seen = {}, list = [], src = String(html);
+  src.replace(/href\s*=\s*["']([^"'#]+)["']/gi, (m, h, pos) => {
     const u = absUrl(h, base).replace(/[?#].*$/, '');
-    if (/^https?:\/\//i.test(u) && hostOf(u) === host && !/\/detail\//i.test(u) && PROJECT_PATH.test(u) && !seen[normUrl(u)]) { seen[normUrl(u)] = 1; out.push(u.replace(/^http:/i, 'https:')); }
+    if (/^https?:\/\//i.test(u) && hostOf(u) === host && !/\/detail\//i.test(u) && PROJECT_PATH.test(u)) {
+      const k = normUrl(u); if (!seen[k]) { seen[k] = { url: u.replace(/^http:/i, 'https:'), first: pos, last: pos }; list.push(seen[k]); } else seen[k].last = pos; }
     return m; });
-  return out.slice(0, 20);
+  // status ada di antara tautan pertama dan terakhir ke proyek yang sama (gambar -> label status -> judul -> "See Detail"); tidak melewati kartu proyek berikutnya
+  const starts = list.map(x => x.first).sort((a, b) => a - b);
+  list.forEach(x => { const next = starts.find(p => p > x.first), end = x.last > x.first ? x.last : Math.min(next || Infinity, x.first + 600), txt = htmlToText(src.slice(x.first, end)); x.status = /sold\s*out|terjual\s*habis|habis\s*terjual/i.test(txt) ? 'sold' : /on\s*sale|dijual|available|tersedia/i.test(txt) ? 'sale' : ''; });
+  return list.slice(0, 40).map(x => ({ url: x.url, status: x.status }));
 }
+const INDEX_PATH = /^\/(project|projects|proyek|produk|products)\/?$/i;
+/** Halaman daftar proyek (mis. /project, tab Landed House / Commercial di halaman yang sama). */
+function isIndexPage(u) { const m = String(u || '').trim().match(/^https?:\/\/[^\/?#]+(\/[^?#]*)?/i); return !!(m && INDEX_PATH.test(m[1] || '')); }
+function indexLinks(html, base) { const host = hostOf(base), out = {};
+  String(html).replace(/href\s*=\s*["']([^"']+)["']/gi, (m, h) => { const u = absUrl(h, base).replace(/[?#].*$/, ''); if (/^https?:\/\//i.test(u) && hostOf(u) === host && isIndexPage(u)) out[normUrl(u)] = u.replace(/^http:/i, 'https:'); return m; });
+  return Object.keys(out).map(k => out[k]).slice(0, 2); }
+/**
+ * Beranda / halaman daftar proyek situs resmi: tiap proyek didaftarkan sebagai sumber sendiri.
+ * Proyek "On Sale" aktif (dibaca tiap sinkron); proyek "Sold Out" dicatat tapi tidak aktif. Status ikut diperbarui bila berubah di situs.
+ */
 function discoverProjects(s, html) {
-  const links = projectLinks(html, s.url); if (!links.length) return { total: 0, added: 0 };
-  const have = {}; readTable('Sources').forEach(x => { have[normUrl(x.url)] = 1; });
+  const map = {};
+  const add = arr => arr.forEach(x => { const k = normUrl(x.url); if (!map[k] || (x.status && !map[k].status)) map[k] = x; });
+  add(projectLinks(html, s.url));
+  if (isSiteRoot(s.url)) indexLinks(html, s.url).forEach(u => {      // beranda hanya memuat sebagian proyek: buka juga halaman daftar proyeknya
+    try { const r = UrlFetchApp.fetch(u, { muteHttpExceptions: true, followRedirects: true, headers: { 'User-Agent': 'Mozilla/5.0 (LandIntel; Apps Script)' } }); if (r.getResponseCode() < 400) { const L = projectLinks(r.getContentText(), u); L.forEach(x => { const k = normUrl(x.url); if (map[k] && x.status) map[k].status = x.status; }); add(L); } } catch (e) {} });
+  const links = Object.keys(map).map(k => map[k]); if (!links.length) return { total: 0, added: 0, sale: 0, sold: 0 };
+  const have = {}; readTable('Sources').forEach(x => { have[normUrl(x.url)] = x; });
   let added = 0;
-  links.forEach(u => { if (have[normUrl(u)]) return; const name = u.replace(/\/+$/, '').split('/').pop();
-    upsert('Sources', { id: 'src-' + slug(hostOf(u) + '-' + name), developer: s.developer || '', label: (s.developer || hostOf(u)) + ' · ' + name.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), url: u, active: true, note: 'Halaman proyek di situs resmi (ditemukan otomatis dari ' + hostOf(u) + ')', parent: s.id });
-    have[normUrl(u)] = 1; added++; });
-  return { total: links.length, added };
+  links.forEach(x => { const old = have[normUrl(x.url)], name = x.url.replace(/\/+$/, '').split('/').pop(), sold = x.status === 'sold';
+    if (!old) {
+      upsert('Sources', { id: 'src-' + slug(hostOf(x.url) + '-' + name), developer: s.developer || '', label: (s.developer || hostOf(x.url)) + ' · ' + name.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) + (sold ? ' (sold out)' : ''),
+        url: x.url, active: !sold, note: (sold ? 'Sold out di situs resmi; tidak dibaca tiap sinkron. ' : '') + 'Halaman proyek di situs resmi (ditemukan otomatis dari ' + hostOf(x.url) + ')', parent: s.id });
+      have[normUrl(x.url)] = { url: x.url }; added++; return; }
+    if (old.parent && x.status && !!old.active === sold)      // status di situs berubah: sumber otomatis ikut diaktifkan / dinonaktifkan
+      upsert('Sources', { id: old.id, active: !sold, label: String(old.label || '').replace(/ \(sold out\)$/, '') + (sold ? ' (sold out)' : ''), note: (sold ? 'Sold out di situs resmi; tidak dibaca tiap sinkron. ' : '') + String(old.note || '').replace(/^Sold out di situs resmi; tidak dibaca tiap sinkron\. /, '') });
+  });
+  return { total: links.length, added, sale: links.filter(x => x.status === 'sale').length, sold: links.filter(x => x.status === 'sold').length };
 }
 /** Gambar tipe unit / denah di halaman (dikenali dari nama filenya), paling banyak 8. */
 function typeImages(html, base) {
@@ -380,7 +405,7 @@ function upsertUnits(units, s) {
     const pr = price !== null ? price : (prev ? num(prev.price) : null);
     upsert('Competitors', {
       id, developer: dev, project: u.project || (prev && prev.project) || '', cluster: u.cluster, unitType: type || variant || (prev && prev.unitType) || '',
-      tier: tierOf(old('lb'), pr, u.tier, name), lt: old('lt'), lb: old('lb'), kt: old('kt'), km: old('km'), floors: old('floors'), price: pr,
+      tier: tierOf(old('lb'), pr, /commercial/i.test(name + ' ' + (u.project || '')) ? 'Shophouse' : u.tier, name), lt: old('lt'), lb: old('lb'), kt: old('kt'), km: old('km'), floors: old('floors'), price: pr,
       priceBasis: price !== null ? (u.priceBasis || '') : txt('priceBasis'), stock: keep('stock'), sold: keep('sold'), months: keep('months'),
       promo: txt('promo'), notes: txt('notes'), source: s.label, sourceUrl: s.url, sourceDate: u.sourceDate || (prev && prev.sourceDate) || 'tanggal tidak tercantum',
       ...(u.image && !(prev && prev.image) ? { image: u.image } : {}), ...(u.plan && !(prev && prev.plan) ? { plan: u.plan } : {}),
