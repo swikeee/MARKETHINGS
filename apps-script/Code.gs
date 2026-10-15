@@ -404,8 +404,8 @@ function upsertUnits(units, s) {
     }
     // stok / terjual / bulan: sumber publik jarang memuatnya. Bila sumber tidak memberi angkanya, nilai yang sudah ada di Sheet (diisi tangan atau angka contoh) dipertahankan.
     const fromSrc = ['stock', 'sold', 'months'].some(k => num(u[k]) !== null);
-    // produk baru tanpa data penjualan: diberi serapan contoh (ditandai dummy) supaya langsung ikut di grafik serapan; isi angka asli lewat Edit
-    const fake = !fromSrc && !prev ? dummyAbs(id) : null;
+    // produk baru tanpa data penjualan: terjual dicatat 0 (serapan 0) sampai angka aslinya diisi lewat Edit
+    const fake = !fromSrc && !prev ? { stock: null, sold: 0, months: null } : null;
     const keep = k => num(u[k]) !== null ? num(u[k]) : (prev ? num(prev[k]) : (fake ? fake[k] : null));
     // kolom yang tidak dimuat sumber ini (mis. halaman resmi tanpa harga) tidak menghapus isi lama
     const old = k => num(u[k]) !== null ? num(u[k]) : (prev ? num(prev[k]) : null), txt = k => String(u[k] || '').trim() || (prev ? String(prev[k] || '') : '');
@@ -416,17 +416,13 @@ function upsertUnits(units, s) {
       priceBasis: price !== null ? (u.priceBasis || '') : txt('priceBasis'), stock: keep('stock'), sold: keep('sold'), months: keep('months'),
       promo: txt('promo'), notes: txt('notes'), source: s.label, sourceUrl: s.url, sourceDate: u.sourceDate || (prev && prev.sourceDate) || 'tanggal tidak tercantum',
       ...(u.image && !(prev && prev.image) ? { image: u.image } : {}), ...(u.plan && !(prev && prev.plan) ? { plan: u.plan } : {}),
-      isOwn: false, auto: true, dummy: fromSrc ? false : !!((prev && prev.dummy) || fake), syncedAt: now(), updatedAt: now(),
+      isOwn: false, auto: true, dummy: fromSrc ? false : !!(prev && prev.dummy), syncedAt: now(), updatedAt: now(),
     });
     if (!prev) existing.push({ id, developer: dev, cluster: u.cluster, unitType: type || variant, lt: num(u.lt), lb: num(u.lb), price, isOwn: false, auto: true });
     rows++;
   });
   return { rows, priceChanges };
 }
-
-/** Serapan contoh yang tetap (dari id): stok 20-80 unit, 4-18 bulan, terjual 25-70%. */
-function dummyAbs(id) { let x = 0; String(id).split('').forEach(ch => { x = (x * 31 + ch.charCodeAt(0)) >>> 0; });
-  const stock = 20 + x % 61, months = 4 + (x >>> 8) % 15; return { stock, months, sold: Math.round(stock * (25 + (x >>> 16) % 46) / 100) }; }
 
 function tierOf(lb, price, given, name, lt) {
   if (/student|cikonengraya/i.test(String(name || ''))) return 'Student House';

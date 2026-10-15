@@ -1572,7 +1572,7 @@ function showTab(t){
 // ---------- competitor analytics ----------
 const TIERS = ["Milenial","Deluxe","Premium","Shophouse","Student House"];
 const has = v => v !== null && v !== undefined && v !== "";
-const absorb = c => num(c.months) > 0 && has(c.sold) ? num(c.sold)/num(c.months) : null;
+const absorb = c => num(c.months) > 0 && has(c.sold) ? num(c.sold)/num(c.months) : has(c.sold) && num(c.sold) === 0 ? 0 : null;      // terjual 0 tanpa bulan = belum ada data serapan, dihitung 0
 const pm2 = c => num(c.lb) > 0 && num(c.price) > 0 ? num(c.price)/num(c.lb) : null;
 const sell = c => num(c.stock) > 0 && has(c.sold) ? num(c.sold)/num(c.stock) : null;
 const avg = a => { a = a.filter(v => v !== null && Number.isFinite(v)); return a.length ? a.reduce((x,y)=>x+y,0)/a.length : 0; };
@@ -1897,7 +1897,7 @@ function drawCompCharts(rows, animate){
   const ob = chartBase(); ob.indexAxis="y"; ob.scales.y.grid={display:false};
   if (animate) ob.animation = {duration:1000, easing:"easeOutQuart", delay:ctx=>ctx.dataIndex*60};
   ob.plugins.tooltip.callbacks={label:ctx=>`${nf(ctx.raw,1)} unit/bln`};
-  ob.plugins.tooltip.callbacks={title:items=>{ const c = s[items[0].dataIndex]; return `${absLabel(c)} · ${c.developer}`; }, label:ctx=>`${nf(ctx.raw,1)} unit/bln · ${s[ctx.dataIndex].tier}${absDummy(s[ctx.dataIndex]) ? " · dummy" : ""}`};
+  ob.plugins.tooltip.callbacks={title:items=>{ const c = s[items[0].dataIndex]; return `${absLabel(c)} · ${c.developer}`; }, label:ctx=>`${nf(ctx.raw,1)} unit/bln · ${s[ctx.dataIndex].tier}${absDummy(s[ctx.dataIndex]) ? " · dummy" : ""}${!(num(s[ctx.dataIndex].months) > 0) ? " · belum ada data penjualan" : ""}`};
   if (s.length) mk("chAbs",{type:"bar",data:{labels:s.map(c=>cut(absLabel(c))),datasets:[{data:s.map(absorb),backgroundColor:s.map(c=>c.isOwn?A:devColor(c.developer,false)),borderRadius:3,barThickness:14}]},options:ob}, {fmt:v => nf(v,1)});
   // serapan rata-rata per segmen, satu batang per developer (warna developer sama dengan grafik lain)
   const withA = rows.filter(c => absorb(c) !== null), segs = TIERS.filter(t => withA.some(c => c.tier === t));
@@ -1918,9 +1918,9 @@ function typeAbsorbRows(rows){
   rows.filter(c => absorb(c) !== null).forEach(c => { const a = absorb(c);
     if (!c.isOwn || (c.unitType && c.unitType !== c.cluster)){ const parts = String(c.cluster || "").split(" · "), ut = c.unitType && c.unitType !== c.cluster ? c.unitType : "";
       const tl = ut ? typeLabel(c) : "", cutAt = tl.indexOf(" - ");      // nama tipe seragam dengan galeri: "5x17 Standard", "Corner"
-      out.push({own:!!c.isOwn, dev:c.developer, name:ut ? (cutAt > 0 ? tl.slice(cutAt + 3) : tl) : (parts.length > 1 ? parts.slice(1).join(" · ") : c.cluster), sub:ut ? (cutAt > 0 ? tl.slice(0, cutAt) : c.cluster) : (parts.length > 1 ? parts[0] : ""), seg:c.tier, v:a, dummy:!!c.dummy, tip:`${nf(num(c.sold))} unit terjual dalam ${nf(num(c.months))} bulan`}); return; }
+      out.push({own:!!c.isOwn, dev:c.developer, name:ut ? (cutAt > 0 ? tl.slice(cutAt + 3) : tl) : (parts.length > 1 ? parts.slice(1).join(" · ") : c.cluster), sub:ut ? (cutAt > 0 ? tl.slice(0, cutAt) : c.cluster) : (parts.length > 1 ? parts[0] : ""), seg:c.tier, v:a, dummy:!!c.dummy, tip:num(c.months) > 0 ? `${nf(num(c.sold))} unit terjual dalam ${nf(num(c.months))} bulan` : "Belum ada data penjualan, dihitung 0"}); return; }
     const types = V ? V.rows.filter(r => tnorm(r.cluster) === tnorm(c.cluster)) : [], sold = types.reduce((x, r) => x + r.sold, 0);
-    if (!types.length || !sold){ out.push({own:true, dev:c.developer, name:c.cluster, sub:"semua tipe", seg:c.tier, v:a, dummy:!!c.dummy, tip:`${nf(num(c.sold))} unit terjual dalam ${nf(num(c.months))} bulan`}); return; }
+    if (!types.length || !sold){ out.push({own:true, dev:c.developer, name:c.cluster, sub:"semua tipe", seg:c.tier, v:a, dummy:!!c.dummy, tip:num(c.months) > 0 ? `${nf(num(c.sold))} unit terjual dalam ${nf(num(c.months))} bulan` : "Belum ada data penjualan, dihitung 0"}); return; }
     types.forEach(r => out.push({own:true, dev:c.developer, name:r.type, sub:titleCase(c.cluster), seg:r.seg || c.tier, v:a*r.sold/sold, dummy:!!c.dummy, split:true, tip:`${nf(Math.round(r.sold/sold*100))}% dari penjualan ${titleCase(c.cluster)} (${nf(r.sold)} dari ${nf(sold)} unit di rekap) × serapan cluster ${nf(a, 1)} unit/bln`})); });
   return out;
 }
