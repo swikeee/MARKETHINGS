@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>MARKETHINGS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Inter:ital,wght@0,500;0,600;1,400&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700;1,800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Inter:ital,wght@0,500;0,600;1,400&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 /* Layout: app shell — fixed sidebar (segments) + sticky topbar + 1280px content; neutral zinc surfaces, teal data accent */
@@ -767,93 +767,6 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
 .sg-rule{display:block;width:clamp(56px,8vw,120px);height:4px;border-radius:3px;background:#fff;margin:clamp(14px,2vw,24px) auto 0;transform:scaleX(0);animation:spBar .4s cubic-bezier(.2,.9,.2,1) .3s forwards}
 @media (prefers-reduced-motion:reduce){#splash,#segSplash{display:none!important}}
 </style>
-<style id="skin-poparkner">
-/* ================= Gaya Poparkner: sidebar hijau tua, aksen emas, banner biru malam bergrid titik, font Plus Jakarta Sans ================= */
-:root{
-  --f-display:"Plus Jakarta Sans",system-ui,sans-serif; --f-body:"Plus Jakarta Sans",system-ui,sans-serif;
-  --bg:#F3F5F4; --surface:#FFFFFF; --surface-2:#EEF2F0; --ink:#13221E; --muted:#66756F; --line:#E2E8E5;
-  --primary:#0E5A4A; --primary-ink:#FFFFFF; --accent:#0E5A4A; --accent-ink:#FFFFFF; --accent-soft:#E3F1EC; --comp:#66756F;
-  --c1:#137A62; --c2:#1D4ED8; --c3:#C9A227; --c4:#6D28D9; --c5:#C2410C; --c6:#66756F;
-  --ok:#15803D; --ok-soft:#DCF5E4; --warn:#A16207; --warn-soft:#FDF3D8; --bad:#C2410C; --bad-soft:#FDECDF; --info:#1D4ED8; --info-soft:#E3EBFD;
-  --gold:#F6C343; --gold-ink:#1A1300; --side-bg:#0B2621; --side-ink:#B7CDC6; --side-hi:#1B4A40; --side-hover:#13362F;
-  --pp-night:radial-gradient(ellipse at 78% 35%,#0A3C9E 0%,#002470 42%,#000F33 100%);
-  --pp-dots:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1px);
-  --r:14px; --shadow:0 1px 2px rgba(19,34,30,.05);
-}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#07120F; --surface:#0E1C18; --surface-2:#15261F; --ink:#E6EFEC; --muted:#8FA39C; --line:#1F332D;
-  --primary:#3FBF9A; --primary-ink:#06130F; --accent:#3FBF9A; --accent-ink:#06130F; --accent-soft:#12302A; --comp:#8FA39C;
-  --c1:#3FBF9A; --c2:#6B93F5; --c3:#F6C343; --c4:#A78BFA; --c5:#F08A5D; --c6:#8FA39C;
-  --ok:#4ADE80; --ok-soft:#10261A; --warn:#F6C343; --warn-soft:#2B2210; --bad:#F87171; --bad-soft:#2E1515; --info:#6B93F5; --info-soft:#14203A;
-  --side-bg:#040D0B; --side-hi:#123A31; --side-hover:#0D2722 }}
-:root[data-theme="dark"]{
-  --bg:#07120F; --surface:#0E1C18; --surface-2:#15261F; --ink:#E6EFEC; --muted:#8FA39C; --line:#1F332D;
-  --primary:#3FBF9A; --primary-ink:#06130F; --accent:#3FBF9A; --accent-ink:#06130F; --accent-soft:#12302A; --comp:#8FA39C;
-  --c1:#3FBF9A; --c2:#6B93F5; --c3:#F6C343; --c4:#A78BFA; --c5:#F08A5D; --c6:#8FA39C;
-  --ok:#4ADE80; --ok-soft:#10261A; --warn:#F6C343; --warn-soft:#2B2210; --bad:#F87171; --bad-soft:#2E1515; --info:#6B93F5; --info-soft:#14203A;
-  --side-bg:#040D0B; --side-hi:#123A31; --side-hover:#0D2722 }
-body{font-family:var(--f-body)}
-h2,h3,.page-h h2,.hero-h,.sec-h h2{font-family:var(--f-display);font-weight:800;letter-spacing:-.025em}
-.panel h3,.ph h3{font-weight:700}
-/* sidebar hijau tua seperti Poparkner */
-.side{background:var(--side-bg);border-right:0;color:var(--side-ink)}
-.logo .mk{background:var(--gold);color:var(--gold-ink);border-radius:9px;font-weight:800}
-.wordmark{color:#fff;font-size:16px!important;font-weight:800!important;letter-spacing:-.02em!important}
-.wordmark i{color:var(--gold);font-style:italic}
-.logo small{color:#7FA69A}
-.slogan{color:#7FA69A}
-.navg .gl{color:#5F8378;font-weight:700;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
-.side nav button{color:var(--side-ink);border-radius:9px;font-weight:500}
-.side nav button:hover{background:var(--side-hover);color:#fff}
-.side nav button[aria-selected="true"]{background:var(--side-hi);color:#fff}
-.side nav button .ct{color:#7FA69A}
-.side .foot{background:transparent;border:0;border-top:1px solid #1D3E37;border-radius:0;color:var(--side-ink)}
-.side .foot p{color:#7FA69A}
-.side .foot .btn{background:transparent;color:#CFE1DB;border-color:#2C4C44}
-/* bar atas putih, judul tebal */
-header.top{background:color-mix(in srgb,var(--surface) 92%,transparent);border-bottom:1px solid var(--line)}
-.crumb b{font-weight:700}
-/* tombol & komponen */
-.btn{border-radius:9px;font-weight:600}
-.btn.primary{background:var(--primary);border-color:var(--primary);color:var(--primary-ink)}
-.btn.primary:hover{background:#137A62;border-color:#137A62}
-.seg{border-radius:11px;background:var(--surface-2)} .seg button{border-radius:8px;font-weight:600}
-.panel,.kpi{border-radius:14px}
-.kpi .v{font-weight:800}
-.jump a.on{background:var(--primary);border-color:var(--primary);color:var(--primary-ink)}
-th{font-weight:700;letter-spacing:.05em}
-/* banner tiap halaman: biru malam + grid titik + cahaya emas, teks putih */
-.hero{border:0;border-radius:18px;color:#fff}
-.hero::before{background:var(--pp-night)!important;filter:none!important}
-.hero::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background-image:var(--pp-dots);background-size:22px 22px;-webkit-mask-image:linear-gradient(90deg,#000,transparent 70%);mask-image:linear-gradient(90deg,#000,transparent 70%)}
-#salesHero::before{background:radial-gradient(circle at 85% 20%,rgba(246,195,67,.22),transparent 40%),var(--pp-night)!important}
-#compHero::before{background:radial-gradient(circle at 80% 30%,rgba(246,195,67,.2),transparent 42%),radial-gradient(ellipse at 70% 40%,#0B4A8F 0%,#03285F 45%,#000F33 100%)!important}
-#landHero::before{background:radial-gradient(circle at 85% 25%,rgba(246,195,67,.2),transparent 40%),radial-gradient(ellipse at 75% 35%,#0E5A4A 0%,#0B2E27 50%,#03100D 100%)!important}
-#simHero::before{background:radial-gradient(circle at 85% 25%,rgba(246,195,67,.2),transparent 40%),radial-gradient(ellipse at 75% 35%,#2B2A8F 0%,#11155E 48%,#03052A 100%)!important}
-.hero .eyebrow{color:#9FB6E6;font-family:"Geist Mono",monospace;letter-spacing:.25em}
-.hero .page-h h2,.hero .hero-h{color:#fff;font-weight:800;font-size:clamp(34px,5vw,60px)!important;letter-spacing:-.045em}
-.hero .page-h p,.hero .hero-p,.hero .note{color:#C9D6F2}
-.hero .page-h p b{color:var(--gold)}
-.hero .seg{background:rgba(255,255,255,.08)!important;border:1px solid rgba(255,255,255,.14)}
-.hero .seg button{color:#C9D6F2} .hero .seg button[aria-pressed="true"]{background:var(--gold);color:var(--gold-ink);box-shadow:none}
-.hero .btn:not(.primary){background:rgba(255,255,255,.08)!important;color:#fff;border-color:rgba(255,255,255,.18)}
-.hero .btn:not(.primary):hover{background:rgba(255,255,255,.16)!important}
-.hero .btn.primary{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
-.hero-k .kpi{background:rgba(255,255,255,.07)!important;border:1px solid rgba(255,255,255,.14)!important;color:#fff;box-shadow:0 20px 50px rgba(0,0,0,.25)!important}
-.hero-k .kpi .l,.hero-k .kpi .s{color:#9FB6E6}
-.hero-k .kpi .v{color:#fff}
-.hero-k .spark .l{stroke:var(--gold)} .hero-k .spark .a{fill:rgba(246,195,67,.14)}
-.hero-sum{background:rgba(0,15,51,.55)!important;border:1px solid rgba(255,255,255,.12)!important;color:#C9D6F2}
-.hero-sum .hs{color:#C9D6F2} .hero-sum .hs b{color:#fff}
-.hero-sum .hs .ic{background:rgba(246,195,67,.16);color:var(--gold)}
-.hero .chip,.hero .dummy{background:var(--gold);color:var(--gold-ink)}
-.scroll-cue{color:#9FB6E6}
-/* pembatas bagian bergambar: lapisan biru malam */
-.sec-h.scene::before{filter:brightness(.55) saturate(.9)}
-.sec-h.scene h2{font-weight:800}
-/* splash pembuka & antar segmen: biru malam + titik, seperti intro Poparkner */
-#splash,#segSplash{--sp-grad:radial-gradient(40% 36% at 50% 46%, rgba(246,195,67,.22) 0%, rgba(246,195,67,0) 70%),radial-gradient(ellipse at 50% 45%,#0A3C9E 0%,#002470 45%,#000F33 100%)}
-</style>
 </head>
 <body>
 <div id="splash" role="presentation">
@@ -901,7 +814,7 @@ th{font-weight:700;letter-spacing:.05em}
 
 <div class="shell">
 <aside class="side">
-  <div class="logo"><span class="mk">M</span><span><b class="wordmark" aria-label="Markethings">Marke<i>things</i></b><small>Prodev</small></span></div>
+  <div class="logo"><span class="mk">M</span><span><b class="wordmark">MARKETHINGS</b><small>Prodev</small></span></div>
   <p class="slogan">Everything Marketing in One Place</p>
   <nav role="tablist" aria-label="Segmen dashboard">
     <div class="navg"><div class="gl">Analitik</div>
