@@ -38,7 +38,7 @@ function makeEnv(codePath){
       formatDate: (d, tz, f) => { const z = new Date(d.getTime() + 7*3600e3).toISOString(); return f === 'yyyy-MM' ? z.slice(0,7) : z.slice(0,10); } },
     DriveApp: { createFolder: name => { const f = {id:'fld' + crypto.randomBytes(5).toString('hex'), name}; drive.folders[f.id] = f; return mkFolder(f); },
       getFolderById: id => { if (!drive.folders[id]) throw new Error('No item with the given ID could be found'); return mkFolder(drive.folders[id]); },
-      getFileById: id => { if (id === 'ss-simulasi') return { getLastUpdated: () => new Date(state.modTime) }; const f = drive.files[id]; if (!f) throw new Error('not found'); return { setTrashed: t => { f.trashed = t; } }; } },
+      getFileById: id => { if (id === 'ss-simulasi') return { getLastUpdated: () => new Date(state.modTime) }; const f = drive.files[id]; if (!f) throw new Error('not found'); return { setTrashed: t => { f.trashed = t; }, getBlob: () => blobOf([...f.bytes], f.type, f.name) }; } },
     ContentService: { MimeType: {JSON:'application/json'}, createTextOutput: t => ({ text: t, setMimeType(){ return this; } }) },
     UrlFetchApp: { fetch: (url, o) => { const r = fetchImpl(url, o); return { getResponseCode: () => r.code, getContentText: () => r.body, getBlob: () => blobOf([...Buffer.from(r.body)], r.type, 'x') }; } },
     Logger: { log: m => log.push(String(m)) }, console,

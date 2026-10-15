@@ -165,6 +165,8 @@ function handle(action, p) {
       case 'selfTest':       return out({ ok: true, ...selfTest() });
       case 'saveFile':       return out({ ok: true, row: saveFile(p) });
       case 'deleteFile':     return out({ ok: deleteFile(p.id) });
+      case 'getFile':        return out({ ok: true, ...getFile(p.id) });      // isi file arsip (brosur) untuk dipotong fotonya di laporan PPT
+      case 'getImage':       return out({ ok: true, ...getImage(p.url) });    // gambar tipe dari situs developer (tanpa izin CORS) untuk laporan PPT
       case 'syncNow':        return out({ ok: true, ...syncAll('manual', true) });
       case 'fetchUrl':       return out({ ok: true, ...fetchOne(p.url, p.note, p.developer) });
       case 'ai':             return out({ ok: true, text: aiText([{ type: 'text', text: String(p.prompt || '').slice(0, 180000) }], 2500, aiEffort()), effort: aiEffort() || 'default', provider: aiProvider() });
@@ -713,6 +715,27 @@ function saveFile(p) {
     url: file.getUrl(), driveId: file.getId(), note: p.note || '', linkedTo: p.linkedTo || '', createdAt: now() });
   delete row.driveId;
   return row;
+}
+
+/** Isi satu file arsip (dibaca lewat id di tab Files). Dibatasi 25 MB supaya respons tidak terlalu besar. */
+function getFile(id) {
+  const f = readTable('Files').find(x => String(x.id) === String(id));
+  if (!f || !f.driveId) throw new Error('File tidak ada di arsip Drive');
+  const blob = DriveApp.getFileById(f.driveId).getBlob(), bytes = blob.getBytes();
+  if (bytes.length > 25 * 1048576) throw new Error('File terlalu besar');
+  return { name: f.name, type: f.type || blob.getContentType(), base64: Utilities.base64Encode(bytes) };
+}
+
+/** Ambil satu gambar https (maks 5 MB). Hanya untuk gambar: jenis isinya harus image/*. */
+function getImage(url) {
+  url = String(url || '');
+  if (!/^https:\/\/[^\s"'<>]{1,1000}$/.test(url)) throw new Error('URL gambar tidak valid');
+  const r = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
+  if (r.getResponseCode() !== 200) throw new Error('Gambar tidak bisa diambil (' + r.getResponseCode() + ')');
+  const blob = r.getBlob(), type = String(blob.getContentType() || '').split(';')[0], bytes = blob.getBytes();
+  if (!/^image\/(jpeg|png|webp|gif)$/.test(type)) throw new Error('Bukan gambar');
+  if (bytes.length > 5 * 1048576) throw new Error('Gambar terlalu besar');
+  return { type: type, base64: Utilities.base64Encode(bytes) };
 }
 
 function deleteFile(id) {

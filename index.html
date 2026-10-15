@@ -5237,6 +5237,79 @@ const decList = s => String(s ?? "").split(/\s*[;|\/]\s*|,\s+|\s+/).map(decId).f
 const pctOf = (a, b) => b ? a/b*100 : null;
 const pctS = (v, d=0) => v === null || v === undefined || !isFinite(v) ? "–" : nf(v, d) + "%";
 
+// ---- kompetitor di laporan: data dilengkapi dari baris kembarnya (developer sama, LT & LB sama), nama mengikuti judul galeri ----
+const NUMK = ["price","kt","km","floors"], lotOf = c => LOT_RX.test(typeLabel(c));
+const BRO_STOP = new Set(["pricelist","price","list","brosur","brochure","ebrochure","rukan","ruko","cluster","commercial","business","house","rumah","type","tipe","standard","standar","corner","lantai","summarecon","bandung","kota","baru","parahyangan","project","proyek","residence","pdf","jpg","jpeg","png","lipat","final","update","harga"]);
+const broToks = v => String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").split(" ").filter(t => t.length >= 4 && !BRO_STOP.has(t) && !/^\d+$/.test(t));
+/** File arsip (brosur / pricelist) yang paling mungkin memuat produk ini: nama file di kolom Sumber, lalu kecocokan nama cluster / proyek dengan nama file. */
+function broFiles(c){
+  const src = String(c.source || "").replace(/^Brosur:\s*/i, "").trim().toLowerCase(), want = [...new Set([...broToks(c.cluster), ...broToks(c.project), ...broToks(c.unitType)])];
+  return allFiles().filter(f => !f.linkedTo && (f.blob || f.url) && (isPdf(f) || /^image\//.test(f.type || ""))).map(f => {
+    const nm = String(f.name || "").toLowerCase(), ft = broToks(f.name + " " + (f.note || "")), hit = want.filter(u => ft.some(t => u.startsWith(t) || t.startsWith(u))).length;
+    return {f, s:(src && src === nm ? 10 : 0) + hit*2}; }).filter(x => x.s >= 2).sort((a, b) => b.s - a.s).map(x => x.f); }
+function fillComp(c, all){
+  const tw = all.filter(o => o !== c && o.id !== c.id && sameDev(o.developer, c.developer) && num(o.lt) > 0 && num(o.lb) > 0 && num(o.lt) === num(c.lt) && num(o.lb) === num(c.lb));
+  const r = {...c}; if (!tw.length) return r;
+  const named = !lotOf(c) && tw.find(lotOf); if (named) Object.assign(r, {cluster:named.cluster, unitType:named.unitType, project:named.project});     // nama resmi (dengan ukuran kavling), bukan judul listing artikel
+  if (!(num(r.price) > 0)){ const o = tw.find(o => num(o.price) > 0); if (o){ r.price = o.price; r.priceBasis = o.priceBasis || ""; } }
+  for (const k of ["kt","km","floors"]) if (!(num(r[k]) > 0)){ const o = tw.find(o => num(o[k]) > 0); if (o) r[k] = o[k]; }
+  for (const k of ["image","plan"]) if (!okImg(r[k])){ const o = tw.find(o => okImg(o[k])); if (o) r[k] = o[k]; }
+  if (!(num(r.stock) > 0 && has(r.sold))){ const o = tw.find(o => num(o.stock) > 0 && has(o.sold)); if (o){ r.stock = o.stock; r.sold = o.sold; } }
+  if (!broFiles(r).length){ const o = tw.find(o => broFiles(o).length); if (o) r._broFrom = o; }
+  return r; }
+const compScore = c => (num(c.price) > 0 ? 6 : 0) + ["lt","lb","kt","km","floors"].filter(k => num(c[k]) > 0).length + (okImg(c.image) || broFiles(c._broFrom || c).length ? 2 : 0) + (num(c.stock) > 0 && has(c.sold) ? 1 : 0);
+/** Produk kompetitor satu segmen, sudah dilengkapi dan tanpa kembar. */
+function segComps(seg){
+  const all = comps.filter(c => !c.isOwn), best = {};
+  all.filter(c => c.tier === seg).map(c => fillComp(c, all)).filter(c => num(c.lt) > 0 || num(c.lb) > 0).forEach(c => {
+    const k = [canonName(c.developer), num(c.lt), num(c.lb), pKey(typeLabel(c))].join("|"); if (!best[k] || compScore(c) > compScore(best[k])) best[k] = c; });
+  return Object.values(best); }
+const PHOTO_CACHE = new Map();
+async function archiveBlob(f){
+  if (f.blob) return f.blob instanceof File ? f.blob : new File([f.blob], f.name, {type:f.type});
+  if (!(f.url && mode === "live" && TOKEN)) return null;
+  const r = await api("getFile", {id:f.id}), bin = atob(r.base64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return new File([u], r.name || f.name, {type:r.type || f.type}); }
+/** Posisi gambar raster di satu halaman PDF (0–1, dari kiri atas), dibaca dari daftar perintah gambarnya. Tanpa AI. */
+async function pageImages(doc, no){
+  const O = (await loadPdfLib()).OPS, pg = await doc.getPage(no), vp = pg.getViewport({scale:1}), ol = await pg.getOperatorList(), out = [], st = [];
+  const mul = (a, b) => [a[0]*b[0] + a[2]*b[1], a[1]*b[0] + a[3]*b[1], a[0]*b[2] + a[2]*b[3], a[1]*b[2] + a[3]*b[3], a[0]*b[4] + a[2]*b[5] + a[4], a[1]*b[4] + a[3]*b[5] + a[5]];
+  let m = [1, 0, 0, 1, 0, 0];
+  for (let i = 0; i < ol.fnArray.length; i++){ const f = ol.fnArray[i], a = ol.argsArray[i];
+    if (f === O.save) st.push(m); else if (f === O.restore) m = st.pop() || [1, 0, 0, 1, 0, 0]; else if (f === O.transform) m = mul(m, a);
+    else if (f === O.paintFormXObjectBegin){ st.push(m); if (Array.isArray(a?.[0]) && a[0].length === 6) m = mul(m, a[0]); } else if (f === O.paintFormXObjectEnd) m = st.pop() || [1, 0, 0, 1, 0, 0];
+    else if (f === O.paintImageXObject || f === O.paintInlineImageXObject || f === O.paintJpegXObject){
+      const pts = [[0, 0], [1, 0], [0, 1], [1, 1]].map(([x, y]) => vp.convertToViewportPoint(m[0]*x + m[2]*y + m[4], m[1]*x + m[3]*y + m[5])), xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+      const b = [Math.max(0, Math.min(...xs))/vp.width, Math.max(0, Math.min(...ys))/vp.height, Math.min(vp.width, Math.max(...xs))/vp.width, Math.min(vp.height, Math.max(...ys))/vp.height];
+      if (b[2] > b[0] && b[3] > b[1]) out.push(b); } }
+  return out; }
+/** Foto terbesar di halaman (fasad / render), bukan latar belakang satu halaman penuh bila ada pilihan lain. */
+function pickPhotoBox(list){
+  const area = b => (b[2] - b[0])*(b[3] - b[1]), ok = list.filter(b => area(b) >= .03 && b[2] - b[0] >= .1 && b[3] - b[1] >= .08 && (b[2] - b[0])/(b[3] - b[1]) < 4 && (b[3] - b[1])/(b[2] - b[0]) < 3).sort((a, b) => area(b) - area(a));
+  return ok.find(b => area(b) < .85) || ok[0] || null; }
+const lotKey = c => { const m = typeLabel(c).match(LOT_RX); return m ? `${m[1]}x${m[2]}` : ""; };
+function broPageScore(text, c){ const t = String(text || "").toLowerCase().replace(/×/g, "x").replace(/(\d)\s*x\s*(\d)/g, "$1x$2"), lot = lotKey(c); let s = 0;
+  if (lot && t.includes(lot)) s += 3; broToks(c.unitType + " " + c.cluster).forEach(w => { if (t.includes(w)) s++; });
+  for (const k of ["lt","lb"]) if (num(c[k]) > 0 && new RegExp("\\b" + num(c[k]) + "\\b").test(t)) s++;
+  if (/\b(variant|varian)\b/.test(t) && /(standard|corner|hook)/.test(t)) s += .5; return s; }
+async function broPhoto(c, ar){
+  for (const f of broFiles(c).slice(0, 3)){ let file; try { file = await archiveBlob(f); } catch { file = null; } if (!file) continue;
+    if (!isPdf(file)){ const u = URL.createObjectURL(file); try { const r = await pptImg(u, ar, "contain"); if (r) return r; } finally { URL.revokeObjectURL(u); } continue; }
+    const P = await readBrochurePdf(file), order = P.pages.map(p => ({no:p.no, s:broPageScore(p.text, c)})).sort((a, b) => b.s - a.s || a.no - b.no);
+    for (const {no} of order.slice(0, 10)){ let box; try { box = pickPhotoBox(await pageImages(P.doc, no)); } catch { box = null; } if (!box) continue;
+      const cv = await pdfPageCanvas(P.doc, no, 2200), x = Math.round(box[0]*cv.width), y = Math.round(box[1]*cv.height), w = Math.round((box[2] - box[0])*cv.width), h = Math.round((box[3] - box[1])*cv.height);
+      const k = document.createElement("canvas"); k.width = Math.max(8, w); k.height = Math.max(8, h); k.getContext("2d").drawImage(cv, x, y, w, h, 0, 0, k.width, k.height);
+      const r = await pptImg(k.toDataURL("image/jpeg", .9), ar, "contain"); if (r) return r; } }
+  return null; }
+/** Foto produk untuk slide kompetitor: potongan yang sudah tersimpan, gambar situs developer (lewat Apps Script bila diblokir CORS), lalu potongan otomatis dari brosur di arsip. */
+async function compPhoto(c, ar){
+  const key = [c.id, c.image ? String(c.image).length : 0, ar.toFixed(3)].join("|"); if (PHOTO_CACHE.has(key)) return PHOTO_CACHE.get(key);
+  let out = null;
+  if (okImg(c.image)){ out = await pptImg(c.image, ar, "contain");
+    if (!out && /^https:/i.test(c.image) && mode === "live" && TOKEN){ try { const r = await api("getImage", {url:c.image}); out = await pptImg(`data:${r.type};base64,${r.base64}`, ar, "contain"); } catch {} } }
+  if (!out) out = await broPhoto(c, ar).catch(() => null);
+  if (!out && c._broFrom) out = await broPhoto(c._broFrom, ar).catch(() => null);
+  PHOTO_CACHE.set(key, out); return out; }
 /** Semua angka untuk satu kuartal. Murni hitungan dari data yang sudah dimuat dashboard. */
 function quarterData(q){
   const ms = qMonths(q), pq = qShift(q, -1), yq = qShift(q, -4), nq = qShift(q, 1);
@@ -5277,10 +5350,11 @@ function quarterData(q){
   const segs = SEGMENTS.map(seg => {
     const own = clusters.filter(c => c.seg === seg && c.units).sort((a, b) => b.units - a.units)[0]; if (!own) return null;
     const ownC = comps.find(c => c.isOwn && c.cluster === own.name) || {}, ownAvg = own.rev/own.units;
-    const pool = comps.filter(c => !c.isOwn && c.tier === seg && num(c.price) > 0); if (!pool.length) return null;
-    const sorted = [...pool].sort((a, b) => (okImg(b.image) ? 1 : 0) - (okImg(a.image) ? 1 : 0) || Math.abs(num(a.price) - ownAvg) - Math.abs(num(b.price) - ownAvg));
+    const pool = segComps(seg); if (!pool.length) return null;
+    const near = c => num(c.price) > 0 ? Math.abs(num(c.price) - ownAvg)/ownAvg : 9;
+    const sorted = [...pool].sort((a, b) => compScore(b) - compScore(a) || near(a) - near(b));
     const pick = []; for (const c of sorted){ if (pick.length < 2 && !pick.some(p => sameDev(p.developer, c.developer))) pick.push(c); } for (const c of sorted){ if (pick.length < 2 && !pick.includes(c)) pick.push(c); }
-    const pr = pool.map(c => num(c.price)).sort((a, b) => a - b), med = pr.length % 2 ? pr[(pr.length-1)/2] : (pr[pr.length/2-1] + pr[pr.length/2])/2;
+    const pr = pool.map(c => num(c.price)).filter(v => v > 0).sort((a, b) => a - b), med = !pr.length ? null : pr.length % 2 ? pr[(pr.length-1)/2] : (pr[pr.length/2-1] + pr[pr.length/2])/2;
     const types = rows.filter(r => r.cluster === own.name), topT = [...types].sort((a, b) => b.soldQ - a.soldQ)[0] || {}, ct = types.reduce((a, r) => a + r.total, 0), cs = types.reduce((a, r) => a + r.toEnd, 0);
     return {seg, own, ownC, ownAvg, topT, soldPct:ct ? cs/ct*100 : null, sold:cs, total:ct, comps:pick, med, n:pool.length, devs:new Set(pool.map(c => canonName(c.developer))).size};
   }).filter(Boolean);
@@ -5494,21 +5568,25 @@ async function buildQuarterPpt(q){
     const d = T.chg(g.ownAvg, g.med), pos = d === null ? "" : Math.abs(d) < 3 ? "setara median" : `${nf(Math.abs(d))}% ${d > 0 ? "di atas" : "di bawah"} median`;
     const s = page(`PRODUK KOMPETITOR  –  ${g.seg.toUpperCase()}  –  ${QL}`, `Produk pembanding segmen ${g.seg} dari market research (${nf(g.n)} produk, ${nf(g.devs)} developer)`,
       `${g.seg}: harga rata-rata ${g.own.name} ${rp(g.ownAvg)}, ${pos} kompetitor (${rp(g.med)})`, MR_SRC);
-    const cards = [...g.comps.map(c => ({c, own:false})), {c:{...g.ownC, cluster:g.own.name, price:g.ownAvg, lt:g.topT.lt ?? g.ownC.lt, lb:g.topT.lb ?? g.ownC.lb, kt:g.topT.kt ?? g.ownC.kt, km:g.topT.km ?? g.ownC.km, floors:g.topT.floors ?? g.ownC.floors}, own:true}];
-    const w = (CW - 2*.3)/3, iy = 1.95, ih = 2.75, by = iy + ih + .08, bh = 2.05;
+    const ownType = g.topT.type && g.topT.type !== "Semua tipe" ? g.topT.type : "";
+    const cards = [...g.comps.map(c => ({c, own:false})), {c:{...g.ownC, developer:"Pororo Land", cluster:g.own.name, unitType:ownType, project:"", price:g.ownAvg, priceBasis:"", lt:g.topT.lt ?? g.ownC.lt, lb:g.topT.lb ?? g.ownC.lb, kt:g.topT.kt ?? g.ownC.kt, km:g.topT.km ?? g.ownC.km, floors:g.topT.floors ?? g.ownC.floors}, own:true}];
+    const w = (CW - 2*.3)/3, iy = 1.95, ih = 2.6, by = iy + ih + .08, bh = 2.32;
     for (let i = 0; i < 3; i++){ const card = cards[i], x = X + i*(w + .3);
       if (!card){ empty(s, x, iy, w, ih + bh + .08, "Belum ada pembanding lain"); continue; }
-      const c = card.c, img = await pptImg(okImg(c.image) ? c.image : null, w/ih, "contain");
-      if (img) s.addImage({data:img, x, y:iy, w, h:ih}); else { R(s, x, iy, w, ih, C.lt, C.ln); Tx(s, card.own ? "[ foto produk kita ]" : "[ foto belum tersedia ]", {x, y:iy, w, h:ih, align:"center", valign:"middle", italic:true, color:C.gr, fontSize:10}); }
+      const c = card.c, img = card.own ? (okImg(c.image) ? await pptImg(c.image, w/ih, "contain") : null) : await compPhoto(c, w/ih);
+      if (img) s.addImage({data:img, x, y:iy, w, h:ih}); else { R(s, x, iy, w, ih, C.lt, C.ln); Tx(s, card.own ? "[ foto produk kita ]" : "[ foto belum ada di arsip ]", {x, y:iy, w, h:ih, align:"center", valign:"middle", italic:true, color:C.gr, fontSize:10}); }
       R(s, x, by, w, bh, card.own ? C.navy : C.lt, card.own ? C.navy : C.ln);
-      const name = card.own ? `Pororo Land · ${g.own.name}` : (c.developer || "Kompetitor"), sub = card.own ? `Cluster terlaris ${g.seg}` + (g.topT.type && g.topT.type !== "Semua tipe" ? ` · ${g.topT.type}` : "") : typeLabel(c);
-      const spec = [num(c.kt) ? nf(c.kt) + " KT" : "", num(c.km) ? nf(c.km) + " KM" : "", num(c.floors) ? nf(c.floors) + " lantai" : ""].filter(Boolean).join("  –  ") || "Spesifikasi kamar belum ada";
-      const sold = card.own ? (g.soldPct !== null ? `Sold ${pctS(g.soldPct)} (${nf(g.sold)}/${nf(g.total)})` : `Terjual ${nf(g.own.units)} unit di ${QL}`) : num(c.stock) > 0 && has(c.sold) ? `Sold ${pctS(pctOf(num(c.sold), num(c.stock)))} (${nf(c.sold)}/${nf(c.stock)})` : "Data serapan belum ada";
-      const fg = card.own ? C.wh : C.ink;
-      Tx(s, [{text:name, options:{fontFace:HF, fontSize:13, bold:true, color:card.own ? C.or : C.navy, breakLine:true}}, {text:sub, options:{fontSize:9, italic:true, color:card.own ? C.mut : C.gr, breakLine:true, paraSpaceAfter:6}},
-        {text:`LT ${c.lt ? nf(c.lt) : "–"} / LB ${c.lb ? nf(c.lb) : "–"} m²  •  ${num(c.price) ? rp(c.price) : "–"} ${card.own ? "rata-rata" : (c.priceBasis ? "(" + c.priceBasis + ")" : "start")}`, options:{fontSize:10, color:fg, breakLine:true, paraSpaceAfter:5}},
-        {text:spec, options:{fontSize:10, color:fg, breakLine:true, paraSpaceAfter:5}}, {text:sold, options:{fontSize:10, color:fg, breakLine:true}}],
-        {x:x + .2, y:by + .15, w:w - .4, h:bh - .25, fit:"shrink"}); } }
+      const proj = String(c.project || "").trim(), ck = pKey(c.cluster).replace(/^cluster/, ""), title = typeLabel(c).replace(/\s*·\s*/g, " - ");
+      const sub = card.own ? `Pororo Land · cluster terlaris ${g.seg}` : [c.developer, galSub(c) && !(ck && pKey(proj).includes(ck)) ? proj : ""].filter(Boolean).join(" · ");
+      const size = `LT ${num(c.lt) > 0 ? nf(c.lt) + " m²" : "–"}  •  LB ${num(c.lb) > 0 ? nf(c.lb) + " m²" : "–"}`;
+      const price = num(c.price) > 0 ? `${rp(c.price)}  ${card.own ? "(rata-rata harga jual " + QL + ")" : c.priceBasis ? "(" + c.priceBasis + ")" : "(harga mulai)"}` : "Harga belum ada di sumber";
+      const spec = [["kt", "KT"], ["km", "KM"], ["floors", "lantai"]].map(([k, l]) => `${num(c[k]) > 0 ? nf(c[k]) : "–"} ${l}`).join("  •  ");
+      const sold = card.own ? (g.soldPct !== null ? `Sold ${pctS(g.soldPct)} (${nf(g.sold)}/${nf(g.total)} unit)` : `Terjual ${nf(g.own.units)} unit di ${QL}`) : num(c.stock) > 0 && has(c.sold) ? `Sold ${pctS(pctOf(num(c.sold), num(c.stock)))} (${nf(c.sold)}/${nf(c.stock)} unit)` : "Data serapan belum ada";
+      const src = card.own ? "Sumber: data penjualan internal" : "Sumber: " + String(c.source || "market research").replace(/\s+/g, " ").slice(0, 70);
+      const fg = card.own ? C.wh : C.ink, P = (text, o) => ({text, options:{fontSize:10, color:fg, breakLine:true, paraSpaceAfter:4, ...o}});
+      Tx(s, [P(title, {fontFace:HF, fontSize:13, bold:true, color:card.own ? C.or : C.navy, paraSpaceAfter:1}), P(sub, {fontSize:9, color:card.own ? C.mut : C.gr, paraSpaceAfter:7}),
+        P(size), P(price, {bold:num(c.price) > 0}), P(spec), P(sold), P(src, {fontSize:7.5, italic:true, color:card.own ? C.mut : C.gr, paraSpaceAfter:0})],
+        {x:x + .2, y:by + .14, w:w - .4, h:bh - .24, fit:"shrink"}); } }
 
   // 9 · makro
   { const m = D.m, mp = D.mp, inf = decList(m.inf), bi = decId(m.bi), kurs = decId(m.kurs), ikk = decId(m.ikk), infL = inf.length ? inf.at(-1) : null;

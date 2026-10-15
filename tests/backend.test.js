@@ -51,6 +51,14 @@ ok('saveFile: tersimpan di Drive, isi utuh', r.ok && dfiles.length === 1 && dfil
 ok('saveFile: folder arsip dibuat sekali & diingat', Object.values(env.drive.folders).length === 1 && env.props.ARCHIVE_FOLDER_ID === dfiles[0].folder);
 ok('saveFile: baris Files berisi url, driveId tidak bocor ke dashboard', /drive\.google\.com/.test(r.row.url) && !('driveId' in r.row) && get().files[0].url === r.row.url && !('driveId' in get().files[0]));
 post('saveFile', {id:'f2', name:'2.jpg', type:'image/jpeg', base64:Buffer.from('abc').toString('base64')});
+{ const g = post('getFile', {id:'f2'}); ok('getFile: isi file arsip kembali utuh (base64)', g.ok && g.name === '2.jpg' && Buffer.from(g.base64, 'base64').toString() === 'abc' && g.type === 'image/jpeg');
+  ok('getFile: id tidak ada ditolak', /tidak ada/.test(post('getFile', {id:'nope'}).error || ''));
+  ok('getFile tanpa token ditolak', post('getFile', {id:'f2'}, 'salah').error === 'unauthorized');
+  env.setFetch(url => url.includes('foto.jpg') ? {code:200, type:'image/jpeg', body:'JPEGDATA'} : {code:200, type:'text/html', body:'<html>'});
+  const im = post('getImage', {url:'https://www.contoh.com/foto.jpg'});
+  ok('getImage: gambar https diambil sebagai base64', im.ok && im.type === 'image/jpeg' && Buffer.from(im.base64, 'base64').toString() === 'JPEGDATA');
+  ok('getImage: bukan gambar ditolak', /Bukan gambar/.test(post('getImage', {url:'https://www.contoh.com/halaman'}).error || ''));
+  ok('getImage: URL non-https ditolak', /tidak valid/.test(post('getImage', {url:'http://x.com/a.jpg'}).error || '')); }
 ok('file kedua masuk folder yang sama', Object.values(env.drive.folders).length === 1 && Object.values(env.drive.files).length === 2);
 ok('saveFile kosong ditolak', /File kosong/.test(post('saveFile', {name:'x'}).error || ''));
 ok('deleteFile: baris hilang & file ke Trash', post('deleteFile', {id:'f1'}).ok === true && get().files.length === 1 && dfiles[0].trashed === true);
