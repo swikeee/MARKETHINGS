@@ -5647,6 +5647,12 @@ function quarterData(q){
     const types = rows.filter(r => r.cluster === own.name), topT = [...types].sort((a, b) => b.soldQ - a.soldQ)[0] || {}, ct = types.reduce((a, r) => a + r.total, 0), cs = types.reduce((a, r) => a + r.toEnd, 0);
     return {seg, own, ownC, ownAvg, topT, soldPct:ct ? cs/ct*100 : null, sold:cs, total:ct, comps:pick, med, n:pool.length, devs:new Set(pool.map(c => canonName(c.developer))).size};
   }).filter(Boolean);
+  // year-to-date: Januari s/d akhir kuartal (atau bulan data terakhir) di tahun kuartal ini, vs bulan yang sama tahun lalu
+  const yr = +q.slice(0,4), lastM = partial ? end : ms[2], netAll = net(sales), byMon = {};
+  netAll.forEach(x => { const k = mOf(x); (byMon[k] ??= []).push(x); });
+  const ytd = Array.from({length:+lastM.slice(5,7)}, (_, i) => { const mm = String(i + 1).padStart(2, "0"), c = byMon[`${yr}-${mm}`] || [], y = byMon[`${yr - 1}-${mm}`] || [];
+    return {k:`${yr}-${mm}`, units:c.length, rev:rev(c), yUnits:y.length, yRev:rev(y)}; });
+  const ytdQ = [1, 2, 3, 4].slice(0, +q.slice(-1)).map(n => { const a = ytd.slice((n - 1)*3, n*3); return {q:`${yr}-Q${n}`, rev:a.reduce((t, x) => t + x.rev, 0), yRev:a.reduce((t, x) => t + x.yRev, 0), units:a.reduce((t, x) => t + x.units, 0), yUnits:a.reduce((t, x) => t + x.yUnits, 0)}; });
   const m = macroVals(q), mp = macroVals(pq), my = macroVals(yq);
   const avgP = N.length ? rev(N)/N.length : 0, autoT = Math.max(1, Math.round(Math.max(N.length, NNY.length)*1.05));
   const target = num(m.target) > 0 ? Math.round(num(m.target)) : autoT;
@@ -5657,7 +5663,7 @@ function quarterData(q){
   const topT = [...rows].sort((a, b) => b.soldQ - a.soldQ)[0];
   const focus = [...clusters].filter(c => c.units).sort((a, b) => { const la = rows.filter(r => r.cluster === a.name).reduce((t, r) => t + r.availEnd, 0) > 0, lb = rows.filter(r => r.cluster === b.name).reduce((t, r) => t + r.availEnd, 0) > 0;
     return (rows.length ? (lb ? 1 : 0) - (la ? 1 : 0) : 0) || b.units - a.units; })[0];
-  return {q, pq, yq, nq, ms, partial, end, all, N, NP, NY, rev, clusters, rows, stock, ppn, buyers, months, evQ, evNext, segs, m, mp, my, avgP, target, autoT:!(num(m.target) > 0), low, out, slow, topT, focus,
+  return {q, pq, yq, nq, ms, partial, end, all, N, NP, NY, rev, clusters, rows, stock, ppn, buyers, months, evQ, evNext, segs, m, mp, my, ytd, ytdQ, avgP, target, autoT:!(num(m.target) > 0), low, out, slow, topT, focus,
     R:rev(N), RP:rev(NP), RY:rev(NY), cancel:pctOf(all.filter(x => x.status === "Batal").length, all.length)};
 }
 
@@ -5758,7 +5764,7 @@ async function buildQuarterPpt(q){
   { const s = pptx.addSlide(); s.background = {color:C.lt};
     Tx(s, "Daftar Isi", {x:.6, y:.45, w:6, h:.55, fontFace:HF, fontSize:26, bold:true, color:C.navy, valign:"middle"});
     Tx(s, `Laporan Serapan Penjualan · ${QL}`, {x:.6, y:1.02, w:6, h:.25, fontSize:9.5, color:C.or, valign:"middle"}); R(s, .6, 1.35, 3.4, .05, C.or);
-    const items = [["Ringkasan Eksekutif", "Unit terjual, revenue, highlight & risiko kuartal ini"], ["Data Serapan Per Cluster", "Unit terjual vs tersedia per tipe, per cluster"], ["Serapan Free PPN", "Unit yang memenuhi syarat PPN DTP"], ["Revenue Penjualan", "Revenue per bulan dan per cluster"],
+    const items = [["Ringkasan Eksekutif", "Unit terjual, revenue, highlight & risiko kuartal ini"], ["Data Serapan Per Cluster", "Unit terjual vs tersedia per tipe, per cluster"], ["Serapan Free PPN", "Unit yang memenuhi syarat PPN DTP"], ["Revenue Penjualan", "Per bulan, per cluster & year-to-date"],
       ["Profil Pembeli", "Usia, tujuan pembelian, dan cara bayar"], ["Analisis Kompetitor", "Per segmen: produk pembanding vs Pororo Land"], ["Update Market", "Inflasi, suku bunga, kurs, keyakinan konsumen"], ["Rencana & Rekomendasi", `Target dan strategi ${NQL}`]];
     items.forEach(([t, d], i) => { const col = i < 4 ? 0 : 1, row = i % 4, x = .6 + col*6.3, y = 1.85 + row*1.25;
       Tx(s, String(i + 1).padStart(2, "0"), {x, y, w:.7, h:.45, fontFace:HF, fontSize:20, bold:true, color:C.or, valign:"middle"});
@@ -5834,6 +5840,42 @@ async function buildQuarterPpt(q){
     const cl = D.clusters.filter(c => c.rev > 0).sort((a, b) => b.rev - a.rev);
     if (cl.length) s.addChart(pptx.ChartType.bar, [{name:"Revenue", labels:cl.map(c => c.name), values:cl.map(c => M(c.rev))}], {...ax, x:X + w + .3, y:2.25, w, h:4.65, barDir:"bar", catAxisOrientation:"maxMin", chartColors:[C.navy], showValue:true, dataLabelFormatCode:"0.00", valAxisHidden:true, valGridLine:{style:"none"}, showLegend:false, barGapWidthPct:45});
     else empty(s, X + w + .3, 2.25, w, 4.65, "Belum ada revenue"); }
+
+  // 6b · revenue year-to-date: posisi kuartal ini dalam total tahun berjalan
+  { const Y = q.slice(0,4), YP = String(+Y - 1), L = D.ytd, mon = k => MONTHS_FULL[+k.slice(5,7)-1], span = `Jan–${mon(L.at(-1).k).slice(0,3)}`;
+    const RV = L.reduce((t, x) => t + x.rev, 0), RY = L.reduce((t, x) => t + x.yRev, 0), U = L.reduce((t, x) => t + x.units, 0), UY = L.reduce((t, x) => t + x.yUnits, 0), ch = T.chg(RV, RY);
+    const best = [...L].sort((a, b) => b.rev - a.rev)[0], qNow = D.ytdQ.at(-1);
+    const s = page(`REVENUE YEAR-TO-DATE ${Y}  (MILIAR)`, `Akumulasi revenue booking bersih ${span} ${Y} dibanding periode yang sama ${YP}`,
+      RV ? `Revenue ${span} ${Y} ${rp(RV)}` + (RY ? ` (${T.dir(ch)} vs ${span} ${YP})` : "") + (D.ytdQ.length > 1 && qNow ? ` · ${QL} menyumbang ${pctS(pctOf(qNow.rev, RV))}` : "") + (best && best.rev ? ` · bulan tertinggi ${mon(best.k)} (${rp(best.rev)})` : "") : `Belum ada revenue di ${Y}`, SALES_SRC);
+    const lw = 8.15; lbl(s, `Revenue per bulan & kumulatif · ${Y} vs ${YP}`, X, 1.95, lw);
+    const labels = L.map(x => mon(x.k).slice(0,3)), cum = a => { let t = 0; return a.map(v => +(t += v).toFixed(2)); };
+    const bars = [{name:`${Y} (M)`, labels, values:L.map(x => M(x.rev))}, {name:`${YP} (M)`, labels, values:L.map(x => M(x.yRev))}];
+    const lines = [{name:`Kumulatif ${Y}`, labels, values:cum(L.map(x => M(x.rev)))}, {name:`Kumulatif ${YP}`, labels, values:cum(L.map(x => M(x.yRev)))}];
+    const bMax = Math.max(1, ...bars.flatMap(x => x.values)), cMax = Math.max(1, ...lines.flatMap(x => x.values));
+    s.addChart([{type:pptx.ChartType.bar, data:bars, options:{chartColors:[C.or, C.mut], barGapWidthPct:50}},
+      {type:pptx.ChartType.line, data:lines, options:{chartColors:[C.navy, C.mid], lineSize:2.5, lineDataSymbolSize:6, dataLabelPosition:"t", secondaryValAxis:true, secondaryCatAxis:true}}],
+      {...ax, x:X, y:2.25, w:lw, h:4.7, showLegend:true, legendPos:"t", showValue:L.length <= 6, dataLabelFontSize:7.5, dataLabelFormatCode:"0.0",
+       valAxes:[{showValAxisTitle:true, valAxisTitle:"Per bulan (M)", valAxisTitleFontSize:8, valAxisLabelFontSize:8, valAxisMinVal:0, valAxisMaxVal:Math.ceil(bMax*1.9/5)*5}, {showValAxisTitle:true, valAxisTitle:"Kumulatif (M)", valAxisTitleFontSize:8, valAxisLabelFontSize:8, valAxisMinVal:0, valAxisMaxVal:Math.ceil(cMax*1.1/10)*10, valGridLine:{style:"none"}}],
+       catAxes:[{catAxisTitle:"Bulan"}, {catAxisHidden:true}]});
+    const rx = X + lw + .3, rw = CW - lw - .3, kw = (rw - .2)/2;
+    kpi(s, rx, 2.25, kw, 1.15, "Rp " + nf(RV/1e9, 1) + " M", "Revenue YTD", RY ? `${YP}: Rp ${nf(RY/1e9, 1)} M` : "Booking bersih");
+    kpi(s, rx + kw + .2, 2.25, kw, 1.15, nf(U) + " Unit", "Unit YTD", UY ? `${YP}: ${nf(UY)} unit` : "Tanpa batal");
+    lbl(s, `Per kuartal · ${Y} vs ${YP}`, rx, 3.62, rw);
+    const hd = {bold:true, color:C.wh, fill:{color:C.navy}, fontSize:9, align:"center", valign:"middle"}, cell = (t, o = {}) => ({text:t, options:{fontSize:9.5, color:C.ink, align:"center", valign:"middle", ...o}});
+    const rowsT = D.ytdQ.map(x => { const c = T.chg(x.rev, x.yRev), cur = x.q === q;
+      return [cell(`Q${x.q.slice(-1)}`, {bold:true, fill:{color:cur ? "FDEBD9" : C.wh}}), cell(nf(x.rev/1e9, 2), {fill:{color:cur ? "FDEBD9" : C.wh}, bold:cur}), cell(nf(x.yRev/1e9, 2), {fill:{color:cur ? "FDEBD9" : C.wh}, color:C.gr}),
+        cell(c === null ? "–" : (c >= 0 ? "▲ " : "▼ ") + nf(Math.abs(c), 1) + "%", {fill:{color:cur ? "FDEBD9" : C.wh}, bold:true, color:c === null ? C.gr : c >= 0 ? "2E7D32" : "C62828"})]; });
+    rowsT.push([cell("Total", {bold:true, fill:{color:C.lt}}), cell(nf(RV/1e9, 2), {bold:true, fill:{color:C.lt}}), cell(nf(RY/1e9, 2), {bold:true, fill:{color:C.lt}, color:C.gr}),
+      cell(ch === null ? "–" : (ch >= 0 ? "▲ " : "▼ ") + nf(Math.abs(ch), 1) + "%", {bold:true, fill:{color:C.lt}, color:ch === null ? C.gr : ch >= 0 ? "2E7D32" : "C62828"})]);
+    s.addTable([[{text:"Kuartal", options:hd}, {text:`${Y} (M)`, options:hd}, {text:`${YP} (M)`, options:hd}, {text:"Perubahan", options:hd}], ...rowsT],
+      {x:rx, y:3.92, w:rw, colW:[rw*.2, rw*.27, rw*.27, rw*.26], rowH:.36, border:{type:"solid", pt:.5, color:C.ln}, fontFace:BF});
+    const ty = 3.92 + .36*(D.ytdQ.length + 2) + .25, avg = RV/L.length, avgY = RY/L.length, ins = [];
+    if (RV) ins.push(`Rata-rata Rp ${nf(avg/1e9, 1)} M per bulan` + (RY ? ` (${YP}: Rp ${nf(avgY/1e9, 1)} M).` : "."));
+    if (D.ytdQ.length > 1 && qNow && RV) ins.push(`${QL} menyumbang ${pctS(pctOf(qNow.rev, RV))} revenue ${span} ${Y}.`);
+    if (RY && ch !== null) ins.push(ch >= 0 ? `Tahun berjalan unggul Rp ${nf((RV - RY)/1e9, 1)} M dari periode yang sama ${YP}.` : `Tahun berjalan tertinggal Rp ${nf((RY - RV)/1e9, 1)} M dari periode yang sama ${YP}.`);
+    if (D.partial) ins.push(`Data s/d ${keyLabel(D.end)}; ${YP} dibandingkan pada rentang bulan yang sama.`);
+    if (ins.length && ty < 6.5){ R(s, rx, ty, rw, 6.98 - ty, C.lt, C.or);
+      Tx(s, [{text:"INSIGHT", options:{bold:true, fontSize:9, charSpacing:2, color:C.navy, breakLine:true, paraSpaceAfter:4}}, {text:ins.join(" "), options:{fontSize:9.5, color:C.ink}}], {x:rx + .2, y:ty + .1, w:rw - .4, h:6.98 - ty - .18, fit:"shrink"}); } }
 
   // 7 · profil pembeli
   { const B = D.buyers, pur = B.purpose.filter(p => p[0] !== "Tidak tercatat"), purN = pur.reduce((a, p) => a + p[1], 0), city = B.city[0], job = B.job[0];
