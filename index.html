@@ -5736,8 +5736,8 @@ async function buildQuarterPpt(q){
   const panel = (s, x, y, w, h, title, dark) => { R(s, x, y, w, h, dark ? C.navy : C.lt, dark ? C.navy : C.ln);
     if (title){ Tx(s, title.toUpperCase(), {x:x + .22, y:y + .16, w:w - .44, h:.28, fontSize:9, bold:true, charSpacing:3, color:dark ? C.wh : C.navy, valign:"middle"});
       s.addShape(pptx.ShapeType.line, {x:x + .22, y:y + .52, w:w - .44, h:0, line:{color:C.or, width:1.5}}); } };
-  const kpi = (s, x, y, w, h, v, l, sub) => { R(s, x, y, w, h, C.lt, C.ln); R(s, x, y, .07, h, C.or);
-    Tx(s, v, {x:x + .25, y:y + .14, w:w - .35, h:.55, fontFace:HF, fontSize:26, bold:true, color:C.or, valign:"middle", fit:"shrink"});
+  const kpi = (s, x, y, w, h, v, l, sub, fs = 26) => { R(s, x, y, w, h, C.lt, C.ln); R(s, x, y, .07, h, C.or);
+    Tx(s, v, {x:x + .25, y:y + .14, w:w - .35, h:.55, fontFace:HF, fontSize:fs, wrap:false, bold:true, color:C.or, valign:"middle", fit:"shrink"});
     Tx(s, l.toUpperCase(), {x:x + .25, y:y + .74, w:w - .35, h:.22, fontSize:8.5, bold:true, charSpacing:2, color:C.navy});
     Tx(s, sub, {x:x + .25, y:y + .98, w:w - .35, h:.22, fontSize:8, color:C.gr}); };
   const lbl = (s, t, x, y, w) => Tx(s, t.toUpperCase(), {x, y, w, h:.25, fontSize:8.5, bold:true, charSpacing:2, color:C.navy, valign:"middle"});
@@ -5852,14 +5852,21 @@ async function buildQuarterPpt(q){
     const bars = [{name:`${Y} (M)`, labels, values:L.map(x => M(x.rev))}, {name:`${YP} (M)`, labels, values:L.map(x => M(x.yRev))}];
     const lines = [{name:`Kumulatif ${Y}`, labels, values:cum(L.map(x => M(x.rev)))}, {name:`Kumulatif ${YP}`, labels, values:cum(L.map(x => M(x.yRev)))}];
     const bMax = Math.max(1, ...bars.flatMap(x => x.values)), cMax = Math.max(1, ...lines.flatMap(x => x.values));
-    s.addChart([{type:pptx.ChartType.bar, data:bars, options:{chartColors:[C.or, C.mut], barGapWidthPct:50}},
-      {type:pptx.ChartType.line, data:lines, options:{chartColors:[C.navy, C.mid], lineSize:2.5, lineDataSymbolSize:6, dataLabelPosition:"t", secondaryValAxis:true, secondaryCatAxis:true}}],
-      {...ax, x:X, y:2.25, w:lw, h:4.7, showLegend:true, legendPos:"t", showValue:L.length <= 6, dataLabelFontSize:7.5, dataLabelFormatCode:"0.0",
+    // kotak penanda kuartal yang dilaporkan, digambar di belakang chart (plot area dikunci lewat layout supaya posisinya pas)
+    const PL = {x:.075, y:.17, w:.835, h:.7}, n = L.length, qi = +q.slice(-1) - 1, i0 = qi*3, i1 = Math.min(n, i0 + 3);
+    if (i1 > i0){ const bx = X + lw*(PL.x + PL.w*i0/n), bw = lw*PL.w*(i1 - i0)/n, by = 2.25 + 4.7*PL.y - .05, bh = 4.7*PL.h + .43;
+      s.addShape(pptx.ShapeType.roundRect, {x:bx + .02, y:by, w:bw - .04, h:bh, rectRadius:.08, fill:{color:"FDEBD9", transparency:35}, line:{color:"D64545", width:1.5, dashType:"dash"}});
+      s.addShape(pptx.ShapeType.roundRect, {x:bx + bw/2 - .55, y:by - .16, w:1.1, h:.3, rectRadius:.15, fill:{color:"D64545"}, line:{color:"D64545", width:0}});
+      Tx(s, QL, {x:bx + bw/2 - .55, y:by - .16, w:1.1, h:.3, fontSize:9, bold:true, color:C.wh, align:"center", valign:"middle"}); }
+    s.addChart([{type:pptx.ChartType.bar, data:bars, options:{chartColors:[C.or, "C9D5E0"], barGapWidthPct:50}},
+      {type:pptx.ChartType.line, data:[lines[0]], options:{chartColors:[C.navy], lineSize:3, lineDataSymbolSize:7, secondaryValAxis:true, secondaryCatAxis:true}},
+      {type:pptx.ChartType.line, data:[lines[1]], options:{chartColors:["7A8896"], lineSize:2.25, lineDash:"dash", lineDataSymbol:"none", secondaryValAxis:true, secondaryCatAxis:true}}],
+      {...ax, x:X, y:2.25, w:lw, h:4.7, layout:PL, showLegend:true, legendPos:"t", showValue:L.length <= 6, dataLabelFontSize:7.5, dataLabelFormatCode:"0.0",
        valAxes:[{showValAxisTitle:true, valAxisTitle:"Per bulan (M)", valAxisTitleFontSize:8, valAxisLabelFontSize:8, valAxisMinVal:0, valAxisMaxVal:Math.ceil(bMax*1.9/5)*5}, {showValAxisTitle:true, valAxisTitle:"Kumulatif (M)", valAxisTitleFontSize:8, valAxisLabelFontSize:8, valAxisMinVal:0, valAxisMaxVal:Math.ceil(cMax*1.1/10)*10, valGridLine:{style:"none"}}],
        catAxes:[{catAxisTitle:"Bulan"}, {catAxisHidden:true}]});
     const rx = X + lw + .3, rw = CW - lw - .3, kw = (rw - .2)/2;
-    kpi(s, rx, 2.25, kw, 1.15, "Rp " + nf(RV/1e9, 1) + " M", "Revenue YTD", RY ? `${YP}: Rp ${nf(RY/1e9, 1)} M` : "Booking bersih");
-    kpi(s, rx + kw + .2, 2.25, kw, 1.15, nf(U) + " Unit", "Unit YTD", UY ? `${YP}: ${nf(UY)} unit` : "Tanpa batal");
+    kpi(s, rx, 2.25, kw, 1.15, "Rp " + nf(RV/1e9, 1) + " M", "Revenue YTD", RY ? `${YP}: Rp ${nf(RY/1e9, 1)} M` : "Booking bersih", 20);
+    kpi(s, rx + kw + .2, 2.25, kw, 1.15, nf(U) + " Unit", "Unit YTD", UY ? `${YP}: ${nf(UY)} unit` : "Tanpa batal", 20);
     lbl(s, `Per kuartal · ${Y} vs ${YP}`, rx, 3.62, rw);
     const hd = {bold:true, color:C.wh, fill:{color:C.navy}, fontSize:9, align:"center", valign:"middle"}, cell = (t, o = {}) => ({text:t, options:{fontSize:9.5, color:C.ink, align:"center", valign:"middle", ...o}});
     const rowsT = D.ytdQ.map(x => { const c = T.chg(x.rev, x.yRev), cur = x.q === q;
@@ -5869,6 +5876,7 @@ async function buildQuarterPpt(q){
       cell(ch === null ? "–" : (ch >= 0 ? "▲ " : "▼ ") + nf(Math.abs(ch), 1) + "%", {bold:true, fill:{color:C.lt}, color:ch === null ? C.gr : ch >= 0 ? "2E7D32" : "C62828"})]);
     s.addTable([[{text:"Kuartal", options:hd}, {text:`${Y} (M)`, options:hd}, {text:`${YP} (M)`, options:hd}, {text:"Perubahan", options:hd}], ...rowsT],
       {x:rx, y:3.92, w:rw, colW:[rw*.2, rw*.27, rw*.27, rw*.26], rowH:.36, border:{type:"solid", pt:.5, color:C.ln}, fontFace:BF});
+    { const ci = D.ytdQ.findIndex(x => x.q === q); if (ci >= 0) s.addShape(pptx.ShapeType.roundRect, {x:rx - .04, y:3.92 + .36*(ci + 1) - .03, w:rw + .08, h:.42, rectRadius:.05, fill:{type:"none"}, line:{color:"D64545", width:1.75}}); }
     const ty = 3.92 + .36*(D.ytdQ.length + 2) + .25, avg = RV/L.length, avgY = RY/L.length, ins = [];
     if (RV) ins.push(`Rata-rata Rp ${nf(avg/1e9, 1)} M per bulan` + (RY ? ` (${YP}: Rp ${nf(avgY/1e9, 1)} M).` : "."));
     if (D.ytdQ.length > 1 && qNow && RV) ins.push(`${QL} menyumbang ${pctS(pctOf(qNow.rev, RV))} revenue ${span} ${Y}.`);
