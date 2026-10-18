@@ -796,10 +796,16 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
 .topr{display:flex;align-items:center;gap:10px}
 </style>
 <style id="logo-mark">
-/* logo sidebar = tanda yang sama dengan splash pembuka: garis putih di atas gradasi splash */
-.logo .mk{background:radial-gradient(62% 46% at 50% 112%, #F29A45 0%, rgba(242,154,69,0) 72%),radial-gradient(80% 58% at 50% 92%, #E33A3E 0%, rgba(227,58,62,0) 72%),radial-gradient(90% 62% at 46% 66%, #C44796 0%, rgba(196,71,150,0) 72%),radial-gradient(64% 56% at 20% 40%, #A592D3 0%, rgba(165,146,211,0) 72%),linear-gradient(180deg,#E6EBF1 0%,#D6D5EC 46%,#CFA0D6 100%);background-size:100% 190%;background-position:50% 92%;position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
-.logo .mk svg{width:74%;height:auto;overflow:visible}
-.logo .mk path{fill:none;stroke:#fff;stroke-width:58;stroke-linecap:round;stroke-linejoin:round}
+/* logo sidebar = tanda splash, dibuat 3D: berputar mengikuti scroll (turun searah jarum jam, naik berlawanan) */
+.logo .mk.mk3d{background:none;box-shadow:none;overflow:visible;border-radius:0;perspective:180px;display:block}
+.mk3d .mk-in{position:absolute;inset:0;transform-style:preserve-3d;transform:rotateX(-10deg) rotateY(var(--rot,0deg));will-change:transform}
+.mk3d .mk-f,.mk3d .mk-e{position:absolute;inset:0;border-radius:9px;background:radial-gradient(62% 46% at 50% 112%, #F29A45 0%, rgba(242,154,69,0) 72%),radial-gradient(80% 58% at 50% 92%, #E33A3E 0%, rgba(227,58,62,0) 72%),radial-gradient(90% 62% at 46% 66%, #C44796 0%, rgba(196,71,150,0) 72%),radial-gradient(64% 56% at 20% 40%, #A592D3 0%, rgba(165,146,211,0) 72%),linear-gradient(180deg,#E6EBF1 0%,#D6D5EC 46%,#CFA0D6 100%);background-size:100% 190%;background-position:50% 92%}
+.mk3d .mk-f{display:grid;place-items:center;transform:translateZ(4px);backface-visibility:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
+.mk3d .mk-b{transform:rotateY(180deg) translateZ(4px)}
+.mk3d .mk-e{transform:translateZ(var(--z));filter:brightness(.78) saturate(1.1)}
+.mk3d .mk-f svg{width:74%;height:auto;overflow:visible}
+.mk3d .mk-f path{fill:none;stroke:#fff;stroke-width:58;stroke-linecap:round;stroke-linejoin:round}
+.mk3d::after{content:"";position:absolute;left:12%;right:12%;bottom:-6px;height:5px;border-radius:50%;background:rgba(0,0,0,.18);filter:blur(2px);transform:scaleX(var(--sh,1))}
 </style>
 </head>
 <body>
@@ -848,9 +854,11 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
 
 <div class="shell">
 <aside class="side">
-  <div class="logo"><span class="mk"><svg viewBox="56 52 808 508" aria-hidden="true"><g transform="translate(-6 -6)">
+  <div class="logo"><span class="mk mk3d" aria-hidden="true"><span class="mk-in"><i class="mk-e" style="--z:-3.5px"></i><i class="mk-e" style="--z:-2.5px"></i><i class="mk-e" style="--z:-1.5px"></i><i class="mk-e" style="--z:-0.5px"></i><i class="mk-e" style="--z:0.5px"></i><i class="mk-e" style="--z:1.5px"></i><i class="mk-e" style="--z:2.5px"></i><i class="mk-e" style="--z:3.5px"></i><span class="mk-f"><svg viewBox="56 52 808 508" aria-hidden="true"><g transform="translate(-6 -6)">
         <path d="M506 288 L376 146 Q338 94 300 150 L118 446 Q78 516 146 524 Q188 526 212 490 L306 360 Q340 318 376 350 L428 394 Q468 426 506 390 L736 136 Q768 98 826 100"/>
-        <path d="M712 164 Q668 212 696 264 L796 432 Q828 496 782 522 Q742 540 708 498 L590 374"/></g></svg></span><span><b class="wordmark">MARKETHINGS</b><small>Prodev</small></span></div>
+        <path d="M712 164 Q668 212 696 264 L796 432 Q828 496 782 522 Q742 540 708 498 L590 374"/></g></svg></span><span class="mk-f mk-b"><svg viewBox="56 52 808 508" aria-hidden="true"><g transform="translate(-6 -6)">
+        <path d="M506 288 L376 146 Q338 94 300 150 L118 446 Q78 516 146 524 Q188 526 212 490 L306 360 Q340 318 376 350 L428 394 Q468 426 506 390 L736 136 Q768 98 826 100"/>
+        <path d="M712 164 Q668 212 696 264 L796 432 Q828 496 782 522 Q742 540 708 498 L590 374"/></g></svg></span></span></span><span><b class="wordmark">MARKETHINGS</b><small>Prodev</small></span></div>
   <p class="slogan">Everything Marketing in One Place</p>
   <nav role="tablist" aria-label="Segmen dashboard">
     <div class="navg"><div class="gl">Analitik</div>
@@ -5984,6 +5992,19 @@ $("#btnSalesReload").onclick = async e => { const b = e.currentTarget; b.disable
   if (get() === "1"){ var first = function(e){ if (e.target && e.target.closest && e.target.closest("#btnSound")) return; removeEventListener("pointerdown", first, true); removeEventListener("keydown", first, true); start(); };
     addEventListener("pointerdown", first, true); addEventListener("keydown", first, true); }
   document.addEventListener("visibilitychange", function(){ if (!ctx || !on) return; if (document.hidden) ctx.suspend(); else ctx.resume(); });
+})();
+</script>
+<script>
+// Logo 3D di sidebar: sudut putar mengikuti posisi scroll, jadi scroll turun memutar ke satu arah dan scroll naik memutar balik.
+(function(){
+  var el = document.querySelector(".mk3d .mk-in"), box = document.querySelector(".mk3d"); if (!el) return;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  var cur = 0, raf = 0, K = .45;              // derajat per piksel scroll
+  function tick(){ raf = 0; var target = scrollY * K; cur += (target - cur) * .14; if (Math.abs(target - cur) < .05) cur = target;
+    el.style.setProperty("--rot", cur.toFixed(2) + "deg"); box.style.setProperty("--sh", (0.55 + 0.45 * Math.abs(Math.cos(cur * Math.PI / 180))).toFixed(3));
+    if (cur !== target) raf = requestAnimationFrame(tick); }
+  addEventListener("scroll", function(){ if (!raf) raf = requestAnimationFrame(tick); }, {passive:true});
+  tick();
 })();
 </script>
 </body>
