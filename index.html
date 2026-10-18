@@ -849,6 +849,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
 @media (max-width:900px),(max-height:560px){.side-mark{display:none}}
 /* menu samping bisa diciutkan jadi deretan ikon (desktop) */
 .shell{transition:grid-template-columns .28s cubic-bezier(.3,.8,.2,1)}
+.wrap{transition:max-width .28s cubic-bezier(.3,.8,.2,1)}
 .side-tg{margin-left:auto;flex:none;width:30px;height:30px;display:grid;place-items:center;border:0;border-radius:8px;background:none;color:var(--muted);cursor:pointer}
 .side-tg:hover{background:var(--surface-2);color:var(--ink)}
 .side-tg svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
@@ -856,6 +857,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
 .ic-mini{display:none;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 @media (min-width:901px){
   html.side-mini .shell{grid-template-columns:68px minmax(0,1fr)}
+  html.side-mini .wrap{max-width:1760px}   /* menu diciutkan: panel data melebar mengisi layar */
   html.side-mini .side{padding:16px 10px;gap:16px;overflow-x:hidden}
   html.side-mini .logo{flex-direction:column;gap:12px;padding:4px 0}
   html.side-mini .side-tg{margin-left:0}
