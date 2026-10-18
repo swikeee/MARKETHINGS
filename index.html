@@ -5596,6 +5596,9 @@ function devProducts(){
     const date = Math.max(0, ...g.rows.map(c => Math.max(dateIn(c.sourceDate), /launch/i.test(c.notes || "") ? dateIn(String(c.notes).replace(/^.*?launch\w*/i, "")) : 0, dateIn(c.syncedAt || c.updatedAt)/1e3)));
     return {...g, name, onSale, soldOut, date}; });
 }
+/** Indikator makro satu kuartal: isian manual di form (bila ada), selain itu angka otomatis dari bi.go.id. */
+function macroVals(q){ const latest = q === reportQuarters()[0] || qMonths(q)[2] >= todayIso().slice(0,7), a = macroFor(q, latest), m = PPT_SET[q] || {};
+  return {inf:m.inf || a.inf, bi:m.bi || a.bi, kurs:m.kurs || a.kurs, ikk:m.ikk || "", target:m.target}; }
 /** Semua angka untuk satu kuartal. Murni hitungan dari data yang sudah dimuat dashboard. */
 function quarterData(q){
   const ms = qMonths(q), pq = qShift(q, -1), yq = qShift(q, -4), nq = qShift(q, 1);
@@ -5644,7 +5647,7 @@ function quarterData(q){
     const types = rows.filter(r => r.cluster === own.name), topT = [...types].sort((a, b) => b.soldQ - a.soldQ)[0] || {}, ct = types.reduce((a, r) => a + r.total, 0), cs = types.reduce((a, r) => a + r.toEnd, 0);
     return {seg, own, ownC, ownAvg, topT, soldPct:ct ? cs/ct*100 : null, sold:cs, total:ct, comps:pick, med, n:pool.length, devs:new Set(pool.map(c => canonName(c.developer))).size};
   }).filter(Boolean);
-  const m = PPT_SET[q] || {}, mp = PPT_SET[pq] || {};
+  const m = macroVals(q), mp = macroVals(pq), my = macroVals(yq);
   const avgP = N.length ? rev(N)/N.length : 0, autoT = Math.max(1, Math.round(Math.max(N.length, NNY.length)*1.05));
   const target = num(m.target) > 0 ? Math.round(num(m.target)) : autoT;
   const hasStock = r => r.total > 0;
@@ -5654,7 +5657,7 @@ function quarterData(q){
   const topT = [...rows].sort((a, b) => b.soldQ - a.soldQ)[0];
   const focus = [...clusters].filter(c => c.units).sort((a, b) => { const la = rows.filter(r => r.cluster === a.name).reduce((t, r) => t + r.availEnd, 0) > 0, lb = rows.filter(r => r.cluster === b.name).reduce((t, r) => t + r.availEnd, 0) > 0;
     return (rows.length ? (lb ? 1 : 0) - (la ? 1 : 0) : 0) || b.units - a.units; })[0];
-  return {q, pq, yq, nq, ms, partial, end, all, N, NP, NY, rev, clusters, rows, stock, ppn, buyers, months, evQ, evNext, segs, m, mp, avgP, target, autoT:!(num(m.target) > 0), low, out, slow, topT, focus,
+  return {q, pq, yq, nq, ms, partial, end, all, N, NP, NY, rev, clusters, rows, stock, ppn, buyers, months, evQ, evNext, segs, m, mp, my, avgP, target, autoT:!(num(m.target) > 0), low, out, slow, topT, focus,
     R:rev(N), RP:rev(NP), RY:rev(NY), cancel:pctOf(all.filter(x => x.status === "Batal").length, all.length)};
 }
 
@@ -5901,30 +5904,38 @@ async function buildQuarterPpt(q){
     await card(s, X + 2*(cardW + .3), own); segSlides++; }
   if (!segSlides){ const s = page(`PERBANDINGAN PRODUK  –  ${QL}`, "Produk pembanding per segmen", "Belum ada produk kompetitor di segmen yang sama dengan produk kita", MR_SRC); empty(s, X, 1.95, CW, 4.9, "Tambahkan data kompetitor di Market Research"); }
 
-  // 9 · makro
-  { const m = D.m, mp = D.mp, inf = decList(m.inf), bi = decId(m.bi), kurs = decId(m.kurs), ikk = decId(m.ikk), infL = inf.length ? inf.at(-1) : null;
-    const tr = (v, p, d) => v === null || p === null ? "" : v > p ? ` (naik dari ${nf(p, d)})` : v < p ? ` (turun dari ${nf(p, d)})` : " (tetap)";
-    const ins = [];
-    if (infL !== null) ins.push(infL > 3.5 ? `Inflasi ${nf(infL, 2)}% di atas sasaran BI (2,5 ± 1%): daya beli tertekan, tonjolkan cicilan ringan.` : infL < 1.5 ? `Inflasi ${nf(infL, 2)}% rendah: daya beli relatif terjaga.` : `Inflasi ${nf(infL, 2)}% dalam sasaran BI (2,5 ± 1%): daya beli relatif stabil.`);
+  // 9 · makro: kuartal ini dibanding kuartal yang sama tahun lalu
+  { const m = D.m, my = D.my, inf = decList(m.inf), infY = decList(my.inf), bi = decId(m.bi), kurs = decId(m.kurs), ikk = decId(m.ikk), infL = inf.length ? inf.at(-1) : null;
+    const biY = decId(my.bi), kursY = decId(my.kurs), ikkY = decId(my.ikk), infLY = infY.length ? infY.at(-1) : null, YL = qLabel(D.yq);
+    const yoyPt = (v, p, d, unit) => v === null || p === null ? "" : `${YL}: ${nf(p, d)}${unit} · ${Math.abs(v - p) < Math.pow(10, -d)/2 ? "tetap" : (v > p ? "▲ " : "▼ ") + nf(Math.abs(v - p), d) + (unit === "%" ? " poin" : "")}`;
+    const yoyPct = (v, p) => v === null || p === null || !p ? "" : `${YL}: ${nf(p)} · ${Math.abs(v - p)/p < .0005 ? "tetap" : (v > p ? "▲ " : "▼ ") + nf(Math.abs(v - p)/p*100, 1) + "%"}`;
+    const ry = T.chg(D.R, D.RY), ins = [];
+    if (D.RY) ins.push(`Revenue ${QL} ${rp(D.R)}, ${ry >= 0 ? "naik" : "turun"} ${nf(Math.abs(ry), 1)}% dibanding ${YL} (${rp(D.RY)}).`);
+    if (infL !== null) ins.push((infL > 3.5 ? `Inflasi ${nf(infL, 2)}% di atas sasaran BI (2,5 ± 1%): daya beli tertekan, tonjolkan cicilan ringan` : infL < 1.5 ? `Inflasi ${nf(infL, 2)}% rendah: daya beli relatif terjaga` : `Inflasi ${nf(infL, 2)}% dalam sasaran BI (2,5 ± 1%): daya beli relatif stabil`) + (infLY !== null ? ` (${YL}: ${nf(infLY, 2)}%).` : "."));
     const kpr = T.pay.find(p => p[0] === "KPR");
-    if (bi !== null) ins.push(`BI Rate ${nf(bi, 2)}%${tr(bi, decId(mp.bi), 2)}` + (kpr ? `; ${pctS(pctOf(kpr[1], T.payN))} pembeli memakai KPR, jadi suku bunga langsung terasa ke cicilan.` : "."));
+    if (bi !== null) ins.push(`BI Rate ${nf(bi, 2)}%` + (biY !== null ? `, ${bi > biY ? "lebih tinggi" : bi < biY ? "lebih rendah" : "sama dengan"} ${bi !== biY ? nf(Math.abs(bi - biY), 2) + " poin dari" : ""} ${YL} (${nf(biY, 2)}%)` : "") + (kpr ? `; ${pctS(pctOf(kpr[1], T.payN))} pembeli memakai KPR, jadi suku bunga langsung terasa ke cicilan.` : "."));
+    if (kurs !== null && kursY) ins.push(`Rupiah ${kurs > kursY ? "melemah" : "menguat"} ${nf(Math.abs(kurs - kursY)/kursY*100, 1)}% dibanding ${YL}` + (kurs > kursY ? ": waspadai kenaikan harga material." : "."));
     if (ikk !== null) ins.push(ikk >= 100 ? `IKK ${nf(ikk, 1)} (optimis): momentum menjaga promo.` : `IKK ${nf(ikk, 1)} (pesimis): perkuat program cicilan & subsidi.`);
-    const s = page("UPDATE MARKET & MAKROEKONOMI", `Dampak kondisi ekonomi terhadap penjualan properti  –  ${QL}`,
-      [infL !== null ? `Inflasi ${nf(infL, 2)}%` : "", bi !== null ? `BI Rate ${nf(bi, 2)}%` : "", ins[0] ? ins[0].split(":")[1]?.trim().replace(/\.$/, "") || "" : ""].filter(Boolean).join("  |  ") || "Isi indikator makro saat membuat laporan (tombol Laporan PPT)", "Bank Indonesia (bi.go.id: JISDOR, BI-Rate, inflasi IHK) · data penjualan internal");
-    const lw = 7.45; lbl(s, inf.length ? "Tren inflasi vs revenue" : "Tren revenue per bulan", X, 1.95, lw);
-    const labels = D.months.map(x => MONTHS_FULL[+x.k.slice(5,7)-1]);
-    if (inf.length) s.addChart([{type:pptx.ChartType.bar, data:[{name:"Revenue (Miliar Rp)", labels, values:D.months.map(x => M(x.rev))}], options:{chartColors:[C.mut], barGapWidthPct:80}},
-        {type:pptx.ChartType.line, data:[{name:"Inflasi (%)", labels, values:labels.map((_, i) => inf[Math.min(i, inf.length - 1)])}], options:{chartColors:[C.or], lineSize:3, lineDataSymbolSize:8, secondaryValAxis:true, secondaryCatAxis:true}}],
-      {...ax, x:X, y:2.25, w:lw, h:4.7, showLegend:true, legendPos:"t", showValue:true, dataLabelFontSize:8, dataLabelFormatCode:"0.0#", valAxes:[{showValAxisTitle:true, valAxisTitle:"Miliar Rp", valAxisTitleFontSize:8, valAxisLabelFontSize:8}, {showValAxisTitle:true, valAxisTitle:"Inflasi %", valAxisTitleFontSize:8, valAxisLabelFontSize:8, valGridLine:{style:"none"}}], catAxes:[{catAxisTitle:"Bulan"}, {catAxisHidden:true}]});
-    else s.addChart(pptx.ChartType.line, [{name:"Revenue (Miliar Rp)", labels, values:D.months.map(x => M(x.rev))}], {...ax, x:X, y:2.25, w:lw, h:4.7, chartColors:[C.or], lineSize:3, showValue:true, dataLabelFormatCode:"0.00", showLegend:false});
-    const rx = X + lw + .3, rw = CW - lw - .3; lbl(s, "Indikator makroekonomi", rx, 1.95, rw);
-    [["Inflasi Indonesia", infL !== null ? nf(infL, 2) + "%" : "–", "Bulan terakhir kuartal · BPS"], ["Suku Bunga BI (BI Rate)", bi !== null ? nf(bi, 2) + "%" : "–", "Kebijakan terbaru Bank Indonesia" + tr(bi, decId(mp.bi), 2)],
-     ["Kurs USD/IDR", kurs !== null ? nf(kurs) : "–", "Dampak ke harga material impor" + tr(kurs, decId(mp.kurs), 0)], ["Indeks Keyakinan Konsumen", ikk !== null ? nf(ikk, 1) : "–", ikk === null ? "Daya beli konsumen" : ikk >= 100 ? "≥ 100: konsumen optimis" : "< 100: konsumen pesimis"]].forEach(([t, v, d], i) => {
+    const s = page("UPDATE MARKET & MAKROEKONOMI", `Dampak kondisi ekonomi terhadap penjualan properti  –  ${QL} vs ${YL}`,
+      [D.RY ? `Revenue ${ry >= 0 ? "▲" : "▼"} ${nf(Math.abs(ry), 1)}% vs ${YL}` : "", infL !== null ? `Inflasi ${nf(infL, 2)}%` + (infLY !== null ? ` (${YL} ${nf(infLY, 2)}%)` : "") : "", bi !== null ? `BI Rate ${nf(bi, 2)}%` + (biY !== null ? ` (${YL} ${nf(biY, 2)}%)` : "") : ""].filter(Boolean).join("  |  ") || "Isi indikator makro saat membuat laporan (tombol Laporan PPT)", "Bank Indonesia (bi.go.id: JISDOR, BI-Rate, inflasi IHK) · data penjualan internal");
+    const lw = 7.45; lbl(s, `${inf.length ? "Revenue & inflasi" : "Revenue per bulan"} · ${QL} vs ${YL}`, X, 1.95, lw);
+    const labels = D.months.map(x => MONTHS_FULL[+x.k.slice(5,7)-1]), revS = [{name:`Revenue ${QL} (M)`, labels, values:D.months.map(x => M(x.rev))}, {name:`Revenue ${YL} (M)`, labels, values:D.months.map(x => M(x.yRev))}];
+    if (inf.length){ const lines = [{name:`Inflasi ${QL} (%)`, labels, values:labels.map((_, i) => inf[Math.min(i, inf.length - 1)])}];
+      if (infY.length) lines.push({name:`Inflasi ${YL} (%)`, labels, values:labels.map((_, i) => infY[Math.min(i, infY.length - 1)])});
+      // batang di 60% bawah, garis inflasi di pita atas, supaya label angka tidak bertumpuk
+      const revMax = Math.max(1, ...revS.flatMap(x => x.values)), iv = lines.flatMap(x => x.values), iHi = Math.ceil((Math.max(...iv) + .2)*2)/2, iMin = Math.min(...iv), iLo = Math.floor((iMin - 1.6*(iHi - iMin + .2))*2)/2;
+      s.addChart([{type:pptx.ChartType.bar, data:revS, options:{chartColors:[C.or, C.mut], barGapWidthPct:60}},
+        {type:pptx.ChartType.line, data:lines, options:{chartColors:[C.navy, C.mid], lineSize:3, lineDataSymbolSize:8, dataLabelPosition:"t", secondaryValAxis:true, secondaryCatAxis:true}}],
+        {...ax, x:X, y:2.25, w:lw, h:4.7, showLegend:true, legendPos:"t", showValue:true, dataLabelFontSize:7.5, dataLabelFormatCode:"0.0#", valAxes:[{showValAxisTitle:true, valAxisTitle:"Miliar Rp", valAxisTitleFontSize:8, valAxisLabelFontSize:8, valAxisMinVal:0, valAxisMaxVal:Math.ceil(revMax*1.75/10)*10}, {showValAxisTitle:true, valAxisTitle:"Inflasi %", valAxisTitleFontSize:8, valAxisLabelFontSize:8, valAxisMinVal:iLo, valAxisMaxVal:iHi, valGridLine:{style:"none"}}], catAxes:[{catAxisTitle:"Bulan"}, {catAxisHidden:true}]}); }
+    else s.addChart(pptx.ChartType.bar, revS, {...ax, x:X, y:2.25, w:lw, h:4.7, barDir:"col", chartColors:[C.or, C.mut], showValue:true, dataLabelFormatCode:"0.00", showLegend:true, legendPos:"t", barGapWidthPct:60});
+    const rx = X + lw + .3, rw = CW - lw - .3; lbl(s, `Indikator makroekonomi · vs ${YL}`, rx, 1.95, rw);
+    [["Inflasi Indonesia", infL !== null ? nf(infL, 2) + "%" : "–", yoyPt(infL, infLY, 2, "%") || "Bulan terakhir kuartal · IHK yoy"], ["Suku Bunga BI (BI Rate)", bi !== null ? nf(bi, 2) + "%" : "–", yoyPt(bi, biY, 2, "%") || "Kebijakan terbaru Bank Indonesia"],
+     ["Kurs USD/IDR", kurs !== null ? nf(kurs) : "–", yoyPct(kurs, kursY) || "Dampak ke harga material impor"], ["Indeks Keyakinan Konsumen", ikk !== null ? nf(ikk, 1) : "–", yoyPt(ikk, ikkY, 1, "") || (ikk === null ? "Daya beli konsumen" : ikk >= 100 ? "≥ 100: konsumen optimis" : "< 100: konsumen pesimis")]].forEach(([t, v, d], i) => {
       const y = 2.25 + i*.93; R(s, rx, y, rw, .85, C.lt, C.ln); R(s, rx, y, .07, .85, C.or);
-      Tx(s, t, {x:rx + .22, y:y + .1, w:rw - 1.7, h:.3, fontSize:10.5, bold:true, color:C.navy}); Tx(s, d, {x:rx + .22, y:y + .45, w:rw - 1.7, h:.3, fontSize:8.5, color:C.gr});
+      Tx(s, t, {x:rx + .22, y:y + .1, w:rw - 1.7, h:.3, fontSize:10.5, bold:true, color:C.navy}); Tx(s, d, {x:rx + .22, y:y + .45, w:rw - 1.7, h:.3, fontSize:8.5, color:C.gr, fit:"shrink"});
       Tx(s, v, {x:rx + rw - 1.55, y:y + .1, w:1.4, h:.65, fontFace:HF, fontSize:22, bold:true, color:C.or, align:"right", valign:"middle", fit:"shrink"}); });
     const iy = 2.25 + 4*.93; R(s, rx, iy, rw, 6.98 - iy, C.lt, C.or);
-    Tx(s, [{text:"💡  INSIGHT", options:{bold:true, fontSize:9, charSpacing:2, color:C.navy, breakLine:true, paraSpaceAfter:4}}, {text:ins.length ? ins.join(" ") : "Isi inflasi, BI Rate, kurs, dan IKK di form Laporan PPT. Nilainya tersimpan per kuartal.", options:{fontSize:9.5, color:C.ink}}],
+    Tx(s, [{text:"INSIGHT", options:{bold:true, fontSize:9, charSpacing:2, color:C.navy, breakLine:true, paraSpaceAfter:4}}, {text:ins.length ? ins.join(" ") : "Isi inflasi, BI Rate, kurs, dan IKK di form Laporan PPT. Nilainya tersimpan per kuartal.", options:{fontSize:9.5, color:C.ink}}],
       {x:rx + .2, y:iy + .1, w:rw - .4, h:6.98 - iy - .18, fit:"shrink"}); }
 
   // 10 · rencana & rekomendasi
