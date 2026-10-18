@@ -716,6 +716,9 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
 .otk.stop .otk-steps li.cur .c{border-color:var(--bad);color:var(--bad);box-shadow:0 0 0 4px var(--bad-soft)}
 .otk-steps .l{font:600 12px/1.25 var(--f-body);color:var(--ink)} .otk-steps li.todo .l{color:var(--muted);font-weight:500}
 .otk-steps .d{font-size:11px;color:var(--muted);line-height:1.2}
+.otk-steps .m{font:500 11px/1.2 var(--f-mono);color:var(--ink);opacity:.8;white-space:nowrap}
+.otk-steps li.todo .m{opacity:.6}
+.otk-steps .du{font-size:10.5px;line-height:1.2;color:var(--warn);font-weight:600} .otk-steps .du.late{color:var(--bad)}
 .otk-steps li.done button:hover .l{text-decoration:underline}
 .otk-f{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
 .otk-f .grp{display:flex;flex-wrap:wrap;gap:6px}
@@ -1506,6 +1509,7 @@ const KOM_DEFAULT = {
   priceM2:12000000,   // harga jual base, Rp / m²
   bf:200000000,       // booking fee
   dp:30,              // % DP (dikurangi booking fee)
+  dpDays:30,          // DP jatuh tempo sekian hari setelah booking fee (saat PPJB)
   saleInstN:24,       // sisa harga diangsur sekian kali
 };
 let KOM = {...KOM_DEFAULT, ...(readJson("li.kom") || {})};
@@ -2212,14 +2216,34 @@ const DEMO_OFFERS = [   // fiktif, hanya untuk contoh. Sewa = Rp / m² / bulan, 
 ];
 let offerFilter = "aktif", offerView = (store.get("li.offerView") || "track");
 /** Tahapan transaksi kavling komersial. Sewa: surat penawaran → LOI → LOO → PSM → serah terima → pembangunan → operasional. Beli: surat penawaran → LOI → booking fee → PPJB → pelunasan → AJB → operasional. */
+/** Tahapan transaksi kavling komersial, mengikuti Ketentuan sewa & jual (KOM).
+ *  Sewa: Penawaran masuk → Surat penawaran → LOI (pembayaran 1) → LOO (pembayaran 2) → PSM (security deposit) → Serah terima (jaminan pembangunan) → Pembangunan → Operasional (sisa sewa dicicil).
+ *  Beli: Penawaran masuk → Surat penawaran → LOI → Booking fee → PPJB (DP) → Angsuran → AJB & serah terima → Pembangunan → Operasional. */
 const OFFER_STAGES = {
   Sewa:[["masuk","Penawaran masuk","Minat / permintaan dari calon tenant"],["surat","Surat penawaran","Harga & ketentuan sewa dikirim developer"],["loi","LOI","Letter of Intent ditandatangani · pembayaran 1"],["loo","LOO","Letter of Offer · konfirmasi ketentuan · pembayaran 2"],
-    ["psm","PSM","Perjanjian Sewa Menyewa · security deposit"],["serah","Serah terima","Berita acara serah terima lahan"],["bangun","Pembangunan","Izin & pembangunan / fit-out · jaminan pembangunan"],["ops","Operasional","Tenant buka, cicilan sisa sewa berjalan"]],
+    ["psm","PSM","Perjanjian Sewa Menyewa ditandatangani · security deposit"],["serah","Serah terima","Berita acara serah terima lahan · jaminan pembangunan"],["bangun","Pembangunan","Izin & pembangunan / fit-out oleh tenant"],["ops","Operasional","Tenant buka · sisa sewa mulai dicicil, IPL berjalan"]],
   Beli:[["masuk","Penawaran masuk","Minat / permintaan dari calon pembeli"],["surat","Surat penawaran","Harga & cara bayar dikirim developer"],["loi","LOI","Letter of Intent ditandatangani"],["bf","Booking fee","Tanda jadi pembelian"],
-    ["ppjb","PPJB","Perjanjian Pengikatan Jual Beli · DP"],["lunas","Pelunasan","Pelunasan / angsuran selesai"],["ajb","AJB & serah terima","Akta Jual Beli · serah terima lahan"],["ops","Operasional","Dibangun & mulai beroperasi"]]};
+    ["ppjb","PPJB","Perjanjian Pengikatan Jual Beli · DP"],["angs","Angsuran","Sisa harga diangsur sampai lunas"],["ajb","AJB & serah terima","Akta Jual Beli setelah lunas · serah terima lahan"],["bangun","Pembangunan","Pembeli membangun di kavling"],["ops","Operasional","Mulai beroperasi"]]};
+const STAGE_ALIAS = {lunas:"angs"};
+const addDaysIso = (d, n) => { const x = new Date(d + "T00:00:00"); x.setDate(x.getDate() + n); return iso(x); };
+const addMonthsIso = (d, n) => { const x = new Date(d + "T00:00:00"); x.setMonth(x.getMonth() + n); return iso(x); };
+/** Uang & jatuh tempo tiap tahap untuk satu penawaran, dihitung dari Ketentuan sewa & jual. {pay:"Rp …", due:"yyyy-mm-dd" | "", note} */
+function stageTerms(o, k, log){ const c = offerCalc(o), K = KOM, d = x => log[x]?.d || "";
+  if (c.sewa){ const K1 = c.kontrak, sisa = Math.max(0, 100 - K.pay1 - K.pay2);
+    if (k === "loi") return {pay:`Pembayaran 1 · ${nf(K.pay1)}% = ${rp(K1*K.pay1/100)}`, s:`${nf(K.pay1)}% · ${rp(K1*K.pay1/100)}`};
+    if (k === "loo") return {pay:`Pembayaran 2 · ${nf(K.pay2)}% = ${rp(K1*K.pay2/100)}`, s:`${nf(K.pay2)}% · ${rp(K1*K.pay2/100)}`, due:d("loi") ? addDaysIso(d("loi"), K.pay2Days) : "", note:`${nf(K.pay2Days)} hari setelah pembayaran 1`};
+    if (k === "psm") return {pay:`Security deposit ${nf(K.depMonths)} bln = ${rp(c.total*K.depMonths)}`, s:`Deposit ${rp(c.total*K.depMonths)}`};
+    if (k === "serah") return {pay:`Jaminan pembangunan ${rp(K.jaminan)}`, s:`Jaminan ${rp(K.jaminan)}`};
+    if (k === "ops") return {pay:`Sisa ${nf(sisa)}% · ${nf(num(o.inst) || K.instN)}× ${rp(K1*sisa/100/(num(o.inst) || K.instN))}`, s:`${nf(num(o.inst) || K.instN)}× ${rp(K1*sisa/100/(num(o.inst) || K.instN))}`, note:"dicicil sejak tanggal buka"}; }
+  else { const T = c.total, n = num(o.inst) || K.saleInstN, dpv = Math.max(0, T*K.dp/100 - K.bf);
+    if (k === "bf") return {pay:`Booking fee ${rp(K.bf)}`, s:rp(K.bf)};
+    if (k === "ppjb") return {pay:`DP ${nf(K.dp)}% − booking fee = ${rp(dpv)}`, s:`DP ${rp(dpv)}`, due:d("bf") ? addDaysIso(d("bf"), K.dpDays) : "", note:`${nf(K.dpDays)} hari setelah booking fee`};
+    if (k === "angs") return {pay:`Sisa ${nf(100 - K.dp)}% · ${nf(n)}× ${rp(T*(100 - K.dp)/100/n)}`, s:`${nf(n)}× ${rp(T*(100 - K.dp)/100/n)}`, due:d("ppjb") ? addMonthsIso(d("ppjb"), 1) : "", note:d("ppjb") ? `angsuran 1 ${fmtDay(addMonthsIso(d("ppjb"), 1))}, lunas ${fmtDay(addMonthsIso(d("ppjb"), n))}` : "angsuran 1 sebulan setelah PPJB"};
+    if (k === "ajb") return {pay:"Setelah lunas", due:d("ppjb") ? addMonthsIso(d("ppjb"), n) : ""}; }
+  return {}; }
 const stagesOf = o => OFFER_STAGES[o.type === "Beli" ? "Beli" : "Sewa"];
 const offerLog = o => { const v = o.stageLog; if (v && typeof v === "object") return v; try { return v ? JSON.parse(v) : {}; } catch { return {}; } };
-function offerStageIdx(o){ const S = stagesOf(o), i = S.findIndex(x => x[0] === o.stage); if (i >= 0) return i;
+function offerStageIdx(o){ const S = stagesOf(o), key = STAGE_ALIAS[o.stage] || o.stage, i = S.findIndex(x => x[0] === key); if (i >= 0) return i;
   return o.status === "Diterima" ? 2 : o.status === "Negosiasi" || o.status === "Ditolak" ? 1 : 0; }      // data lama tanpa tahap: diperkirakan dari status
 const statusForStage = i => i >= 2 ? "Diterima" : i === 1 ? "Negosiasi" : "Baru";
 const offerActive = o => o.status !== "Ditolak" && stagesOf(o)[offerStageIdx(o)][0] !== "ops";
@@ -2418,16 +2442,19 @@ function renderOffers(){
   if (offerView !== "track") return renderOfferTable(list);
   $("#offerTrack").innerHTML = list.length ? list.map(o => { const c = offerCalc(o), S = stagesOf(o), cur = offerStageIdx(o), log = offerLog(o), stopped = o.status === "Ditolak", last = cur >= S.length - 1;
     const since = log[S[cur][0]]?.d || (cur === 0 ? o.date : ""), days = since ? Math.max(0, Math.floor((Date.now() - new Date(since + "T00:00:00"))/864e5)) : null;
-    const steps = S.map(([k, l, d], i) => { const cls = i < cur || (i === cur && last && !stopped) ? "done" : i === cur ? "cur" : "todo", e = log[k] || (k === "masuk" && o.date ? {d:o.date} : null);
-      return `<li class="${cls}"><button type="button" ${i <= cur ? `data-stage-edit="${esc(o.id)}" data-k="${k}"` : "disabled"} title="${esc(d)}${e?.n ? " · " + esc(e.n) : ""}"><span class="c">${i < cur || (last && !stopped) ? "✓" : i + 1}</span><span class="l">${esc(l)}</span><span class="d">${e?.d ? esc(fmtDay(e.d)) : i === cur && !stopped ? "sekarang" : ""}</span></button></li>`; }).join("");
-    const next = !stopped && !last ? S[cur + 1] : null;
+    const today = todayIso();
+    const steps = S.map(([k, l, d], i) => { const cls = i < cur || (i === cur && last && !stopped) ? "done" : i === cur ? "cur" : "todo", e = log[k] || (k === "masuk" && o.date ? {d:o.date} : null), T = stageTerms(o, k, log);
+      const due = !e?.d && T.due && i > cur ? `<span class="du${T.due < today ? " late" : ""}">tempo ${esc(fmtDay(T.due))}</span>` : "";
+      return `<li class="${cls}"><button type="button" ${i <= cur ? `data-stage-edit="${esc(o.id)}" data-k="${k}"` : "disabled"} title="${esc([d, T.pay, T.note].filter(Boolean).join(" · "))}${e?.n ? " · " + esc(e.n) : ""}"><span class="c">${i < cur || (last && !stopped) ? "✓" : i + 1}</span><span class="l">${esc(l)}</span>${T.s ? `<span class="m">${esc(T.s)}</span>` : ""}<span class="d">${e?.d ? esc(fmtDay(e.d)) : i === cur && !stopped ? "sekarang" : ""}</span>${due}</button></li>`; }).join("");
+    const next = !stopped && !last ? S[cur + 1] : null, nT = next ? stageTerms(o, next[0], log) : {};
+    const nDue = nT.due ? Math.round((new Date(nT.due + "T00:00:00") - new Date(today + "T00:00:00"))/864e5) : null;
     return `<article class="otk${stopped ? " stop" : ""}">
       <div class="otk-h"><button type="button" class="otk-k" data-go-plot="${esc(o.plotCode)}" title="Lihat kavling di site plan">${esc(o.plotCode)}</button>
         <div><b class="t">${esc(o.tenant)}</b>${o.dummy ? ' <span class="dummy">dummy</span>' : ""} <span class="chip ${c.sewa ? "info" : "own"}">${esc(o.type)}</span>${c.sewa && num(o.term) ? ` <span class="note">${nf(o.term)} thn</span>` : ""}${num(o.inst) ? ` <span class="note">· ${nf(o.inst)}×</span>` : ""}
           <div class="note">${[o.use, c.p ? `${nf(c.p.area)} m²` : "kavling tidak ada", `tawaran ${rp0(o.priceM2)}/m²${c.sewa ? "/bln" : ""}`].filter(Boolean).map(esc).join(" · ")}${c.diff !== null ? " · vs list " + offerDiff(c) : ""}</div></div>
         <div class="otk-v"><b>${c.p ? rp(c.total) + (c.sewa ? "/bln" : "") : "–"}</b>${c.sewa && c.p ? `<small>${rp(c.kontrak)} · ${nf(num(o.term) || KOM.term)} thn</small>` : ""}</div></div>
       <ol class="otk-steps">${steps}</ol>
-      <div class="otk-f"><span class="note">${stopped ? `<span class="chip bad">Ditolak</span> di tahap ${esc(S[cur][1])}${o.notes ? " · " + esc(o.notes) : ""}` : last ? `<span class="chip ok">Selesai</span> beroperasi sejak ${esc(fmtDate(since))}` : `Tahap sekarang: <b>${esc(S[cur][1])}</b>${days !== null ? ` · ${nf(days)} hari` : ""}${o.notes ? " · " + esc(o.notes) : ""}`}</span>
+      <div class="otk-f"><span class="note">${stopped ? `<span class="chip bad">Ditolak</span> di tahap ${esc(S[cur][1])}${o.notes ? " · " + esc(o.notes) : ""}` : last ? `<span class="chip ok">Selesai</span> beroperasi sejak ${esc(fmtDate(since))}` : `Tahap sekarang: <b>${esc(S[cur][1])}</b>${days !== null ? ` · ${nf(days)} hari` : ""}${next && nT.pay ? ` · berikutnya <b>${esc(next[1])}</b>: ${esc(nT.pay)}${nT.due ? `, jatuh tempo ${esc(fmtDay(nT.due))} <span class="${nDue < 0 ? "neg-t" : "note"}">(${nDue < 0 ? "lewat " + nf(-nDue) + " hari" : nDue === 0 ? "hari ini" : nf(nDue) + " hari lagi"})</span>` : ""}` : ""}${o.notes ? " · " + esc(o.notes) : ""}`}</span>
         <span class="grp">${cur > 0 && !stopped ? `<button class="btn sm" data-w data-stage-back="${esc(o.id)}" title="Kembalikan ke tahap sebelumnya">↶ Mundur</button>` : ""}<button class="btn sm xl" data-xlsx-offer="${esc(o.id)}" title="Unduh hitungan penawaran ini sebagai file Excel">${XL_ICON}Export Excel</button><button class="btn sm" data-w data-edit-offer="${esc(o.id)}">Edit</button>${next ? `<button class="btn sm primary" data-w data-stage-next="${esc(o.id)}">Lanjut ke ${esc(next[1])} →</button>` : ""}</span></div>
     </article>`; }).join("")
     : `<div class="empty">${offers.length ? "Tidak ada penawaran untuk saringan ini." : "Belum ada penawaran. Klik “+ Penawaran” untuk mencatat yang pertama."}</div>`;
@@ -2442,7 +2469,8 @@ function saveStage(o, idx, entry, keepAfter){ const S = stagesOf(o), log = {...o
 function stageForm(o, idx, edit){ const S = stagesOf(o), st = S[idx], e = offerLog(o)[st[0]] || {};
   openForm(`${edit ? "Ubah" : "Lanjut ke"} ${st[1]} · ${o.tenant}`, [["d", `Tanggal ${st[1]}`, "date"], ["n", "Catatan (opsional), mis. nomor surat / pembayaran", "text", "full"]], {d:e.d || todayIso(), n:e.n || ""},
     v => edit ? (() => { const log = {...offerLog(o), [st[0]]:{d:v.d, ...(v.n ? {n:v.n} : {})}}; return saveRow("Offers", offers, {...o, stageLog:JSON.stringify(log)}, o); })() : saveStage(o, idx, {d:v.d, ...(v.n ? {n:v.n} : {})}), null, edit ? "Tanggal tahap diperbarui" : `Tahap ${st[1]} dicatat`);
-  $("#mBody").insertAdjacentHTML("afterbegin", `<p class="note" style="margin:0 0 10px">${esc(st[2])}.</p>`); }
+  const T = stageTerms(o, st[0], offerLog(o));
+  $("#mBody").insertAdjacentHTML("afterbegin", `<p class="note" style="margin:0 0 10px">${esc(st[2])}.${T.pay ? ` <b>${esc(T.pay)}</b>` : ""}${T.due ? ` · jatuh tempo ${esc(fmtDay(T.due))}` : T.note ? ` · ${esc(T.note)}` : ""}</p>`); }
 function renderOfferTable(list){
   const el = $("#offerTable"); if (!el) return;
   let last = null;
@@ -2474,13 +2502,14 @@ function renderKom(){
       <dl class="terms">
         ${row("Booking fee", "", rp0(K.bf), "bf")}
         ${row("DP", "dikurangi booking fee", nf(K.dp) + "%", "dp")}
+        ${row("Jatuh tempo DP", "setelah booking fee, saat PPJB", nf(K.dpDays) + " hari", "dpDays")}
         ${row("Sisa " + nf(Math.max(0, 100 - K.dp)) + "%", "bisa diangsur", nf(K.saleInstN) + " kali", "saleInstN")}
       </dl></div>`;
   $("#btnKomReset").hidden = Object.keys(KOM_DEFAULT).every(k => K[k] === KOM_DEFAULT[k]);
 }
 const KOM_F = [["rentM2","Sewa: harga base / m² / bulan (Rp)","number"],["ipl","Sewa: IPL / m² / bulan (Rp)","number"],["term","Sewa: jangka waktu minimal (tahun)","number"],["pay1","Sewa: pembayaran 1 saat TTD LOI (%)","number"],
   ["pay2","Sewa: pembayaran 2 (%)","number"],["pay2Days","Sewa: pembayaran 2, hari setelah pembayaran 1","number"],["instN","Sewa: sisa dicicil berapa kali sejak buka","number"],["depMonths","Sewa: security deposit (bulan sewa)","number"],
-  ["jaminan","Sewa: jaminan pembangunan (Rp)","number"],["priceM2","Jual: harga base / m² (Rp)","number"],["bf","Jual: booking fee (Rp)","number"],["dp","Jual: DP (%), dikurangi booking fee","number"],["saleInstN","Jual: sisa diangsur berapa kali","number"]];
+  ["jaminan","Sewa: jaminan pembangunan (Rp)","number"],["priceM2","Jual: harga base / m² (Rp)","number"],["bf","Jual: booking fee (Rp)","number"],["dp","Jual: DP (%), dikurangi booking fee","number"],["dpDays","Jual: DP jatuh tempo, hari setelah booking fee","number"],["saleInstN","Jual: sisa diangsur berapa kali","number"]];
 function setKom(v){ KOM = {...KOM_DEFAULT, ...v}; store.set("li.kom", Object.keys(KOM_DEFAULT).every(k => KOM[k] === KOM_DEFAULT[k]) ? "" : JSON.stringify(KOM)); renderLand();
   if (mode === "live" && TOKEN) api("saveSetting", {id:"kom", value:JSON.stringify(KOM)}).catch(e => toast("Ketentuan tersimpan di browser, tapi gagal dikirim ke Google Sheet: " + errText(e))); if (curPlot()){ resetLand(); if (!$("#tab-sim").hidden) renderSimOut(); } }
 $("#btnKomEdit").onclick = () => openForm("Ketentuan sewa & jual (exc PPN)", KOM_F, KOM, v => { const o = {}; for (const k of Object.keys(KOM_DEFAULT)) o[k] = v[k] == null || isNaN(v[k]) || v[k] < 0 ? KOM_DEFAULT[k] : v[k]; setKom(o); }, null, "Ketentuan disimpan di browser ini");
