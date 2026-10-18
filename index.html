@@ -4982,7 +4982,7 @@ function renderStock(A){
   $("#stTableH").textContent = `Stok per ${D.l}` + (hasComp ? " · dibandingkan kompetitor" : "");
   const range = (lo, hi) => lo === null ? "" : lo === hi ? rp(lo) : rp(lo) + " – " + rp(hi);
   const line = (name, x, own, items) => { const g = items ? groupList(items) : null;
-    return `<div class="cmp-l${own ? " own" : ""}"><b>${esc(name)}</b><span>${[nf(x.n) + " tipe", range(x.min, x.max), x.left !== null ? "sisa " + pctTxt(x.left) : ""].filter(Boolean).join(" · ")}</span>${g && g.short ? `<small title="${esc(g.full)}">${esc(g.short)}</small>` : ""}</div>`; };
+    return `<div class="cmp-l${own ? " own" : ""}"><b>${esc(name)}</b><span>${[nf(x.n) + " tipe", range(x.min, x.max), x.left !== null ? "sisa " + pctTxt(x.left) : ""].filter(Boolean).join(" · ")}</span>${g && g.full ? `<small>${g.full.split(" · ").map(esc).join("<br>")}</small>` : ""}</div>`; };
   const cmpCell = (a, c) => { const pr = a.list.map(r => r.price).filter(v => v > 0);      // baris Pororo Land dulu (disorot), lalu tiap developer kompetitor
     return line(OWN_DEV, {n:a.n, min:pr.length ? Math.min(...pr) : null, max:pr.length ? Math.max(...pr) : null, left:a.pct}, true, dim === "cluster" ? a.list.map(r => [r.type, ""]) : a.list.map(r => [r.cluster, r.type === "Semua tipe" ? "" : r.type]))
       + (c && c.n ? c.devs.slice(0, 4).map(d => line(d.dev, d, false, d.items.map(compItem))).join("") + (c.devs.length > 4 ? `<div class="cmp-l"><span>+${nf(c.devs.length - 4)} developer lain</span></div>` : "") : `<div class="cmp-l"><span>Kompetitor: belum ada data</span></div>`); };
