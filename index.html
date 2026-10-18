@@ -435,7 +435,11 @@ td.n .note{font-family:var(--f-body)}
 .bl .bi i{grid-column:1/-1;display:block;height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden}
 .bl .bi i u{display:block;height:100%;background:var(--c2);border-radius:3px}
 .bl .bi i{position:relative}
-.bl .bi i s{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--ink);opacity:.55;text-decoration:none}
+.bl .bi i.two{height:auto;background:none;overflow:visible;display:grid;gap:2px}
+.bl .bi i.two u{height:5px;min-width:2px;box-shadow:inset 0 0 0 100vmax transparent}
+.bl .bi i.two u.pv{background:var(--c3);opacity:.9}
+.prof-leg{display:inline-flex;align-items:center;gap:5px;margin:0 6px;white-space:nowrap;color:var(--ink)}
+.prof-leg i{display:inline-block;width:12px;height:6px;border-radius:2px;background:var(--c2);margin-left:6px} .prof-leg i:first-child{margin-left:0} .prof-leg i.pv{background:var(--c3)}
 .bl .bi em{font-style:normal;font-size:11px;margin-left:6px;font-weight:600}
 .bl .bi em.up{color:var(--ok)} .bl .bi em.dn{color:var(--bad)} .bl .bi em.eq{color:var(--muted);font-weight:500}
 .rng-note{font:400 12px var(--f-body);color:var(--muted);margin-left:2px}
@@ -996,13 +1000,13 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
         <div class="donut-row"><div class="donut"><canvas id="chChannel" aria-label="Booking per channel"></canvas><div class="dc" id="dcChannel"></div></div><div class="rank" id="rankChannel"></div></div>
       </div>
       <div class="panel">
-        <h3>Tindakan cepat</h3><p class="desc" id="actDesc">Hal yang perlu ditindaklanjuti, dihitung otomatis dari data periode ini.</p>
+        <h3>Tindakan cepat</h3><p class="desc">Hal yang perlu ditindaklanjuti, dihitung otomatis dari tombol periode di atas halaman: periode ini dibanding periode yang sama panjang sebelumnya.</p><p class="note" id="actDesc" style="margin:2px 0 10px"></p>
         <div class="actions" id="quickActions"></div>
       </div>
     </div>
     <div class="sec-h" id="s-pembeli"><h2>Profil pembeli</h2><span class="rng-note" data-rng=""></span></div>
     <div class="panel reveal" id="profilePanel">
-      <div class="ph"><div><p class="desc" id="profDesc" style="margin:0"></p></div>
+      <div class="ph"><div><p class="note" id="profDesc" style="margin:0;max-width:72ch"></p></div>
         <div class="ana-tools"><div class="seg" id="profCmp"><button aria-pressed="true" data-c="">Tanpa pembanding</button><button aria-pressed="false" data-c="yoy">vs tahun lalu</button><button aria-pressed="false" data-c="prev">vs periode sebelumnya</button></div></div></div>
       <p class="st-insight" id="profSum" hidden></p>
       <div class="prof" id="profile"></div>
@@ -4412,7 +4416,7 @@ function renderSales(){
   if (stAl[0]) acts.push([stAl[0].lv === "slow" ? "info" : "warn", "▣", stAl[0].t, stAl[0].s]);
   else if (ownStock[0]) acts.push(["info","▣", `Stok ${ownStock[0][0]} tersisa ${nf(ownStock[0][1])} unit`, "Bandingkan harga kompetitor", "comp"]);
   if (avail.length) acts.push(["info","◫", `${avail.length} kavling komersial available`, `${nf(avail.reduce((a,p)=>a+num(p.area),0))} m² siap ditawarkan`, "land"]);
-  $("#actDesc").innerHTML = `Hal yang perlu ditindaklanjuti, dihitung otomatis dari <b>${nf(A.P)} bulan terakhir</b> (${keyLabel(A.cur[0])} – ${keyLabel(A.end)}) dibanding ${nf(A.P)} bulan sebelumnya. Ikut tombol periode di atas halaman.`;
+  $("#actDesc").textContent = `${keyLabel(A.cur[0])} – ${keyLabel(A.end)} (${nf(A.P)} bulan) vs ${nf(A.P)} bulan sebelumnya · ikut tombol periode di atas`;
   $("#quickActions").innerHTML = acts.slice(0,5).map(a => `<div class="act"><span class="ic ${a[0]}">${a[1]}</span><p>${esc(a[2])}<small>${esc(a[3])}</small></p>${a[4]?`<button class="btn sm" data-go="${a[4]}">Buka</button>`:"<span></span>"}</div>`).join("");
 
   if (heatView === "day") renderCal(); else renderHeat();
@@ -4494,7 +4498,7 @@ function renderProfile(){
   const genLab = ([g, lo, hi]) => `${hi === 9999 ? "≤ " + (refY - lo) : lo === 0 ? (refY - hi) + "+" : (refY - hi) + "–" + (refY - lo)} (${g})`;
   const genOf = x => { const a = num(x.age); if (!(a > 15 && a < 100)) return ""; const by = (parseInt(String(x.date).slice(0,4), 10) || refY) - a, g = PROF_GENS.find(([, lo, hi]) => by >= lo && by <= hi); return g ? genLab(g) : ""; };
   const counts = (L, f) => { const o = {}; let t = 0; L.forEach(x => { const k = typeof f === "function" ? f(x) : norm(x[f]); if (k){ o[k] = (o[k] || 0) + 1; t++; } }); return {o, t}; };
-  const nice = k => /\(|≤|\+/.test(k) ? k : k.charAt(0) + k.slice(1).toLowerCase();
+  const nice = k => /\((Gen|Milenial|Boomer)/.test(k) ? k : k.charAt(0) + k.slice(1).toLowerCase().replace(/\((\w+)\)/g, (m, w) => "(" + w.toUpperCase() + ")");
   const changes = [];
   const block = (title, f, top, fixed) => { const cur = counts(N, f); if (!cur.t) return "";
     const pv = C ? counts(C, f) : null, okP = pv && pv.t;
@@ -4504,7 +4508,7 @@ function renderProfile(){
     return `<div><h4>${title}</h4><div class="bl">${rows.map(([k, v, pvv]) => { const pc = v/cur.t*100, pp = pvv === null ? null : pvv/pv.t*100, d = pp === null ? null : pc - pp;
       if (d !== null && k !== "Lainnya" && cur.t >= 5 && pv.t >= 5) changes.push({title, k, pc, pp, d});
       const em = d === null ? "" : Math.abs(d) < 1 ? `<em class="eq">±0</em>` : `<em class="${d > 0 ? "up" : "dn"}" title="${esc(spanLabel(cf, ct))}: ${nf(pp)}%">${d > 0 ? "▲" : "▼"} ${nf(Math.abs(d))} pt</em>`;
-      return `<div class="bi"><span title="${esc(k)}">${esc(k)}</span><b>${nf(pc)}%${em}</b><i><u class="grow" style="width:${pc}%"></u>${pp === null ? "" : `<s style="left:${Math.min(100, pp)}%" title="${esc(spanLabel(cf, ct))}: ${nf(pp)}%"></s>`}</i></div>`; }).join("")}</div></div>`; };
+      return `<div class="bi"><span title="${esc(k)}">${esc(k)}</span><b>${nf(pc)}%${em}</b>${pp === null ? `<i><u class="grow" style="width:${pc}%"></u></i>` : `<i class="two"><u class="grow" style="width:${pc}%" title="${esc(spanLabel(ana.from, ana.to))}: ${nf(pc)}%"></u><u class="grow pv" style="width:${Math.min(100, pp)}%" title="${esc(spanLabel(cf, ct))}: ${nf(pp)}%"></u></i>`}</div>`; }).join("")}</div></div>`; };
   const ages = N.map(x => num(x.age)).filter(a => a > 15 && a < 100).sort((a, b) => a - b), med = ages.length ? ages[Math.floor(ages.length/2)] : 0;
   $("#profile").innerHTML = [
     hasF("purpose") ? block("Tujuan", "purpose", 3) : "",
@@ -4512,7 +4516,7 @@ function renderProfile(){
     hasF("city") ? block("Domisili", "city", 5) : "",
     ages.length ? block(`Umur <span class="note" style="font-weight:400">· median ${med} th</span><button type="button" class="hint" aria-label="Keterangan" data-tip="Generasi dihitung dari tahun lahir pembeli (tahun beli − umur): Gen Z 1997–2012, Milenial 1981–1996, Gen X 1965–1980, Boomer ≤ 1964. Rentang umur ditulis menurut tahun ${refY}.">i</button>`, genOf, 0, PROF_GENS.map(genLab)) : ""
   ].join("");
-  $("#profDesc").innerHTML = `<b>${esc(spanLabel(ana.from, ana.to))}</b> · ${nf(N.length)} pembeli (tanpa batal)` + (C ? ` · dibanding <b>${esc(spanLabel(cf, ct))}</b> (${nf(C.length)} pembeli). Garis tipis di batang = nilai pembanding, ▲▼ = selisih poin persentase.` : ". Pilih pembanding untuk melihat perubahan komposisi pembeli.");
+  $("#profDesc").innerHTML = `<b>${esc(spanLabel(ana.from, ana.to))}</b> · ${nf(N.length)} pembeli (tanpa batal)` + (C ? ` · dibanding <b>${esc(spanLabel(cf, ct))}</b> (${nf(C.length)} pembeli). <span class="prof-leg"><i class="cur"></i>${esc(spanLabel(ana.from, ana.to))}<i class="pv"></i>${esc(spanLabel(cf, ct))}</span> ▲▼ = selisih poin persentase.` : ". Pilih pembanding untuk melihat perubahan komposisi pembeli.");
   const sum = $("#profSum");
   if (!C){ sum.hidden = true; }
   else if (!C.length){ sum.hidden = false; sum.innerHTML = `Belum ada penjualan di ${esc(spanLabel(cf, ct))}, jadi belum bisa dibandingkan.`; }
