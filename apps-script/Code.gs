@@ -29,7 +29,8 @@ const SHEETS = {
   Sales:       ['id','date','cluster','unitType','price','channel','agent','status','akadDate','notes'],
   Leads:       ['id','month','channel','leads','visits'],
   Files:       ['id','name','type','size','url','driveId','note','linkedTo','createdAt'],
-  Offers:      ['id','plotCode','tenant','type','priceM2','term','date','status','use','contact','notes','dummy','updatedAt','inst'],   // inst = jumlah cicilan/angsuran yang diminta tenant · penawaran sewa/beli dari calon tenant per kavling; priceM2 sewa = Rp/m²/bulan
+  Offers:      ['id','plotCode','tenant','type','priceM2','term','date','status','use','contact','notes','dummy','updatedAt','inst','stage','stageLog'],   // stage = tahap transaksi (masuk, surat, loi, loo/bf, psm/ppjb, …, ops); stageLog = JSON tanggal & catatan tiap tahap
+                   // inst = jumlah cicilan/angsuran yang diminta tenant · penawaran sewa/beli dari calon tenant per kavling; priceM2 sewa = Rp/m²/bulan
   Events:      ['id','name','type','start','end','notes','updatedAt'],   // event marketing (open house, pameran, promo, ...) · start/end = yyyy-MM-dd
   Settings:    ['id','value','updatedAt'],   // pengaturan bersama, mis. id "kom" = ketentuan sewa & jual (JSON)
 };

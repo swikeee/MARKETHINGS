@@ -37,6 +37,9 @@ let of = get().offers.find(o => o.id === r.row.id);
 ok('penawaran: tanggal tetap YYYY-MM-DD', of.date === '2026-09-12', String(of.date));
 ok('penawaran: nomor HP tidak kehilangan 0', of.contact === '081234567890', String(of.contact));
 ok('penawaran: plotCode teks, inst & term angka', of.plotCode === '12' && of.inst === 48 && of.term === 10 && of.tenant === '99.CO');
+{ const log = JSON.stringify({masuk:{d:'2026-09-12'}, surat:{d:'2026-09-15'}, loi:{d:'2026-09-26', n:'Pembayaran 1'}});
+  post('saveOffer', {...of, stage:'loi', stageLog:log, status:'Diterima'}); const o2 = get().offers.find(o => o.id === of.id);
+  ok('penawaran: tahap & riwayat tahap (JSON) tersimpan utuh', o2.stage === 'loi' && o2.stageLog === log && o2.status === 'Diterima', String(o2.stageLog)); }
 ok('hapus penawaran', post('delete', {sheet:'Offers', id:of.id}).ok === true && get().offers.length === 0);
 ok('hapus id yang tidak ada → false, tidak error', post('delete', {sheet:'Offers', id:'zzz'}).ok === false);
 ok('hapus dari sheet terlarang ditolak', /Tidak bisa menghapus/.test(post('delete', {sheet:'Sales', id:'x'}).error || ''));

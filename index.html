@@ -691,6 +691,35 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
 .pos-t{color:var(--ok)} .neg-t{color:var(--bad)}
 #offerTable tr.gs td{border-top:2px solid var(--line)} #offerTable tbody tr:first-child td{border-top:0}
 #offerTable td.empty{white-space:normal} #offerTable{min-width:760px}
+/* tracker penawaran: kartu per tenant dengan tahapan bernomor */
+.otk-pipe{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 12px}
+.otk-pipe span{font:500 12px var(--f-body);padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted)}
+.otk-pipe span b{color:var(--ink);font-weight:600;margin-left:4px}
+.otk-pipe span.stop b{color:var(--bad)}
+.otk-list{display:grid;gap:12px;grid-template-columns:minmax(0,1fr);min-width:0}
+.otk{min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow)}
+.otk.stop{opacity:.78}
+.otk-h{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:start}
+.otk-k{font:600 13px var(--f-mono);min-width:46px;height:40px;padding:0 8px;border-radius:10px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);border:0;cursor:pointer}
+.otk-h b.t{font-size:15px} .otk-h .note{margin-top:2px}
+.otk-v{text-align:right} .otk-v b{display:block;font-size:16px;font-variant-numeric:tabular-nums} .otk-v small{color:var(--muted);font-size:12px}
+.otk-steps{list-style:none;margin:16px 0 4px;padding:0 0 4px;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(92px,1fr);overflow-x:auto;counter-reset:st}
+.otk-steps li{position:relative;text-align:center;padding:0 4px;min-width:0}
+.otk-steps li::before{content:"";position:absolute;top:14px;left:-50%;right:50%;height:2px;background:var(--line)}
+.otk-steps li:first-child::before{display:none}
+.otk-steps li.done::before,.otk-steps li.cur::before{background:var(--accent)}
+.otk-steps button{all:unset;cursor:default;display:grid;justify-items:center;gap:4px;width:100%}
+.otk-steps li.done button{cursor:pointer}
+.otk-steps .c{position:relative;z-index:1;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:600 12px var(--f-mono);background:var(--surface-2);color:var(--muted);border:2px solid var(--surface-2)}
+.otk-steps li.done .c{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.otk-steps li.cur .c{background:var(--surface);border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.otk.stop .otk-steps li.cur .c{border-color:var(--bad);color:var(--bad);box-shadow:0 0 0 4px var(--bad-soft)}
+.otk-steps .l{font:600 12px/1.25 var(--f-body);color:var(--ink)} .otk-steps li.todo .l{color:var(--muted);font-weight:500}
+.otk-steps .d{font-size:11px;color:var(--muted);line-height:1.2}
+.otk-steps li.done button:hover .l{text-decoration:underline}
+.otk-f{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.otk-f .grp{display:flex;flex-wrap:wrap;gap:6px}
+@media (max-width:640px){.otk-h{grid-template-columns:auto minmax(0,1fr)} .otk-v{grid-column:1/-1;text-align:left}}
 #siteSvg .obadge circle{fill:var(--info);stroke:var(--surface);stroke-width:.7} #siteSvg .obadge text{fill:#fff;font:700 3.2px var(--f-mono);pointer-events:none}
 /* banner latar di bagian atas tiap segmen: gradasi + pola garis tipis, kartu di atasnya semi-transparan */
 .hero{padding:clamp(20px,3.4vw,38px) clamp(18px,3.2vw,38px) clamp(18px,2.6vw,30px)}
@@ -1221,10 +1250,12 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
     <div class="sec-h scene" id="komSec"><h2>Ketentuan sewa &amp; jual</h2><p class="note">Harga base dan cara bayar standar kavling komersial. Semua belum termasuk PPN dan semua angka bisa diubah: di sini untuk standar kawasan, di form kavling untuk harga per kavling, dan di Simulator untuk hasil nego per calon tenant.</p>
       <div class="tools"><button class="btn sm" id="btnKomReset">Kembali ke standar</button><button class="btn sm primary" id="btnKomEdit">Ubah ketentuan</button></div></div>
     <div class="kom" id="komCards"></div>
-    <div class="sec-h" id="offerSec"><h2>Penawaran masuk</h2><p class="note">Penawaran sewa atau beli dari calon tenant untuk tiap kavling yang masih available. “vs harga list” membandingkan tawaran per m² dengan harga jual/sewa kavling itu (sewa per bulan, semua belum termasuk PPN). Klik kode kavling untuk melihatnya di site plan.</p>
-      <div class="tools"><div class="seg" id="offerSeg"><button data-f="aktif" aria-pressed="true">Aktif</button><button data-f="all" aria-pressed="false">Semua</button><button data-f="Sewa" aria-pressed="false">Sewa</button><button data-f="Beli" aria-pressed="false">Beli</button></div><button class="btn primary" id="btnAddOffer" data-w>+ Penawaran</button></div>
+    <div class="sec-h" id="offerSec"><h2>Penawaran masuk</h2><p class="note">Penawaran sewa atau beli dari calon tenant untuk tiap kavling, lengkap dengan tracker tahapannya: sewa (surat penawaran → LOI → LOO → PSM → serah terima → pembangunan → operasional) dan beli (surat penawaran → LOI → booking fee → PPJB → pelunasan → AJB → operasional). Klik “Lanjut ke …” untuk mencatat tahap berikutnya beserta tanggalnya; klik tahap yang sudah lewat untuk mengubah tanggal. “vs harga list” membandingkan tawaran per m² dengan harga jual/sewa kavling (sewa per bulan, belum termasuk PPN).</p>
+      <div class="tools"><div class="seg" id="offerView"><button data-v="track" aria-pressed="true">Tracker</button><button data-v="table" aria-pressed="false">Tabel</button></div><div class="seg" id="offerSeg"><button data-f="aktif" aria-pressed="true">Aktif</button><button data-f="all" aria-pressed="false">Semua</button><button data-f="Sewa" aria-pressed="false">Sewa</button><button data-f="Beli" aria-pressed="false">Beli</button></div><button class="btn primary" id="btnAddOffer" data-w>+ Penawaran</button></div>
     </div>
-    <div class="tablewrap reveal"><table id="offerTable"></table></div>
+    <div class="otk-pipe reveal" id="offerPipe"></div>
+    <div class="otk-list reveal" id="offerTrack"></div>
+    <div class="tablewrap reveal" id="offerTableWrap" hidden><table id="offerTable"></table></div>
     <div class="sec-h scene"><h2>Gambar &amp; dokumen</h2><p class="note">Unggah atau tarik DWG, DXF, PDF gambar kerja, foto site plan, atau dokumen lain. Gambar dibaca langsung di browser ini — tanpa AI, tanpa server. Kavling yang terbaca bisa diimpor ke daftar.</p>
       <div class="tools"><span class="note" id="landDocWhere"></span><button class="btn primary" id="btnLandUp">Unggah gambar</button><input type="file" id="landFile" multiple hidden></div>
     </div>
@@ -1532,6 +1563,9 @@ function loadLocalLand(){
     const had = new Set((Array.isArray(lo) ? lo : DEMO_OFFERS).map(o => o.id));
     offers = clone(DEMO_OFFERS).filter(o => had.has(o.id)).concat(offers.filter(o => !o.dummy).map(o => o.type === "Sewa" && num(o.priceM2) > 0 ? {...o, priceM2:Math.round(num(o.priceM2)/12)} : o));
     store.set("li.mig.kom1", "1"); if (Array.isArray(lp) || Array.isArray(lo)) persistLocal(); }
+  if (!store.get("li.mig.stage1")){ const D = Object.fromEntries(DEMO_OFFERS.map(o => [o.id, o])); offers = offers.map(o => o.dummy && D[o.id] && !o.stage ? {...o, status:D[o.id].status, stage:D[o.id].stage, stageLog:D[o.id].stageLog} : o);
+    DEMO_OFFERS.filter(o => !offers.some(x => x.id === o.id) && (o.id === "of-9" || o.id === "of-10")).forEach(o => offers.push(clone(o)));
+    store.set("li.mig.stage1", "1"); if (Array.isArray(lo)) persistLocal(); }
 }
 async function load(silent){
   if (dbState === "loading") landLoaded = false;
@@ -2164,17 +2198,30 @@ const statusChip = s => `<span class="chip ${({Available:"ok",Reserved:"warn",So
 // ---------- penawaran sewa / beli dari calon tenant, per kavling ----------
 const OFFER_STATUS = ["Baru","Negosiasi","Diterima","Ditolak"];
 const DEMO_OFFERS = [   // fiktif, hanya untuk contoh. Sewa = Rp / m² / bulan, beli = Rp / m², belum termasuk PPN
-  {id:"of-1", dummy:true, plotCode:"E5A", tenant:"Asco Coffee", type:"Sewa", priceM2:90000, term:10, date:"2026-09-12", status:"Negosiasi", use:"Coffee shop", contact:"", notes:"Minta sisa sewa dicicil 48x", inst:48},
+  {id:"of-1", dummy:true, plotCode:"E5A", tenant:"Asco Coffee", type:"Sewa", priceM2:90000, term:10, date:"2026-09-12", status:"Diterima", use:"Coffee shop", contact:"", notes:"Minta sisa sewa dicicil 48x", inst:48, stage:"loo", stageLog:{masuk:{d:"2026-09-12"}, surat:{d:"2026-09-15"}, loi:{d:"2026-09-26", n:"Pembayaran 1 diterima"}, loo:{d:"2026-10-08"}}},
   {id:"of-2", dummy:true, plotCode:"E5A", tenant:"Kopi Tepi Kota", type:"Sewa", priceM2:80000, term:10, date:"2026-09-25", status:"Baru", use:"Coffee shop", contact:"", notes:""},
   {id:"of-3", dummy:true, plotCode:"E5A", tenant:"Dapur Nusantara Resto", type:"Beli", priceM2:11000000, term:null, date:"2026-09-20", status:"Baru", use:"Restoran keluarga", contact:"", notes:"Minta angsuran 36x", inst:36},
-  {id:"of-4", dummy:true, plotCode:"E5B", tenant:"Ayam Geprek Juara", type:"Sewa", priceM2:85000, term:10, date:"2026-09-18", status:"Negosiasi", use:"F&B cepat saji", contact:"", notes:""},
-  {id:"of-5", dummy:true, plotCode:"B1", tenant:"Mitra Otomotif Showroom", type:"Beli", priceM2:11500000, term:null, date:"2026-08-30", status:"Negosiasi", use:"Showroom", contact:"", notes:""},
+  {id:"of-4", dummy:true, plotCode:"E5B", tenant:"Ayam Geprek Juara", type:"Sewa", priceM2:85000, term:10, date:"2026-09-18", status:"Negosiasi", use:"F&B cepat saji", contact:"", notes:"", stage:"surat", stageLog:{masuk:{d:"2026-09-18"}, surat:{d:"2026-09-22"}}},
+  {id:"of-5", dummy:true, plotCode:"B1", tenant:"Mitra Otomotif Showroom", type:"Beli", priceM2:11500000, term:null, date:"2026-08-30", status:"Diterima", use:"Showroom", contact:"", notes:"", stage:"bf", stageLog:{masuk:{d:"2026-08-30"}, surat:{d:"2026-09-03"}, loi:{d:"2026-09-17"}, bf:{d:"2026-09-24"}}},
   {id:"of-6", dummy:true, plotCode:"C2", tenant:"Klinik Sehat Prima", type:"Sewa", priceM2:100000, term:15, date:"2026-09-28", status:"Baru", use:"Klinik & apotek", contact:"", notes:"Setuju harga base, minta 15 tahun"},
   {id:"of-7", dummy:true, plotCode:"C4", tenant:"Bimbel Cerdas Ceria", type:"Sewa", priceM2:75000, term:10, date:"2026-09-05", status:"Baru", use:"Bimbel", contact:"", notes:""},
-  {id:"of-8", dummy:true, plotCode:"C8", tenant:"Kedai Roti Pagi", type:"Sewa", priceM2:70000, term:5, date:"2026-08-11", status:"Ditolak", use:"Bakery", contact:"", notes:"Masa sewa di bawah minimal"},
+  {id:"of-8", dummy:true, plotCode:"C8", tenant:"Kedai Roti Pagi", type:"Sewa", priceM2:70000, term:5, date:"2026-08-11", status:"Ditolak", use:"Bakery", contact:"", notes:"Masa sewa di bawah minimal", stage:"surat", stageLog:{masuk:{d:"2026-08-11"}, surat:{d:"2026-08-14"}}},
+  {id:"of-9", dummy:true, plotCode:"E1", tenant:"Minimarket Nusantara", type:"Sewa", priceM2:95000, term:10, date:"2025-11-03", status:"Diterima", use:"Minimarket", contact:"", notes:"Sudah buka", stage:"ops", stageLog:{masuk:{d:"2025-11-03"}, surat:{d:"2025-11-06"}, loi:{d:"2025-11-20"}, loo:{d:"2025-12-01"}, psm:{d:"2025-12-18"}, serah:{d:"2026-01-05"}, bangun:{d:"2026-01-12"}, ops:{d:"2026-06-01"}}},
+  {id:"of-10", dummy:true, plotCode:"E3", tenant:"Sate Maranggi Purwakarta", type:"Beli", priceM2:12000000, term:null, date:"2026-08-04", status:"Diterima", use:"Restoran", contact:"", notes:"Booking fee masuk, menunggu DP", stage:"bf", stageLog:{masuk:{d:"2026-08-04"}, surat:{d:"2026-08-06"}, loi:{d:"2026-08-20"}, bf:{d:"2026-09-02"}}},
 ];
-let offerFilter = "aktif";
-const offerActive = o => o.status === "Baru" || o.status === "Negosiasi";
+let offerFilter = "aktif", offerView = (store.get("li.offerView") || "track");
+/** Tahapan transaksi kavling komersial. Sewa: surat penawaran → LOI → LOO → PSM → serah terima → pembangunan → operasional. Beli: surat penawaran → LOI → booking fee → PPJB → pelunasan → AJB → operasional. */
+const OFFER_STAGES = {
+  Sewa:[["masuk","Penawaran masuk","Minat / permintaan dari calon tenant"],["surat","Surat penawaran","Harga & ketentuan sewa dikirim developer"],["loi","LOI","Letter of Intent ditandatangani · pembayaran 1"],["loo","LOO","Letter of Offer · konfirmasi ketentuan · pembayaran 2"],
+    ["psm","PSM","Perjanjian Sewa Menyewa · security deposit"],["serah","Serah terima","Berita acara serah terima lahan"],["bangun","Pembangunan","Izin & pembangunan / fit-out · jaminan pembangunan"],["ops","Operasional","Tenant buka, cicilan sisa sewa berjalan"]],
+  Beli:[["masuk","Penawaran masuk","Minat / permintaan dari calon pembeli"],["surat","Surat penawaran","Harga & cara bayar dikirim developer"],["loi","LOI","Letter of Intent ditandatangani"],["bf","Booking fee","Tanda jadi pembelian"],
+    ["ppjb","PPJB","Perjanjian Pengikatan Jual Beli · DP"],["lunas","Pelunasan","Pelunasan / angsuran selesai"],["ajb","AJB & serah terima","Akta Jual Beli · serah terima lahan"],["ops","Operasional","Dibangun & mulai beroperasi"]]};
+const stagesOf = o => OFFER_STAGES[o.type === "Beli" ? "Beli" : "Sewa"];
+const offerLog = o => { const v = o.stageLog; if (v && typeof v === "object") return v; try { return v ? JSON.parse(v) : {}; } catch { return {}; } };
+function offerStageIdx(o){ const S = stagesOf(o), i = S.findIndex(x => x[0] === o.stage); if (i >= 0) return i;
+  return o.status === "Diterima" ? 2 : o.status === "Negosiasi" || o.status === "Ditolak" ? 1 : 0; }      // data lama tanpa tahap: diperkirakan dari status
+const statusForStage = i => i >= 2 ? "Diterima" : i === 1 ? "Negosiasi" : "Baru";
+const offerActive = o => o.status !== "Ditolak" && stagesOf(o)[offerStageIdx(o)][0] !== "ops";
 const offersOf = (p, onlyActive) => offers.filter(o => String(o.plotCode) === String(p.code) && (!onlyActive || offerActive(o)));
 const plotByCode = c => plots.find(p => String(p.code) === String(c));
 /** Total dan selisih terhadap harga list kavling (sewa: per m² per bulan; beli: per m²). kontrak = nilai sewa selama masa sewa. */
@@ -2355,17 +2402,55 @@ function exportOfferXlsx(o){
   } catch(e){ toast(errText(e)); }
 }
 function renderOffers(){
-  const el = $("#offerTable"); if (!el) return;
+  if (!$("#offerTrack")) return;
   $("#offerSeg").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.f === offerFilter));
+  $("#offerView").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === offerView));
   const list = offers.filter(o => offerFilter === "all" || (offerFilter === "aktif" ? offerActive(o) : o.type === offerFilter))
     .sort((a,b) => String(a.plotCode).localeCompare(String(b.plotCode), "id", {numeric:true}) || String(b.date).localeCompare(String(a.date)));
+  // ringkasan jumlah per tahap
+  const cnt = {}, order = []; let stop = 0;
+  list.forEach(o => { if (o.status === "Ditolak"){ stop++; return; } const st = stagesOf(o)[offerStageIdx(o)]; if (!cnt[st[1]]){ cnt[st[1]] = 0; order.push([st[1], offerStageIdx(o)]); } cnt[st[1]]++; });
+  order.sort((a, b) => a[1] - b[1]);
+  $("#offerPipe").innerHTML = list.length ? order.map(([l]) => `<span>${esc(l)}<b>${nf(cnt[l])}</b></span>`).join("") + (stop ? `<span class="stop">Ditolak<b>${nf(stop)}</b></span>` : "") : "";
+  $("#offerPipe").hidden = offerView !== "track";
+  $("#offerTrack").hidden = offerView !== "track"; $("#offerTableWrap").hidden = offerView === "track";
+  if (offerView !== "track") return renderOfferTable(list);
+  $("#offerTrack").innerHTML = list.length ? list.map(o => { const c = offerCalc(o), S = stagesOf(o), cur = offerStageIdx(o), log = offerLog(o), stopped = o.status === "Ditolak", last = cur >= S.length - 1;
+    const since = log[S[cur][0]]?.d || (cur === 0 ? o.date : ""), days = since ? Math.max(0, Math.floor((Date.now() - new Date(since + "T00:00:00"))/864e5)) : null;
+    const steps = S.map(([k, l, d], i) => { const cls = i < cur || (i === cur && last && !stopped) ? "done" : i === cur ? "cur" : "todo", e = log[k] || (k === "masuk" && o.date ? {d:o.date} : null);
+      return `<li class="${cls}"><button type="button" ${i <= cur ? `data-stage-edit="${esc(o.id)}" data-k="${k}"` : "disabled"} title="${esc(d)}${e?.n ? " · " + esc(e.n) : ""}"><span class="c">${i < cur || (last && !stopped) ? "✓" : i + 1}</span><span class="l">${esc(l)}</span><span class="d">${e?.d ? esc(fmtDay(e.d)) : i === cur && !stopped ? "sekarang" : ""}</span></button></li>`; }).join("");
+    const next = !stopped && !last ? S[cur + 1] : null;
+    return `<article class="otk${stopped ? " stop" : ""}">
+      <div class="otk-h"><button type="button" class="otk-k" data-go-plot="${esc(o.plotCode)}" title="Lihat kavling di site plan">${esc(o.plotCode)}</button>
+        <div><b class="t">${esc(o.tenant)}</b>${o.dummy ? ' <span class="dummy">dummy</span>' : ""} <span class="chip ${c.sewa ? "info" : "own"}">${esc(o.type)}</span>${c.sewa && num(o.term) ? ` <span class="note">${nf(o.term)} thn</span>` : ""}${num(o.inst) ? ` <span class="note">· ${nf(o.inst)}×</span>` : ""}
+          <div class="note">${[o.use, c.p ? `${nf(c.p.area)} m²` : "kavling tidak ada", `tawaran ${rp0(o.priceM2)}/m²${c.sewa ? "/bln" : ""}`].filter(Boolean).map(esc).join(" · ")}${c.diff !== null ? " · vs list " + offerDiff(c) : ""}</div></div>
+        <div class="otk-v"><b>${c.p ? rp(c.total) + (c.sewa ? "/bln" : "") : "–"}</b>${c.sewa && c.p ? `<small>${rp(c.kontrak)} · ${nf(num(o.term) || KOM.term)} thn</small>` : ""}</div></div>
+      <ol class="otk-steps">${steps}</ol>
+      <div class="otk-f"><span class="note">${stopped ? `<span class="chip bad">Ditolak</span> di tahap ${esc(S[cur][1])}${o.notes ? " · " + esc(o.notes) : ""}` : last ? `<span class="chip ok">Selesai</span> beroperasi sejak ${esc(fmtDate(since))}` : `Tahap sekarang: <b>${esc(S[cur][1])}</b>${days !== null ? ` · ${nf(days)} hari` : ""}${o.notes ? " · " + esc(o.notes) : ""}`}</span>
+        <span class="grp">${cur > 0 && !stopped ? `<button class="btn sm" data-w data-stage-back="${esc(o.id)}" title="Kembalikan ke tahap sebelumnya">↶ Mundur</button>` : ""}<button class="btn sm xl" data-xlsx-offer="${esc(o.id)}" title="Unduh hitungan penawaran ini sebagai file Excel">${XL_ICON}Export Excel</button><button class="btn sm" data-w data-edit-offer="${esc(o.id)}">Edit</button>${next ? `<button class="btn sm primary" data-w data-stage-next="${esc(o.id)}">Lanjut ke ${esc(next[1])} →</button>` : ""}</span></div>
+    </article>`; }).join("")
+    : `<div class="empty">${offers.length ? "Tidak ada penawaran untuk saringan ini." : "Belum ada penawaran. Klik “+ Penawaran” untuk mencatat yang pertama."}</div>`;
+  applyWrite();
+}
+const todayIso = () => new Date(Date.now() - new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+/** Simpan tahap: tanggal + catatan per tahap disimpan di stageLog; status ikut tahap (masuk = Baru, surat = Negosiasi, LOI ke atas = Diterima). */
+function saveStage(o, idx, entry, keepAfter){ const S = stagesOf(o), log = {...offerLog(o)};
+  if (entry) log[S[idx][0]] = entry;
+  if (!keepAfter) S.slice(idx + 1).forEach(([k]) => delete log[k]);
+  return saveRow("Offers", offers, {...o, stage:S[idx][0], stageLog:JSON.stringify(log), status:statusForStage(idx)}, o); }
+function stageForm(o, idx, edit){ const S = stagesOf(o), st = S[idx], e = offerLog(o)[st[0]] || {};
+  openForm(`${edit ? "Ubah" : "Lanjut ke"} ${st[1]} · ${o.tenant}`, [["d", `Tanggal ${st[1]}`, "date"], ["n", "Catatan (opsional), mis. nomor surat / pembayaran", "text", "full"]], {d:e.d || todayIso(), n:e.n || ""},
+    v => edit ? (() => { const log = {...offerLog(o), [st[0]]:{d:v.d, ...(v.n ? {n:v.n} : {})}}; return saveRow("Offers", offers, {...o, stageLog:JSON.stringify(log)}, o); })() : saveStage(o, idx, {d:v.d, ...(v.n ? {n:v.n} : {})}), null, edit ? "Tanggal tahap diperbarui" : `Tahap ${st[1]} dicatat`);
+  $("#mBody").insertAdjacentHTML("afterbegin", `<p class="note" style="margin:0 0 10px">${esc(st[2])}.</p>`); }
+function renderOfferTable(list){
+  const el = $("#offerTable"); if (!el) return;
   let last = null;
-  el.innerHTML = list.length ? `<thead><tr><th>Kavling</th><th>Tenant</th><th>Jenis</th><th class="n">Tawaran / m²</th><th class="n">Total</th><th class="n">vs harga list</th><th>Tanggal</th><th>Status</th><th></th></tr></thead><tbody>${
+  el.innerHTML = list.length ? `<thead><tr><th>Kavling</th><th>Tenant</th><th>Jenis</th><th class="n">Tawaran / m²</th><th class="n">Total</th><th class="n">vs harga list</th><th>Tanggal</th><th>Tahap</th><th>Status</th><th></th></tr></thead><tbody>${
     list.map(o => { const c = offerCalc(o), first = o.plotCode !== last; last = o.plotCode; const n = list.filter(x => x.plotCode === o.plotCode).length;
       return `<tr class="${first ? "gs" : ""}"><td>${first ? `<button class="btn sm" data-go-plot="${esc(o.plotCode)}" title="Lihat di site plan"><b style="font-family:var(--f-mono)">${esc(o.plotCode)}</b></button> <span class="chip">${n}</span>${c.p ? "" : ' <span class="note">kavling tidak ada</span>'}` : ""}</td>
       <td style="white-space:normal;min-width:150px"><b>${esc(o.tenant)}</b>${o.dummy ? ' <span class="dummy">dummy</span>' : ""}${o.use ? `<div class="note">${esc(o.use)}</div>` : ""}</td><td><span class="chip ${c.sewa ? "info" : "own"}">${esc(o.type)}</span>${c.sewa && num(o.term) ? ` <span class="note">${nf(o.term)} thn</span>` : ""}${num(o.inst) ? ` <span class="note">· ${nf(o.inst)}×</span>` : ""}</td>
       <td class="n">${rp0(o.priceM2)}${c.sewa ? '<span class="note">/bln</span>' : ""}</td><td class="n">${c.p ? rp(c.total) + (c.sewa ? `<span class="note">/bln</span><div class="note">${rp(c.kontrak)} · ${nf(num(o.term) || KOM.term)} thn</div>` : "") : "–"}</td><td class="n">${offerDiff(c) || "–"}</td>
-      <td>${esc(fmtDate(o.date))}</td><td>${offerChip(o.status)}</td><td><span class="grp" style="display:flex;gap:4px"><button class="btn sm xl" data-xlsx-offer="${esc(o.id)}" title="Unduh hitungan penawaran ini sebagai file Excel">${XL_ICON}Export Excel</button><button class="btn sm" data-w data-edit-offer="${esc(o.id)}">Edit</button></span></td></tr>`; }).join("")}</tbody>`
+      <td>${esc(fmtDate(o.date))}</td><td>${esc(stagesOf(o)[offerStageIdx(o)][1])}</td><td>${offerChip(o.status)}</td><td><span class="grp" style="display:flex;gap:4px"><button class="btn sm xl" data-xlsx-offer="${esc(o.id)}" title="Unduh hitungan penawaran ini sebagai file Excel">${XL_ICON}Export Excel</button><button class="btn sm" data-w data-edit-offer="${esc(o.id)}">Edit</button></span></td></tr>`; }).join("")}</tbody>`
     : `<tbody><tr><td class="empty">${offers.length ? "Tidak ada penawaran untuk saringan ini." : "Belum ada penawaran. Klik “+ Penawaran” untuk mencatat yang pertama."}</td></tr></tbody>`;
   applyWrite();
 }
@@ -2619,6 +2704,15 @@ function renderLot(){
       : over ? `<span class="note up" style="flex-basis:100%">Melebihi KLB. Luas bangunan maksimal kavling ini ${nf(R.maxBldg)} m².</span>` : "");
 }
 $("#offerSeg").onclick = e => { const b = e.target.closest("button"); if (!b) return; offerFilter = b.dataset.f; renderOffers(); };
+$("#offerView").onclick = e => { const b = e.target.closest("button"); if (!b) return; offerView = b.dataset.v; store.set("li.offerView", offerView); renderOffers(); };
+$("#offerTrack").onclick = e => { const f = id => offers.find(o => o.id === id);
+  const xl = e.target.closest("[data-xlsx-offer]"); if (xl) return exportOfferXlsx(f(xl.dataset.xlsxOffer));
+  const ed = e.target.closest("[data-edit-offer]"); if (ed) return editOffer(f(ed.dataset.editOffer));
+  const gp = e.target.closest("[data-go-plot]"); if (gp){ const p = plotByCode(gp.dataset.goPlot); if (!p) return; spSel = p.id; if (polyOf(p) && !hasGeo(p)){ spView = "draw"; spDrawing = p.drawingId || ""; } else if (hasGeo(p)) spView = "plan"; renderSite(); $("#siteSvg").scrollIntoView({behavior:"smooth", block:"center"}); return; }
+  const nx = e.target.closest("[data-stage-next]"); if (nx){ const o = f(nx.dataset.stageNext); return stageForm(o, offerStageIdx(o) + 1, false); }
+  const se = e.target.closest("[data-stage-edit]"); if (se){ const o = f(se.dataset.stageEdit), i = stagesOf(o).findIndex(x => x[0] === se.dataset.k); if (i >= 0) return stageForm(o, i, true); }
+  const bk = e.target.closest("[data-stage-back]"); if (bk){ if (!bk.dataset.confirm){ bk.dataset.confirm = 1; bk.textContent = "Klik lagi"; return; } const o = f(bk.dataset.stageBack);
+    saveStage(o, offerStageIdx(o) - 1, null).then(() => toast("Dikembalikan ke tahap sebelumnya")).catch(err => toast(errText(err))); } };
 $("#btnAddOffer").onclick = () => { const p = plots.find(x => x.id === spSel); editOffer(null, p?.status === "Available" ? p.code : null); };
 $("#offerTable").onclick = e => { const xl = e.target.closest("[data-xlsx-offer]"); if (xl) return exportOfferXlsx(offers.find(o => o.id === xl.dataset.xlsxOffer));
   const ed = e.target.closest("[data-edit-offer]"); if (ed) return editOffer(offers.find(o => o.id === ed.dataset.editOffer));
