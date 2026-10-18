@@ -5859,10 +5859,10 @@ async function buildQuarterPpt(q){
       s.addShape(pptx.ShapeType.roundRect, {x:bx + bw/2 - .55, y:by - .16, w:1.1, h:.3, rectRadius:.15, fill:{color:"D64545"}, line:{color:"D64545", width:0}});
       Tx(s, QL, {x:bx + bw/2 - .55, y:by - .16, w:1.1, h:.3, fontSize:9, bold:true, color:C.wh, align:"center", valign:"middle"}); }
     s.addChart([{type:pptx.ChartType.bar, data:bars, options:{chartColors:[C.or, "C9D5E0"], barGapWidthPct:50}},
-      {type:pptx.ChartType.line, data:[lines[0]], options:{chartColors:[C.navy], lineSize:3, lineDataSymbolSize:7, secondaryValAxis:true, secondaryCatAxis:true}},
-      {type:pptx.ChartType.line, data:[lines[1]], options:{chartColors:["7A8896"], lineSize:2.25, lineDash:"dash", lineDataSymbol:"none", secondaryValAxis:true, secondaryCatAxis:true}}],
-      {...ax, x:X, y:2.25, w:lw, h:4.7, layout:PL, showLegend:true, legendPos:"t", showValue:L.length <= 6, dataLabelFontSize:7.5, dataLabelFormatCode:"0.0",
-       valAxes:[{showValAxisTitle:true, valAxisTitle:"Per bulan (M)", valAxisTitleFontSize:8, valAxisLabelFontSize:8, valAxisMinVal:0, valAxisMaxVal:Math.ceil(bMax*1.9/5)*5}, {showValAxisTitle:true, valAxisTitle:"Kumulatif (M)", valAxisTitleFontSize:8, valAxisLabelFontSize:8, valAxisMinVal:0, valAxisMaxVal:Math.ceil(cMax*1.1/10)*10, valGridLine:{style:"none"}}],
+      {type:pptx.ChartType.line, data:[lines[0]], options:{chartColors:[C.navy], lineSize:3, lineDataSymbolSize:7, dataLabelPosition:"t", secondaryValAxis:true, secondaryCatAxis:true}},
+      {type:pptx.ChartType.line, data:[lines[1]], options:{chartColors:["7A8896"], lineSize:2.25, lineDash:"dash", lineDataSymbol:"none", dataLabelPosition:"b", secondaryValAxis:true, secondaryCatAxis:true}}],
+      {...ax, x:X, y:2.25, w:lw, h:4.7, layout:PL, showLegend:true, legendPos:"t", showValue:true, dataLabelFontSize:L.length > 6 ? 6.5 : 7.5, dataLabelFormatCode:"0.0",
+       valAxes:[{showValAxisTitle:true, valAxisTitle:"Per bulan (M)", valAxisTitleFontSize:8, valAxisLabelFontSize:8, valAxisMinVal:0, valAxisMaxVal:Math.ceil(bMax*2.2/5)*5}, {valAxisLabelColor:"FFFFFF", valAxisLabelFontSize:6, valAxisMinVal:-Math.ceil(cMax*1.25), valAxisMaxVal:Math.ceil(cMax*1.16), valGridLine:{style:"none"}}],
        catAxes:[{catAxisTitle:"Bulan"}, {catAxisHidden:true}]});
     const rx = X + lw + .3, rw = CW - lw - .3, kw = (rw - .2)/2;
     kpi(s, rx, 2.25, kw, 1.15, "Rp " + nf(RV/1e9, 1) + " M", "Revenue YTD", RY ? `${YP}: Rp ${nf(RY/1e9, 1)} M` : "Booking bersih", 20);
