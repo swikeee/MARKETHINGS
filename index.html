@@ -5491,10 +5491,12 @@ let PPT_SET = readJson("li.ppt") || {};
 /** Indikator makro dari bi.go.id (kurs JISDOR, BI-Rate, inflasi IHK yoy) yang diambil Apps Script tiap Rabu & Jumat, beserta riwayatnya. */
 let MACRO = readJson("li.macro") || {};
 const fmtId = (v, d=2) => v === null || v === undefined || v === "" ? "" : Number(v).toLocaleString("id-ID", {maximumFractionDigits:d});
-function macroFor(q){ const H = Array.isArray(MACRO.hist) ? MACRO.hist : [], ms = qMonths(q), a = ms[0] + "-01", b = ms[2] + "-31";
+function macroFor(q, latest){ const H = Array.isArray(MACRO.hist) ? MACRO.hist : [], ms = qMonths(q), a = ms[0] + "-01", b = ms[2] + "-31";
   const seen = String(MACRO.fetchedAt || "") >= a;               // ada pengamatan selama / sesudah kuartal itu
   const last = (k, from) => H.filter(h => h.k === k && h.d <= b && (!from || h.d >= from)).at(-1) || null;
-  const kurs = last("kurs", a), bi = seen ? last("bi") : null;
+  // kuartal laporan terbaru: bila belum ada pengamatan di dalam kuartal itu, pakai angka terbaru yang ada
+  const any = k => H.filter(h => h.k === k).at(-1) || null;
+  const kurs = last("kurs", a) || (latest ? any("kurs") : null), bi = (seen ? last("bi") : null) || (latest ? any("bi") : null);
   const inf = ms.map(m => H.filter(h => h.k === "inf" && h.d.slice(0,7) === m).at(-1)).filter(Boolean);
   return {kurs:kurs ? fmtId(kurs.v, 0) : "", kursD:kurs?.d || "", bi:bi ? fmtId(bi.v) : "", biD:bi?.d || "", inf:inf.map(x => fmtId(x.v)).join("; "), infD:inf.map(x => x.d) }; }
 const decId = s => { const t = String(s ?? "").replace(/\s/g, "").replace(/%$/, ""); if (!t) return null; const v = parseFloat(t.replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")); return isFinite(v) ? v : null; };
@@ -5960,16 +5962,18 @@ async function buildQuarterPpt(q){
 function openPptReport(){
   const qs = reportQuarters(); if (!qs.length) return toast("Belum ada data penjualan untuk dibuat laporan");
   const end = allSalesMonths().at(-1), lab = q => qLabel(q) + (end < qMonths(q)[2] ? " (berjalan)" : ""), labels = qs.map(lab);
-  const vals = q => { const m = PPT_SET[q] || {}, a = macroFor(q); return {q:lab(q), inf:m.inf || a.inf, bi:m.bi || a.bi, kurs:m.kurs || a.kurs, ikk:m.ikk || "", target:m.target ?? null}; };
+  const isLatest = q => q === qs[0] || qMonths(q)[2] >= todayIso().slice(0,7);
+  const vals = q => { const m = PPT_SET[q] || {}, a = macroFor(q, isLatest(q)); return {q:lab(q), inf:m.inf || a.inf, bi:m.bi || a.bi, kurs:m.kurs || a.kurs, ikk:m.ikk || "", target:m.target ?? null}; };
   const F = [["q", "Kuartal", "select", labels], ["target", "Target unit kuartal berikutnya (kosong = otomatis)", "number"],
     ["inf", "Inflasi 3 bulan (%) · mis. 2,3; 2,4; 2,5", "text", "full"], ["bi", "BI Rate (%)", "text"], ["kurs", "Kurs USD/IDR", "text"], ["ikk", "Indeks Keyakinan Konsumen", "text"]];
   openForm("Laporan PPT per kuartal", F, vals(qs[0]), async v => {
     const q = qs[labels.indexOf(v.q)] || qs[0];
-    PPT_SET = {...PPT_SET, [q]:{inf:v.inf, bi:v.bi, kurs:v.kurs, ikk:v.ikk, target:v.target}}; store.set("li.ppt", JSON.stringify(PPT_SET));
+    const a = macroFor(q, isLatest(q)), man = k => decId(v[k]) !== null && String(v[k]).trim() !== String(a[k]).trim() ? v[k] : "";   // sama dengan angka otomatis → tidak dikunci, ikut update berikutnya
+    PPT_SET = {...PPT_SET, [q]:{inf:man("inf"), bi:man("bi"), kurs:man("kurs"), ikk:v.ikk, target:v.target}}; store.set("li.ppt", JSON.stringify(PPT_SET));
     if (mode === "live" && TOKEN) api("saveSetting", {id:"ppt", value:JSON.stringify(PPT_SET)}).catch(() => {});
     const {pptx, fileName} = await buildQuarterPpt(q); await pptx.writeFile({fileName, compression:true});
   }, null, "Laporan PPT diunduh");
-  const live = mode === "live" && TOKEN, macroNote = () => { const q = qs[labels.indexOf($("#f_q").value)] || qs[0], a = macroFor(q);
+  const live = mode === "live" && TOKEN, macroNote = () => { const q = qs[labels.indexOf($("#f_q").value)] || qs[0], a = macroFor(q, isLatest(q));
     const srcs = [...new Set(["kurs","bi","inf"].map(k => MACRO[k]?.src).filter(Boolean))];
     return MACRO.fetchedAt ? `Kurs, BI-Rate, dan inflasi IHK diisi otomatis dari <b>${esc(srcs.join(", ") || "bi.go.id")}</b> (diambil tiap Rabu & Jumat, terakhir ${esc(fmtDate(MACRO.fetchedAt))})${a.kursD ? ` · kurs per ${esc(fmtDay(a.kursD))}` : ""}${a.biD ? ` · BI-Rate sejak ${esc(fmtDay(a.biD))}` : ""}. Angka bisa diubah manual.${MACRO.status && MACRO.status !== "ok" ? `<br><span class="up">${esc(MACRO.err || "Sebagian angka belum terambil")}</span>` : ""}`
       : live ? "Kurs JISDOR, BI-Rate, dan inflasi belum pernah diambil dari bi.go.id. Klik “Ambil dari BI”, atau pasang Code.gs terbaru supaya terambil otomatis tiap minggu." : "Mode demo: kurs JISDOR, BI-Rate, dan inflasi terisi otomatis dari bi.go.id setelah Apps Script tersambung. Sementara bisa diisi manual."; };
@@ -5977,7 +5981,8 @@ function openPptReport(){
   $("#macroNote").innerHTML = macroNote();
   if (live){ const btn = document.createElement("button"); btn.className = "btn"; btn.type = "button"; btn.textContent = "Ambil dari BI"; btn.style.marginRight = "auto"; btn.title = "Ambil kurs JISDOR, BI-Rate, dan inflasi terbaru dari bi.go.id";
     btn.onclick = async () => { btn.disabled = true; btn.textContent = "Mengambil…"; try { const r = await api("refreshMacro", {}); MACRO = r.macro || MACRO; store.set("li.macro", JSON.stringify(MACRO));
-        const q = qs[labels.indexOf($("#f_q").value)] || qs[0], a = macroFor(q); for (const k of ["kurs","bi","inf"]) if (a[k]) $("#f_" + k).value = a[k]; $("#macroNote").innerHTML = macroNote(); toast(MACRO.status === "gagal" ? "Belum ada angka yang terambil, lihat keterangan merah" : MACRO.status === "sebagian" ? "Sebagian angka diperbarui" : "Kurs, BI-Rate & inflasi diperbarui"); }
+        const q = qs[labels.indexOf($("#f_q").value)] || qs[0], a = macroFor(q, isLatest(q)); for (const k of ["kurs","bi","inf"]) if (a[k]) $("#f_" + k).value = a[k];
+        if (PPT_SET[q]){ PPT_SET = {...PPT_SET, [q]:{...PPT_SET[q], ...Object.fromEntries(["kurs","bi","inf"].filter(k => a[k]).map(k => [k, ""]))}}; store.set("li.ppt", JSON.stringify(PPT_SET)); } $("#macroNote").innerHTML = macroNote(); toast(MACRO.status === "gagal" ? "Belum ada angka yang terambil, lihat keterangan merah" : MACRO.status === "sebagian" ? "Sebagian angka diperbarui" : "Kurs, BI-Rate & inflasi diperbarui"); }
       catch(e){ toast(errText(e)); } finally { btn.disabled = false; btn.textContent = "Ambil dari BI"; } };
     $("#mActions").prepend(btn); }
   const sel = $("#f_q"); sel.onchange = () => { const v = vals(qs[labels.indexOf(sel.value)]); for (const k of ["inf","bi","kurs","ikk","target"]) $("#f_" + k).value = v[k] ?? ""; $("#macroNote").innerHTML = macroNote(); };
