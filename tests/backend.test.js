@@ -330,4 +330,21 @@ wait(3); post('saveOffer', {plotCode:'E5A', tenant:'Uji Rev', type:'Sewa', price
 ok('snapshot membawa penanda yang sama', get().rev === rev().rev);
 wait(3); post('ping', {}); ok('aksi baca (ping) tidak mengubah penanda', rev().rev === r4.rev);
 env.props.READ_TOKEN = 'baca1'; ok('cek revisi ikut aturan READ_TOKEN', JSON.parse(A.doGet({parameter:{rev:'1'}}).text).error === 'unauthorized' && JSON.parse(A.doGet({parameter:{rev:'1', token:'baca1'}}).text).ok); delete env.props.READ_TOKEN;
+// indikator makro dari bi.go.id: kurs JISDOR, BI-Rate, inflasi
+delete env.props.READ_TOKEN;
+{ const IND = '<html><nav>BI-Rate Informasi Kurs JISDOR Inflasi</nav><div class="ind"><span>BI-Rate</span><b>5,75 %</b><i>23 September 2026</i></div><div><span>Inflasi IHK (yoy)</span><b>3,19 %</b><i>31 Agustus 2026</i></div><div><span>JISDOR</span><b>Rp 18.052</b><i>16 Okt 2026</i></div></html>';
+  env.setFetch(url => url.includes('indikator') ? {code:200, type:'text/html', body:IND} : {code:200, type:'text/html', body:'<table><tr><td>16 Oktober 2026</td><td>Rp 18.052,00</td></tr></table>'});
+  let m = post('refreshMacro', {}).macro;
+  ok('makro: kurs JISDOR, BI-Rate, inflasi terbaca dari halaman BI', m.kurs.v === 18052 && m.kurs.d === '2026-10-16' && m.bi.v === 5.75 && m.bi.d === '2026-09-23' && m.inf.v === 3.19 && m.inf.d === '2026-08-31', JSON.stringify(m));
+  ok('makro: tersimpan di Settings dan ikut snapshot', JSON.parse(get().settings.macro).kurs.v === 18052);
+  env.setFetch(url => url.includes('indikator') ? {code:200, type:'text/html', body:IND.replace('18.052', '18.110').replace('16 Okt 2026', '23 Okt 2026')} : {code:500, body:''});
+  m = post('refreshMacro', {}).macro;
+  ok('makro: riwayat bertambah per tanggal, tidak dobel', m.hist.filter(h => h.k === 'kurs').length === 2 && m.hist.filter(h => h.k === 'bi').length === 1 && m.kurs.v === 18110);
+  env.setFetch(url => url.includes('indikator') ? {code:503, body:''} : {code:200, type:'text/html', body:'<tr><td>30 Oktober 2026</td><td>Rp 18.200,00</td></tr>'});
+  m = post('refreshMacro', {}).macro;
+  ok('makro: halaman indikator gagal → kurs dari tabel JISDOR, nilai lain tetap', m.kurs.v === 18200 && m.kurs.d === '2026-10-30' && m.bi.v === 5.75 && /indikator/.test(m.err));
+  env.setFetch(() => ({code:200, type:'text/html', body:'<p>JISDOR Rp 99 1 Jan 2026</p>'}));
+  m = post('refreshMacro', {}).macro;
+  ok('makro: angka tidak wajar diabaikan', m.kurs.v === 18200);
+  }
 console.log(process.exitCode ? '\nADA YANG GAGAL' : `\nSemua ${n} uji backend lulus`);

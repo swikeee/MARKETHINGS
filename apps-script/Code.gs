@@ -36,7 +36,7 @@ const SHEETS = {
 };
 // Kolom yang harus tetap teks: cegah Sheets mengubah tanggal jadi Date, kode kavling jadi angka, atau nomor telepon kehilangan angka 0 di depan
 const TEXT_COLS = { Sales: ['date','akadDate'], Leads: ['month'], Offers: ['date','plotCode','contact','tenant'], Plots: ['code','poly','drawingId'], Competitors: ['sourceDate','cluster','unitType','image','plan'], Files: ['name'], Settings: ['id','value'], Events: ['id','name','start','end','notes'] };
-const WRITE_ACTIONS = ['saveCompetitor','savePlot','saveOffer','saveSource','delete','deleteMany','import','saveFile','deleteFile','saveSetting','saveEvent','deleteEvent','selfTest'];
+const WRITE_ACTIONS = ['saveCompetitor','savePlot','saveOffer','saveSource','delete','deleteMany','import','saveFile','deleteFile','saveSetting','saveEvent','deleteEvent','selfTest','refreshMacro'];
 const NUMERIC = ['size','leads','visits','lt','lb','price','stock','sold','months','area','frontage','priceM2','rentM2','x','y','w','h','oldPrice','newPrice','changePct','term','inst','kt','km','floors'];
 const BOOL = ['isOwn','auto','dummy','active'];
 const MAX_TEXT = 60000;
@@ -168,7 +168,8 @@ function handle(action, p) {
       case 'deleteFile':     return out({ ok: deleteFile(p.id) });
       case 'getFile':        return out({ ok: true, ...getFile(p.id) });      // isi file arsip (brosur) untuk dipotong fotonya di laporan PPT
       case 'getImage':       return out({ ok: true, ...getImage(p.url) });    // gambar tipe dari situs developer (tanpa izin CORS) untuk laporan PPT
-      case 'syncNow':        return out({ ok: true, ...syncAll('manual', true) });
+      case 'syncNow':        { try { fetchMacro(); } catch (e) {} return out({ ok: true, ...syncAll('manual', true) }); }
+      case 'refreshMacro':   return out({ ok: true, macro: fetchMacro() });   // kurs JISDOR, BI-Rate, inflasi dari bi.go.id
       case 'fetchUrl':       return out({ ok: true, ...fetchOne(p.url, p.note, p.developer) });
       case 'ai':             return out({ ok: true, text: aiText([{ type: 'text', text: String(p.prompt || '').slice(0, 180000) }], 2500, aiEffort()), effort: aiEffort() || 'default', provider: aiProvider() });
       case 'extract':        return out({ ok: true, data: extractBrochure(p) });
@@ -231,7 +232,41 @@ function snapshot() {
 
 /* ======================= SINKRON ======================= */
 
-function weeklySync() { syncAll('jadwal', false); }      // dipanggil jadwal Rabu 07.00 & Jumat 18.00 WIB
+function weeklySync() { try { fetchMacro(); } catch (e) {} syncAll('jadwal', false); }      // dipanggil jadwal Rabu 07.00 & Jumat 18.00 WIB: kurs & BI-Rate dari bi.go.id, lalu data publik kompetitor
+
+/* ======================= INDIKATOR MAKRO DARI BANK INDONESIA ======================= */
+// Kurs JISDOR (USD/IDR), BI-Rate, dan inflasi IHK (yoy) dibaca dari halaman indikator resmi BI, tanpa AI.
+// Disimpan di tab Settings (id "macro") beserta riwayatnya, dipakai untuk mengisi otomatis laporan PPT per kuartal.
+const MACRO_URL = 'https://www.bi.go.id/id/statistik/indikator/default.aspx', JISDOR_URL = 'https://www.bi.go.id/id/statistik/informasi-kurs/jisdor/default.aspx';
+const ID_MON = { jan: 1, feb: 2, mar: 3, apr: 4, mei: 5, may: 5, jun: 6, jul: 7, agu: 8, aug: 8, ags: 8, sep: 9, okt: 10, oct: 10, nov: 11, des: 12, dec: 12 };
+function idDate(t) { const m = String(t).match(/(\d{1,2})\s+([A-Za-z]{3})[A-Za-z]*\.?\s+(\d{4})/); if (!m) return ''; const mo = ID_MON[m[2].toLowerCase()];
+  return mo ? m[3] + '-' + String(mo).padStart(2, '0') + '-' + String(m[1]).padStart(2, '0') : ''; }
+/** "18.052" → 18052 · "18.052,00" → 18052 · "5,75" → 5.75 · "3.19" → 3.19 */
+function idNum(t) { const s = String(t).replace(/\s/g, '');
+  if (/,\d{1,2}$/.test(s)) return parseFloat(s.replace(/\./g, '').replace(',', '.'));
+  if (/^\d{1,3}(\.\d{3})+$/.test(s)) return parseFloat(s.replace(/\./g, ''));
+  return parseFloat(s.replace(',', '.')); }
+function pageText(html) { return String(html).replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' '); }
+const MACRO_OK = { kurs: v => v > 5000 && v < 60000, bi: v => v >= 0 && v < 25, inf: v => v > -10 && v < 40 };
+function parseMacro(text) { const D = '(\\d{1,2}\\s+[A-Za-z]{3,9}\\.?\\s+\\d{4})';
+  const g = (k, re) => { const m = text.match(re); if (!m) return null; const v = idNum(m[1]), d = idDate(m[2]); return d && MACRO_OK[k](v) ? { v: v, d: d } : null; };
+  return { bi: g('bi', new RegExp('BI-Rate\\s*([\\d.,]+)\\s*%\\s*' + D, 'i')), inf: g('inf', new RegExp('Inflasi\\s+IHK\\s*\\(yoy\\)\\s*([\\d.,]+)\\s*%\\s*' + D, 'i')),
+    kurs: g('kurs', new RegExp('JISDOR\\s*Rp\\s*([\\d.,]+)\\s*' + D, 'i')) }; }
+function parseJisdor(text) { const m = String(text).match(/(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})\s*Rp\s*([\d.,]+)/); if (!m) return null; const v = idNum(m[2]), d = idDate(m[1]); return d && MACRO_OK.kurs(v) ? { v: v, d: d } : null; }
+function readMacro() { try { const r = readTable('Settings').find(x => String(x.id) === 'macro'); return r && r.value ? JSON.parse(r.value) : {}; } catch (e) { return {}; } }
+function fetchMacro() {
+  const get = u => { const r = UrlFetchApp.fetch(u, { muteHttpExceptions: true, followRedirects: true, headers: { 'User-Agent': 'Mozilla/5.0 (MARKETHINGS)' } });
+    if (r.getResponseCode() !== 200) throw new Error('HTTP ' + r.getResponseCode()); return pageText(r.getContentText()); };
+  let found = {}; const errs = [];
+  try { found = parseMacro(get(MACRO_URL)); } catch (e) { errs.push('indikator: ' + e.message); }
+  if (!found.kurs) { try { const j = parseJisdor(get(JISDOR_URL)); if (j) found.kurs = j; } catch (e) { errs.push('JISDOR: ' + e.message); } }
+  const cur = readMacro(), hist = Array.isArray(cur.hist) ? cur.hist : [];
+  ['kurs', 'bi', 'inf'].forEach(k => { const x = found[k]; if (!x) return; cur[k] = x; if (!hist.some(h => h.k === k && h.d === x.d)) hist.push({ k: k, d: x.d, v: x.v }); });
+  cur.hist = hist.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0).slice(-300);
+  cur.fetchedAt = now(); cur.status = found.kurs || found.bi ? 'ok' : 'gagal'; cur.err = errs.join('; ') || (found.kurs || found.bi ? '' : 'pola angka tidak ditemukan di halaman BI'); cur.src = MACRO_URL;
+  upsert('Settings', { id: 'macro', value: JSON.stringify(cur), updatedAt: now() });
+  return cur;
+}
 
 /**
  * Baca semua sumber aktif. Sumber yang isinya tidak berubah (hash sama) dilewati,
