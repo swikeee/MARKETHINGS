@@ -847,6 +847,29 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
 .mk3d .mk-f svg{width:70%;height:auto;overflow:visible}
 .mk3d::after{content:"";position:absolute;left:14%;right:14%;bottom:-18px;height:10px;border-radius:50%;background:rgba(0,0,0,.2);filter:blur(5px);transform:scaleX(var(--sh,1))}
 @media (max-width:900px),(max-height:560px){.side-mark{display:none}}
+/* menu samping bisa diciutkan jadi deretan ikon (desktop) */
+.shell{transition:grid-template-columns .28s cubic-bezier(.3,.8,.2,1)}
+.side-tg{margin-left:auto;flex:none;width:30px;height:30px;display:grid;place-items:center;border:0;border-radius:8px;background:none;color:var(--muted);cursor:pointer}
+.side-tg:hover{background:var(--surface-2);color:var(--ink)}
+.side-tg svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.side-tg .ar{transition:transform .28s;transform-origin:14.25px 12px}
+.ic-mini{display:none;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+@media (min-width:901px){
+  html.side-mini .shell{grid-template-columns:68px minmax(0,1fr)}
+  html.side-mini .side{padding:16px 10px;gap:16px;overflow-x:hidden}
+  html.side-mini .logo{flex-direction:column;gap:12px;padding:4px 0}
+  html.side-mini .side-tg{margin-left:0}
+  html.side-mini .side-tg .ar{transform:scaleX(-1)}
+  html.side-mini .lg-t,html.side-mini .slogan,html.side-mini .navg .gl,html.side-mini .side nav button .ct,html.side-mini .side-mark,html.side-mini #footNote,html.side-mini #modeChip,html.side-mini #btnSettings .lb{display:none}
+  html.side-mini .side nav{gap:10px}
+  html.side-mini .navg + .navg{border-top:1px solid var(--line);padding-top:10px}
+  html.side-mini .side nav button{justify-content:center;padding:10px 0;font-size:0;gap:0}
+  html.side-mini .side nav button svg{width:18px;height:18px}
+  html.side-mini .side .foot{grid-template-columns:1fr;padding:6px;border:0;background:none;justify-items:center}
+  html.side-mini #btnSettings{justify-self:center;width:40px;height:36px;padding:0;display:grid;place-items:center}
+  html.side-mini .ic-mini{display:block}
+}
+@media (max-width:900px){.side-tg{display:none}}
 </style>
 </head>
 <body>
@@ -897,7 +920,8 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
 <aside class="side">
   <div class="logo"><span class="mk"><svg viewBox="56 52 808 508" aria-hidden="true"><g transform="translate(-6 -6)">
         <path d="M506 288 L376 146 Q338 94 300 150 L118 446 Q78 516 146 524 Q188 526 212 490 L306 360 Q340 318 376 350 L428 394 Q468 426 506 390 L736 136 Q768 98 826 100"/>
-        <path d="M712 164 Q668 212 696 264 L796 432 Q828 496 782 522 Q742 540 708 498 L590 374"/></g></svg></span><span><b class="wordmark">MARKETHINGS</b><small>Prodev</small></span></div>
+        <path d="M712 164 Q668 212 696 264 L796 432 Q828 496 782 522 Q742 540 708 498 L590 374"/></g></svg></span><span class="lg-t"><b class="wordmark">MARKETHINGS</b><small>Prodev</small></span>
+    <button type="button" class="side-tg" id="btnSide" aria-label="Sembunyikan menu" title="Sembunyikan menu ( [ )" aria-expanded="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/><path class="ar" d="M15.5 9.5L13 12l2.5 2.5"/></svg></button></div>
   <p class="slogan">Everything Marketing in One Place</p>
   <nav role="tablist" aria-label="Segmen dashboard">
     <div class="navg"><div class="gl">Analitik</div>
@@ -914,7 +938,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
         <path d="M712 164 Q668 212 696 264 L796 432 Q828 496 782 522 Q742 540 708 498 L590 374"/></g></svg></span><span class="mk-f mk-b"><svg viewBox="56 52 808 508" aria-hidden="true"><g transform="translate(-6 -6)">
         <path d="M506 288 L376 146 Q338 94 300 150 L118 446 Q78 516 146 524 Q188 526 212 490 L306 360 Q340 318 376 350 L428 394 Q468 426 506 390 L736 136 Q768 98 826 100"/>
         <path d="M712 164 Q668 212 696 264 L796 432 Q828 496 782 522 Q742 540 708 498 L590 374"/></g></svg></span></span></span></div>
-  <div class="foot"><span class="chip" id="modeChip">Demo</span><p id="footNote">Data contoh. Hubungkan Google Sheet lewat Pengaturan.</p><button class="btn sm" id="btnSettings">Pengaturan</button></div>
+  <div class="foot"><span class="chip" id="modeChip">Demo</span><p id="footNote">Data contoh. Hubungkan Google Sheet lewat Pengaturan.</p><button class="btn sm" id="btnSettings"><svg class="ic-mini" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="lb">Pengaturan</span></button></div>
 </aside>
 <div class="maincol" style="min-width:0">
 <header class="top">
@@ -6097,6 +6121,19 @@ $("#salesCopy").onclick=()=>copyText($("#salesBody").dataset.raw||"");
 // ---------- theme re-render ----------
 const rerender = () => { if(!$("#tab-comp").hidden) drawCompCharts(comps.filter(c=>tier==="all"||c.tier===tier)); if(!$("#tab-sim").hidden) renderSimOut(); if(!$("#tab-sales").hidden) renderSales(); };
 matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { if (!store.get("li.theme")) rerender(); });
+// ---------- menu samping: ciutkan / lebarkan (tersimpan di browser ini) ----------
+(function(){
+  const root = document.documentElement, btn = $("#btnSide"); if (!btn) return;
+  document.querySelectorAll(".side nav button").forEach(b => { if (!b.title) b.title = b.childNodes[1]?.textContent?.trim() || b.textContent.trim(); });
+  const set = (mini, save) => { root.classList.toggle("side-mini", mini); btn.setAttribute("aria-expanded", !mini);
+    btn.title = mini ? "Tampilkan menu ( [ )" : "Sembunyikan menu ( [ )"; btn.setAttribute("aria-label", mini ? "Tampilkan menu" : "Sembunyikan menu");
+    if (save){ try { localStorage.setItem("li.sideMini", mini ? "1" : ""); } catch {} setTimeout(() => dispatchEvent(new Event("resize")), 320); } };
+  let saved = ""; try { saved = localStorage.getItem("li.sideMini") || ""; } catch {}
+  set(saved === "1", false);
+  btn.onclick = () => set(!root.classList.contains("side-mini"), true);
+  addEventListener("keydown", e => { if (e.key === "[" && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && !e.target.isContentEditable && $("#modal").hidden) set(!root.classList.contains("side-mini"), true); });
+})();
+
 // ---------- splash pembuka & splash antar segmen ----------
 const SEG_SPLASH = {sales:["#2DD4BF","Penjualan, cluster & pembeli"], comp:["#2DD4BF","Harga & serapan kompetitor"], land:["#2DD4BF","Kavling, gambar & penawaran tenant"], sim:["#2DD4BF","Hitung balik modal per kavling"]};
 let segTimer = 0, segPlay = 0;
