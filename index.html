@@ -434,6 +434,15 @@ td.n .note{font-family:var(--f-body)}
 .bl .bi b{font-weight:500;font-variant-numeric:tabular-nums}
 .bl .bi i{grid-column:1/-1;display:block;height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden}
 .bl .bi i u{display:block;height:100%;background:var(--c2);border-radius:3px}
+.bl .bi i{position:relative}
+.bl .bi i s{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--ink);opacity:.55;text-decoration:none}
+.bl .bi em{font-style:normal;font-size:11px;margin-left:6px;font-weight:600}
+.bl .bi em.up{color:var(--ok)} .bl .bi em.dn{color:var(--bad)} .bl .bi em.eq{color:var(--muted);font-weight:500}
+.rng-note{font:400 12px var(--f-body);color:var(--muted);margin-left:2px}
+.rng-note button{font:inherit;color:inherit;background:none;border:0;padding:0;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.sec-h.scene .rng-note{color:rgba(255,255,255,.88);position:relative;z-index:1;text-shadow:0 1px 8px rgba(0,0,0,.35)}
+.cmp-l small{display:block;font-size:11px;color:var(--muted);line-height:1.35;margin-top:2px;white-space:normal}
+.cmp-l.own small{color:color-mix(in srgb,var(--accent) 70%,var(--muted))}
 .src-line{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:4px}
 
 /* analisis cluster */
@@ -903,7 +912,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
     <div class="sec-h" id="s-cluster"><h2>Cluster</h2></div>
     <div class="panel reveal" id="anaPanel">
       <div class="ph">
-        <div><h3>Unit terjual per cluster</h3><p class="desc">Atur rentang waktu, tampilan bulanan/tahunan, dan segmen. Rentang ini juga dipakai grafik di bawahnya.</p></div>
+        <div><h3>Unit terjual per cluster</h3><p class="desc">Atur rentang waktu, tampilan bulanan/tahunan, dan segmen. Rentang ini juga dipakai bagian Komposisi pembelian, Channel, dan Profil pembeli di bawah. Tombol periode di atas halaman (3/6/12 bulan) ikut mengubah rentang ini.</p></div>
         <div class="ana-tools">
           <div class="seg" id="anaGran"><button aria-pressed="true" data-g="month">Bulanan</button><button aria-pressed="false" data-g="year">Tahunan</button></div>
           <div class="seg" id="anaMetric"><button aria-pressed="true" data-m="unit">Unit</button><button aria-pressed="false" data-m="value">Nilai</button></div>
@@ -912,7 +921,8 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
       <div class="ana-range">
         <label class="sel" for="anaFrom">Dari <select id="anaFrom"></select></label>
         <label class="sel" for="anaTo">Sampai <select id="anaTo"></select></label>
-        <div class="rp-presets" id="anaPresets"><button data-n="6">6 bln</button><button data-n="12">12 bln</button><button data-n="ytd">Tahun ini</button><button data-n="all">Semua</button></div>
+        <label class="sel" for="anaQ">Kuartal <select id="anaQ"></select></label>
+        <div class="rp-presets" id="anaPresets"><button data-n="3">3 bln</button><button data-n="6">6 bln</button><button data-n="12">12 bln</button><button data-n="ytd">Tahun ini</button><button data-n="all">Semua</button></div>
         <div class="seg" id="anaSeg"></div>
       </div>
       <div class="chartbox" style="height:340px"><canvas id="chAnaStack" aria-label="Unit terjual per cluster per periode"></canvas></div>
@@ -928,7 +938,11 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
       <div class="ph"><div><h3>Penjualan per tipe</h3><p class="desc">Unit dan nilai booking bersih (tanpa batal) per tipe rumah, dicocokkan dengan katalog tipe tiap cluster. Ukuran = lebar × panjang kavling. Tabel rincian per tipe ada di bawah grafik, klik “Tampilkan rincian per tipe” untuk membukanya.</p></div>
         <div class="ana-tools"><label class="sel" for="tpCluster">Cluster <select id="tpCluster"></select></label>
           <div class="seg" id="tpMetric"><button aria-pressed="true" data-m="unit">Unit</button><button aria-pressed="false" data-m="val">Nilai</button></div></div></div>
-      <div class="ana-range"><div class="rp-presets" id="tpPresets"><button data-n="6">6 bln</button><button data-n="12">12 bln</button><button data-n="ytd">Tahun ini</button><button data-n="all">Semua</button></div><span class="note" id="tpRange"></span></div>
+      <div class="ana-range">
+        <label class="sel" for="tpFrom">Dari <select id="tpFrom"></select></label>
+        <label class="sel" for="tpTo">Sampai <select id="tpTo"></select></label>
+        <label class="sel" for="tpQ">Kuartal <select id="tpQ"></select></label>
+        <div class="rp-presets" id="tpPresets"><button data-n="3">3 bln</button><button data-n="6">6 bln</button><button data-n="12">12 bln</button><button data-n="ytd">Tahun ini</button><button data-n="all">Semua</button></div><span class="note" id="tpRange"></span></div>
       <div class="kpis tp-kpis" id="tpKpis"></div>
       <div class="tp-grid">
         <div><h4 class="tp-h">Tipe terlaris</h4><div class="chartbox" id="tpTopBox" style="height:380px"><canvas id="chTpTop" aria-label="Tipe terlaris"></canvas></div></div>
@@ -960,7 +974,7 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
       </div>
       <div class="empty" id="stEmpty" hidden></div>
     </div>
-    <div class="sec-h scene" id="s-komposisi"><h2>Komposisi pembelian</h2></div>
+    <div class="sec-h scene" id="s-komposisi"><h2>Komposisi pembelian</h2><span class="rng-note" data-rng="seg"></span></div>
     <div class="g4 reveal">
       <div class="panel"><h3>Standard vs Hook</h3><div class="chartbox pie"><canvas id="chAnaHook" aria-label="Standard vs hook"></canvas></div></div>
       <div class="panel"><h3>Cara bayar</h3><div class="chartbox pie"><canvas id="chAnaPay" aria-label="Cara bayar"></canvas></div></div>
@@ -968,10 +982,10 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
       <div class="panel"><h3>Tipe terlaris</h3><div class="chartbox pie"><canvas id="chAnaType" aria-label="Tipe unit terlaris"></canvas></div></div>
     </div>
     <div class="g-main reveal">
-      <div class="panel"><h3>Sumber informasi</h3><p class="desc">Unit per sumber informasi dalam rentang terpilih.</p><div class="chartbox" style="height:300px"><canvas id="chAnaSrc" aria-label="Unit per sumber informasi"></canvas></div></div>
+      <div class="panel"><h3>Sumber informasi</h3><p class="desc">Unit per sumber informasi.</p><div class="chartbox" style="height:300px"><canvas id="chAnaSrc" aria-label="Unit per sumber informasi"></canvas></div></div>
       <div class="panel"><h3>Unit per tahun</h3><p class="desc">Perbandingan tahunan per segmen (semua data).</p><div class="chartbox" style="height:300px"><canvas id="chAnaYear" aria-label="Unit per tahun per segmen"></canvas></div></div>
     </div>
-    <div class="sec-h" id="s-channel"><h2>Channel &amp; tindakan</h2></div>
+    <div class="sec-h" id="s-channel"><h2>Channel &amp; tindakan</h2><span class="rng-note" data-rng=""></span></div>
     <div class="g3 reveal">
       <div class="panel">
         <h3>Ranking segmen &amp; cluster</h3><p class="desc">Porsi nilai penjualan per segmen, dan 5 cluster teratas.</p>
@@ -982,12 +996,15 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
         <div class="donut-row"><div class="donut"><canvas id="chChannel" aria-label="Booking per channel"></canvas><div class="dc" id="dcChannel"></div></div><div class="rank" id="rankChannel"></div></div>
       </div>
       <div class="panel">
-        <h3>Tindakan cepat</h3><p class="desc">Hal yang perlu ditindaklanjuti, dihitung otomatis dari data periode ini.</p>
+        <h3>Tindakan cepat</h3><p class="desc" id="actDesc">Hal yang perlu ditindaklanjuti, dihitung otomatis dari data periode ini.</p>
         <div class="actions" id="quickActions"></div>
       </div>
     </div>
-    <div class="sec-h" id="s-pembeli"><h2>Profil pembeli</h2></div>
+    <div class="sec-h" id="s-pembeli"><h2>Profil pembeli</h2><span class="rng-note" data-rng=""></span></div>
     <div class="panel reveal" id="profilePanel">
+      <div class="ph"><div><p class="desc" id="profDesc" style="margin:0"></p></div>
+        <div class="ana-tools"><div class="seg" id="profCmp"><button aria-pressed="true" data-c="">Tanpa pembanding</button><button aria-pressed="false" data-c="yoy">vs tahun lalu</button><button aria-pressed="false" data-c="prev">vs periode sebelumnya</button></div></div></div>
+      <p class="st-insight" id="profSum" hidden></p>
       <div class="prof" id="profile"></div>
     </div>
     <div class="sec-h scene" id="s-kalender"><h2>Kalender &amp; event</h2></div>
@@ -4376,27 +4393,6 @@ function renderSales(){
   $("#funnel").innerHTML = steps.map(([n,v],i) => `${i?`<div class="fconv">↓ konversi <b>${nf(steps[i-1][1] ? v/steps[i-1][1]*100 : 0,1)}%</b></div>`:""}
     <div class="fstep"><div class="fl"><span>${n}</span><b>${nf(v)}</b></div><div class="fbar"><i class="grow" style="--i:${i};width:${Math.max(4, ld ? v/ld*100 : 0)}%;opacity:${1-i*.15}"></i></div></div>`).join("");
   }
-  renderProfile(A);
-
-  // donuts
-  const donut = (id, centerId, rankId, entries, centerVal, centerLbl, fmt) => {
-    const total = entries.reduce((a,e)=>a+e[1],0);
-    mk(id, {type:"doughnut", data:{labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]), backgroundColor:entries.map((_,i)=>seriesColor(i)), borderColor:css("--surface"), borderWidth:2, hoverOffset:4}]},
-      options:{responsive:true, maintainAspectRatio:false, cutout:"72%", animation:{duration:800}, plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${fmt(ctx.raw)} (${nf(total?ctx.raw/total*100:0,0)}%)`}}}}});
-    $("#"+centerId).innerHTML = `<b>${centerVal}</b><span>${centerLbl}</span>`;
-    $("#"+rankId).innerHTML = entries.map((e,i)=>`<div class="ri"><i style="background:${SERIES[i%SERIES.length]}"></i><span title="${esc(e[0])}">${esc(e[0])}</span><b>${nf(total?e[1]/total*100:0,0)}%</b></div>`).join("");
-  };
-  const bySeg = {}; A.net(A.S).forEach(x => bySeg[segOf(x.cluster)] = (bySeg[segOf(x.cluster)]||0) + num(x.price));
-  const segE = SEGMENTS.filter(g=>bySeg[g]).map(g=>[g, bySeg[g]]).concat(bySeg.Lainnya?[["Lainnya",bySeg.Lainnya]]:[]);
-  const segTot = segE.reduce((a,e)=>a+e[1],0);
-  donut("chCluster","dcCluster","rankCluster", segE, rp(segTot).replace("Rp ",""), "nilai bersih", rp);
-  const byCl = {}; A.net(A.S).forEach(x => byCl[x.cluster] = (byCl[x.cluster]||0) + num(x.price));
-  const top = Object.entries(byCl).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  $("#rankCluster").innerHTML += `<div class="note" style="margin-top:6px">Top cluster</div>` + top.map((e,i)=>`<div class="ri"><i style="background:${SERIES[Math.max(0,segE.findIndex(s=>s[0]===segOf(e[0])))%SERIES.length]}"></i><span title="${esc(e[0])}">${i+1}. ${esc(e[0])}</span><b>${nf(segTot?e[1]/segTot*100:0,0)}%</b></div>`).join("");
-  const byCh = {}; A.S.forEach(x => byCh[x.channel] = (byCh[x.channel]||0) + 1);
-  const chE = Object.entries(byCh).sort((a,b)=>b[1]-a[1]);
-  donut("chChannel","dcChannel","rankChannel", chE, nf(A.S.length), "booking", v=>nf(v)+" booking");
-
   // quick actions
   const endD = new Date(keyDate(A.end).getFullYear(), keyDate(A.end).getMonth()+1, 0);
   const pending = A.S.filter(x => x.status==="Booking" && (endD - new Date(x.date))/864e5 > 30);
@@ -4416,6 +4412,7 @@ function renderSales(){
   if (stAl[0]) acts.push([stAl[0].lv === "slow" ? "info" : "warn", "▣", stAl[0].t, stAl[0].s]);
   else if (ownStock[0]) acts.push(["info","▣", `Stok ${ownStock[0][0]} tersisa ${nf(ownStock[0][1])} unit`, "Bandingkan harga kompetitor", "comp"]);
   if (avail.length) acts.push(["info","◫", `${avail.length} kavling komersial available`, `${nf(avail.reduce((a,p)=>a+num(p.area),0))} m² siap ditawarkan`, "land"]);
+  $("#actDesc").innerHTML = `Hal yang perlu ditindaklanjuti, dihitung otomatis dari <b>${nf(A.P)} bulan terakhir</b> (${keyLabel(A.cur[0])} – ${keyLabel(A.end)}) dibanding ${nf(A.P)} bulan sebelumnya. Ikut tombol periode di atas halaman.`;
   $("#quickActions").innerHTML = acts.slice(0,5).map(a => `<div class="act"><span class="ic ${a[0]}">${a[1]}</span><p>${esc(a[2])}<small>${esc(a[3])}</small></p>${a[4]?`<button class="btn sm" data-go="${a[4]}">Buka</button>`:"<span></span>"}</div>`).join("");
 
   if (heatView === "day") renderCal(); else renderHeat();
@@ -4440,26 +4437,92 @@ function renderSales(){
         <td><span class="chip ${pct>=100?"ok":pct>=75?"info":"warn"}">${pct>=100?"Melampaui target":pct>=75?"On track":"Perlu dorongan"}</span></td></tr>`; }).join("")}</tbody>`;
 }
 
-function renderProfile(A){
-  const N = A.net(A.S), panel = $("#profilePanel");
-  const has = f => N.some(x => x[f] !== undefined && x[f] !== null && x[f] !== "");
-  if (!N.length || !(has("job") || has("city") || has("age") || has("purpose"))){ panel.hidden = true; return; }
-  panel.hidden = false;
-  const count = f => { const o = {}; N.forEach(x => { const k = String(x[f] ?? "").trim(); if (k) o[k] = (o[k]||0) + 1; }); return Object.entries(o).sort((a,b)=>b[1]-a[1]); };
-  const bars = (ent, n=5) => { const tot = ent.reduce((a,e)=>a+e[1],0); const top = ent.slice(0,n); const rest = ent.slice(n).reduce((a,e)=>a+e[1],0);
-    return `<div class="bl">${top.concat(rest?[["Lainnya",rest]]:[]).map(([k,v])=>`<div class="bi"><span title="${esc(k)}">${esc(k.charAt(0)+k.slice(1).toLowerCase())}</span><b>${nf(tot?v/tot*100:0,0)}%</b><i><u class="grow" style="width:${tot?v/tot*100:0}%"></u></i></div>`).join("")}</div>`; };
-  const aged = N.map(x=>({a:num(x.age), y:parseInt(String(x.date).slice(0,4),10)})).filter(o=>o.a>15 && o.a<100), ages = aged.map(o=>o.a);
-  // kelompok umur mengikuti generasi: dihitung dari tahun lahir (tahun beli − umur), rentang umur ditulis per tahun laporan
-  const refY = keyDate(A.end).getFullYear(), GENS = [["Gen Z",1997,9999],["Milenial",1981,1996],["Gen X",1965,1980],["Boomer",0,1964]];
-  const buckets = GENS.map(([g,lo,hi]) => [`${hi===9999 ? "≤ "+(refY-lo) : lo===0 ? (refY-hi)+"+" : (refY-hi)+"–"+(refY-lo)} (${g})`, aged.filter(o => { const by = (o.y||refY) - o.a; return by>=lo && by<=hi; }).length]);
-  const med = ages.length ? ages.slice().sort((a,b)=>a-b)[Math.floor(ages.length/2)] : 0;
-  $("#profile").innerHTML = [
-    has("purpose") ? `<div><h4>Tujuan</h4>${bars(count("purpose"),3)}</div>` : "",
-    has("job") ? `<div><h4>Pekerjaan</h4>${bars(count("job"))}</div>` : "",
-    has("city") ? `<div><h4>Domisili</h4>${bars(count("city"))}</div>` : "",
-    ages.length ? `<div><h4>Umur <span class="note" style="font-weight:400">· median ${med} th</span><button type="button" class="hint" aria-label="Keterangan" data-tip="Generasi dihitung dari tahun lahir pembeli (tahun beli − umur): Gen Z 1997–2012, Milenial 1981–1996, Gen X 1965–1980, Boomer 1964 ke bawah. Rentang umur ditulis per tahun ${refY}."></button></h4><div class="bl">${buckets.map(([k,v])=>`<div class="bi"><span>${k}</span><b>${nf(v/ages.length*100,0)}%</b><i><u class="grow" style="width:${v/ages.length*100}%"></u></i></div>`).join("")}</div></div>` : "",
-  ].join("");
+/** Ranking segmen & cluster dan booking per channel: ikut rentang grafik Cluster (Dari / Sampai). */
+function renderChannel(months){
+  const inR = new Set(months), S = sales.filter(x => inR.has(String(x.date).slice(0,7))), net = S.filter(x => x.status !== "Batal");
+  const donut = (id, centerId, rankId, entries, centerVal, centerLbl, fmt) => {
+    const total = entries.reduce((a,e)=>a+e[1],0);
+    mk(id, {type:"doughnut", data:{labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]), backgroundColor:entries.map((_,i)=>seriesColor(i)), borderColor:css("--surface"), borderWidth:2, hoverOffset:4}]},
+      options:{responsive:true, maintainAspectRatio:false, cutout:"72%", animation:{duration:800}, plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${fmt(ctx.raw)} (${nf(total?ctx.raw/total*100:0,0)}%)`}}}}});
+    $("#"+centerId).innerHTML = `<b>${centerVal}</b><span>${centerLbl}</span>`;
+    $("#"+rankId).innerHTML = entries.map((e,i)=>`<div class="ri"><i style="background:${SERIES[i%SERIES.length]}"></i><span title="${esc(e[0])}">${esc(e[0])}</span><b>${nf(total?e[1]/total*100:0,0)}%</b></div>`).join("");
+  };
+  const bySeg = {}; net.forEach(x => bySeg[segOf(x.cluster)] = (bySeg[segOf(x.cluster)]||0) + num(x.price));
+  const segE = SEGMENTS.filter(g=>bySeg[g]).map(g=>[g, bySeg[g]]).concat(bySeg.Lainnya?[["Lainnya",bySeg.Lainnya]]:[]);
+  const segTot = segE.reduce((a,e)=>a+e[1],0);
+  donut("chCluster","dcCluster","rankCluster", segE, rp(segTot).replace("Rp ",""), "nilai bersih", rp);
+  const byCl = {}; net.forEach(x => byCl[x.cluster] = (byCl[x.cluster]||0) + num(x.price));
+  const top = Object.entries(byCl).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  $("#rankCluster").innerHTML += `<div class="note" style="margin-top:6px">Top cluster</div>` + top.map((e,i)=>`<div class="ri"><i style="background:${SERIES[Math.max(0,segE.findIndex(s=>s[0]===segOf(e[0])))%SERIES.length]}"></i><span title="${esc(e[0])}">${i+1}. ${esc(e[0])}</span><b>${nf(segTot?e[1]/segTot*100:0,0)}%</b></div>`).join("");
+  const byCh = {}; S.forEach(x => byCh[x.channel] = (byCh[x.channel]||0) + 1);
+  const chE = Object.entries(byCh).sort((a,b)=>b[1]-a[1]);
+  donut("chChannel","dcChannel","rankChannel", chE, nf(S.length), "booking", v=>nf(v)+" booking");
+
 }
+// ---------- rentang waktu: label, kuartal, geser ----------
+function shiftKey(k, n){ const d = keyDate(k); return dateKey(new Date(d.getFullYear(), d.getMonth() + n, 1)); }
+function spanLabel(from, to){ const y = from.slice(0,4), m1 = +from.slice(5,7), m2 = +to.slice(5,7);
+  if (y === to.slice(0,4)){ if (m1 === 1 && m2 === 12) return "Tahun " + y; if ((m1 - 1) % 3 === 0 && m2 === m1 + 2) return `Q${(m1 + 2)/3} ${y}`; }
+  return from === to ? keyLabel(from) : `${keyLabel(from)} – ${keyLabel(to)}`; }
+/** Pilihan kuartal untuk rentang: nilai "YYYY-Qn", terbaru di atas; terpilih bila rentang tepat satu kuartal. */
+function quarterOpts(full, from, to){ const qs = [...new Set(full.map(k => `${k.slice(0,4)}-Q${Math.floor((+k.slice(5,7) - 1)/3) + 1}`))].reverse();
+  const cur = (() => { const r = quarterRange(`${from.slice(0,4)}-Q${Math.floor((+from.slice(5,7) - 1)/3) + 1}`, full); return r && r[0] === from && r[1] === to ? `${from.slice(0,4)}-Q${Math.floor((+from.slice(5,7) - 1)/3) + 1}` : ""; })();
+  return `<option value="">—</option>` + qs.map(q => `<option value="${q}"${q === cur ? " selected" : ""}>Q${q.slice(-1)} ${q.slice(0,4)}</option>`).join(""); }
+function quarterRange(q, full){ const y = q.slice(0,4), n = +q.slice(-1), a = `${y}-${String(n*3 - 2).padStart(2, "0")}`, b = `${y}-${String(n*3).padStart(2, "0")}`;
+  const f = a < full[0] ? full[0] : a, t = b > full[full.length - 1] ? full[full.length - 1] : b; return f <= t ? [f, t] : null; }
+function lastRange(full, n){ const to = full[full.length - 1]; return [n === "all" ? full[0] : n === "ytd" ? (full.find(k => k.startsWith(to.slice(0,4))) || full[0]) : full[Math.max(0, full.length - +n)], to]; }
+function presetPressed(el, full, from, to){ el.querySelectorAll("button").forEach(b => { const r = lastRange(full, b.dataset.n); b.setAttribute("aria-pressed", r[0] === from && r[1] === to); }); }
+/** Teks abu-abu di judul bagian: rentang yang dipakai + dari mana rentang itu diatur. */
+function paintRangeNotes(){ if (!ana.from) return; const n = monthDiff(ana.from, ana.to) + 1;
+  document.querySelectorAll(".rng-note").forEach(el => { el.innerHTML = `· ${esc(spanLabel(ana.from, ana.to))} (${nf(n)} bulan)${el.dataset.rng === "seg" && ana.seg !== "all" ? " · segmen " + esc(ana.seg) : ""} · akumulasi, ikut rentang grafik Cluster <button type="button" data-goana>ubah</button>`; }); }
+document.addEventListener("click", e => { if (e.target.closest("[data-goana]")) $("#anaPanel").scrollIntoView({behavior:"smooth", block:"start"}); });
+
+// ---------- profil pembeli: ikut rentang grafik Cluster, bisa dibandingkan dengan tahun lalu / periode sebelumnya ----------
+const prof = {cmp:""};
+const PROF_GENS = [["Gen Z",1997,9999],["Milenial",1981,1996],["Gen X",1965,1980],["Boomer",0,1964]];
+function renderProfile(){
+  const panel = $("#profilePanel"); if (!ana.from){ panel.hidden = true; return; }
+  const inK = (a, b) => x => { const m = String(x.date).slice(0,7); return x.status !== "Batal" && m >= a && m <= b; };
+  const n = monthDiff(ana.from, ana.to) + 1, N = sales.filter(inK(ana.from, ana.to));
+  const hasF = f => N.some(x => has(x[f]));
+  if (!N.length || !(hasF("job") || hasF("city") || hasF("age") || hasF("purpose"))){ panel.hidden = true; return; }
+  panel.hidden = false;
+  let C = null, cf = "", ct = "";
+  if (prof.cmp){ const sh = prof.cmp === "yoy" ? 12 : n; cf = shiftKey(ana.from, -sh); ct = shiftKey(ana.to, -sh); C = sales.filter(inK(cf, ct)); }
+  $("#profCmp").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.c === prof.cmp));
+  const refY = +ana.to.slice(0,4), norm = v => String(v ?? "").trim().toUpperCase();
+  const genLab = ([g, lo, hi]) => `${hi === 9999 ? "≤ " + (refY - lo) : lo === 0 ? (refY - hi) + "+" : (refY - hi) + "–" + (refY - lo)} (${g})`;
+  const genOf = x => { const a = num(x.age); if (!(a > 15 && a < 100)) return ""; const by = (parseInt(String(x.date).slice(0,4), 10) || refY) - a, g = PROF_GENS.find(([, lo, hi]) => by >= lo && by <= hi); return g ? genLab(g) : ""; };
+  const counts = (L, f) => { const o = {}; let t = 0; L.forEach(x => { const k = typeof f === "function" ? f(x) : norm(x[f]); if (k){ o[k] = (o[k] || 0) + 1; t++; } }); return {o, t}; };
+  const nice = k => /\(|≤|\+/.test(k) ? k : k.charAt(0) + k.slice(1).toLowerCase();
+  const changes = [];
+  const block = (title, f, top, fixed) => { const cur = counts(N, f); if (!cur.t) return "";
+    const pv = C ? counts(C, f) : null, okP = pv && pv.t;
+    let keys = fixed ? fixed.filter(k => cur.o[k] || (okP && pv.o[k])) : Object.keys(cur.o).sort((a, b) => cur.o[b] - cur.o[a]).slice(0, top);
+    const rest = fixed ? 0 : cur.t - keys.reduce((a, k) => a + cur.o[k], 0), restP = okP && !fixed ? pv.t - keys.reduce((a, k) => a + (pv.o[k] || 0), 0) : 0;
+    const rows = keys.map(k => [nice(k), cur.o[k] || 0, okP ? (pv.o[k] || 0) : null]); if (rest > 0 || restP > 0) rows.push(["Lainnya", rest, okP ? restP : null]);
+    return `<div><h4>${title}</h4><div class="bl">${rows.map(([k, v, pvv]) => { const pc = v/cur.t*100, pp = pvv === null ? null : pvv/pv.t*100, d = pp === null ? null : pc - pp;
+      if (d !== null && k !== "Lainnya" && cur.t >= 5 && pv.t >= 5) changes.push({title, k, pc, pp, d});
+      const em = d === null ? "" : Math.abs(d) < 1 ? `<em class="eq">±0</em>` : `<em class="${d > 0 ? "up" : "dn"}" title="${esc(spanLabel(cf, ct))}: ${nf(pp)}%">${d > 0 ? "▲" : "▼"} ${nf(Math.abs(d))} pt</em>`;
+      return `<div class="bi"><span title="${esc(k)}">${esc(k)}</span><b>${nf(pc)}%${em}</b><i><u class="grow" style="width:${pc}%"></u>${pp === null ? "" : `<s style="left:${Math.min(100, pp)}%" title="${esc(spanLabel(cf, ct))}: ${nf(pp)}%"></s>`}</i></div>`; }).join("")}</div></div>`; };
+  const ages = N.map(x => num(x.age)).filter(a => a > 15 && a < 100).sort((a, b) => a - b), med = ages.length ? ages[Math.floor(ages.length/2)] : 0;
+  $("#profile").innerHTML = [
+    hasF("purpose") ? block("Tujuan", "purpose", 3) : "",
+    hasF("job") ? block("Pekerjaan", "job", 5) : "",
+    hasF("city") ? block("Domisili", "city", 5) : "",
+    ages.length ? block(`Umur <span class="note" style="font-weight:400">· median ${med} th</span><button type="button" class="hint" aria-label="Keterangan" data-tip="Generasi dihitung dari tahun lahir pembeli (tahun beli − umur): Gen Z 1997–2012, Milenial 1981–1996, Gen X 1965–1980, Boomer ≤ 1964. Rentang umur ditulis menurut tahun ${refY}.">i</button>`, genOf, 0, PROF_GENS.map(genLab)) : ""
+  ].join("");
+  $("#profDesc").innerHTML = `<b>${esc(spanLabel(ana.from, ana.to))}</b> · ${nf(N.length)} pembeli (tanpa batal)` + (C ? ` · dibanding <b>${esc(spanLabel(cf, ct))}</b> (${nf(C.length)} pembeli). Garis tipis di batang = nilai pembanding, ▲▼ = selisih poin persentase.` : ". Pilih pembanding untuk melihat perubahan komposisi pembeli.");
+  const sum = $("#profSum");
+  if (!C){ sum.hidden = true; }
+  else if (!C.length){ sum.hidden = false; sum.innerHTML = `Belum ada penjualan di ${esc(spanLabel(cf, ct))}, jadi belum bisa dibandingkan.`; }
+  else { const top = changes.filter(c => Math.abs(c.d) >= 3).sort((a, b) => Math.abs(b.d) - Math.abs(a.d)).slice(0, 4);
+    sum.hidden = false;
+    sum.innerHTML = (top.length ? `Dibanding ${esc(spanLabel(cf, ct))}: ` + top.map(c => `<b>${esc(c.k.replace(/<[^>]+>/g, ""))}</b> ${c.d > 0 ? "naik" : "turun"} ${nf(Math.abs(c.d))} poin (${nf(c.pp)}% → ${nf(c.pc)}%)`).join("; ") + "."
+      : `Komposisi pembeli relatif sama dengan ${esc(spanLabel(cf, ct))} (tidak ada perubahan ≥ 3 poin).`)
+      + (N.length < 20 || C.length < 20 ? ` <span class="note">Sampel kecil (${nf(N.length)} vs ${nf(C.length)} pembeli), baca dengan hati-hati.</span>` : ""); }
+}
+$("#profCmp").onclick = e => { const b = e.target.closest("button"); if (!b) return; prof.cmp = b.dataset.c; renderProfile(); };
 
 // ---------- Google Sheet "REKAP ALL TIME" sebagai sumber penjualan ----------
 let salesSource = "demo", sheetLoadedAt = null, sheetError = "", lastSalesSig = "";
@@ -4694,12 +4757,24 @@ function buyPattern(V, list){
   return {n:list.length, mapped, cnt, top};
 }
 /** Penawaran kompetitor untuk satu kelompok (kamar tidur / lantai / segmen), per developer: jumlah tipe, rentang harga, sisa stok bila datanya ada. */
+/** Produk kompetitor untuk tabel stok: data dilengkapi dari baris kembarnya (developer, LT, LB sama) dan tanpa duplikat. */
+function stockCompRows(){ const all = comps.filter(c => !c.isOwn), best = {};
+  all.map(c => fillComp(c, all)).forEach(c => { const k = [canonName(c.developer), num(c.lt), num(c.lb), pKey(typeLabel(c))].join("|"); if (!best[k] || compScore(c) > compScore(best[k])) best[k] = c; });
+  return Object.values(best); }
+/** "Petrogriya: Apanya, Apegel · Ascogriya: Vespa" — dikelompokkan per cluster / produk, dibatasi supaya tetap ringkas (daftar lengkap di tooltip). */
+function groupList(pairs){ const g = {}; pairs.forEach(([a, b]) => { const l = g[a] ??= []; if (b && !l.includes(b)) l.push(b); });
+  const ent = Object.entries(g), full = ent.map(([a, l]) => l.length ? `${a}: ${l.join(", ")}` : a).join(" · ");
+  const short = ent.slice(0, 3).map(([a, l]) => l.length ? `${a}: ${l.slice(0, 4).join(", ")}${l.length > 4 ? ` +${l.length - 4}` : ""}` : a).join(" · ") + (ent.length > 3 ? ` · +${ent.length - 3} lainnya` : "");
+  return {full, short}; }
+const compItem = c => { const name = prodName(c), t = typeLabel(c).replace(/\s*·\s*/g, " - "), parts = t.split(/\s+-\s+/), nk = pKey(name).replace(/^cluster/, "");
+  const ty = parts.length > 1 && pKey(parts[0]).includes(nk) ? parts.slice(1).join(" - ") : pKey(t) === pKey(name) ? (num(c.lt) ? `LT ${nf(c.lt)}/LB ${nf(c.lb)}` : "") : t;
+  return [name, ty]; };
 function compFor(dim, label){
   const D = STOCK_DIMS[dim]; if (!D.comp) return null;
-  const all = comps.filter(c => !c.isOwn), withData = all.filter(c => D.comp(c)), list = withData.filter(c => D.comp(c) === label), by = {};
+  const all = stockCompRows(), withData = all.filter(c => D.comp(c)), list = withData.filter(c => D.comp(c) === label), by = {};
   list.forEach(c => (by[c.developer || "Tanpa nama"] ??= []).push(c));
   const devs = Object.entries(by).map(([dev, l]) => { const pr = l.map(c => num(c.price)).filter(v => v > 0), st = l.filter(c => num(c.stock) > 0 && has(c.sold));
-    return {dev, n:l.length, min:pr.length ? Math.min(...pr) : null, max:pr.length ? Math.max(...pr) : null,
+    return {dev, n:l.length, items:l, min:pr.length ? Math.min(...pr) : null, max:pr.length ? Math.max(...pr) : null,
       left:st.length ? st.reduce((a, c) => a + Math.max(0, num(c.stock) - num(c.sold)), 0)/st.reduce((a, c) => a + num(c.stock), 0) : null}; }).sort((a, b) => b.n - a.n || a.dev.localeCompare(b.dev));
   return {all:all.length, withData:withData.length, n:list.length, devs};
 }
@@ -4750,10 +4825,11 @@ function renderStock(A){
   $("#stGroup").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.g === dim));
   $("#stTableH").textContent = `Stok per ${D.l}` + (hasComp ? " · dibandingkan kompetitor" : "");
   const range = (lo, hi) => lo === null ? "" : lo === hi ? rp(lo) : rp(lo) + " – " + rp(hi);
-  const line = (name, x, own) => `<div class="cmp-l${own ? " own" : ""}"><b>${esc(name)}</b><span>${[nf(x.n) + " tipe", range(x.min, x.max), x.left !== null ? "sisa " + pctTxt(x.left) : ""].filter(Boolean).join(" · ")}</span></div>`;
+  const line = (name, x, own, items) => { const g = items ? groupList(items) : null;
+    return `<div class="cmp-l${own ? " own" : ""}"><b>${esc(name)}</b><span>${[nf(x.n) + " tipe", range(x.min, x.max), x.left !== null ? "sisa " + pctTxt(x.left) : ""].filter(Boolean).join(" · ")}</span>${g && g.short ? `<small title="${esc(g.full)}">${esc(g.short)}</small>` : ""}</div>`; };
   const cmpCell = (a, c) => { const pr = a.list.map(r => r.price).filter(v => v > 0);      // baris Pororo Land dulu (disorot), lalu tiap developer kompetitor
-    return line(OWN_DEV, {n:a.n, min:pr.length ? Math.min(...pr) : null, max:pr.length ? Math.max(...pr) : null, left:a.pct}, true)
-      + (c && c.n ? c.devs.slice(0, 4).map(d => line(d.dev, d)).join("") + (c.devs.length > 4 ? `<div class="cmp-l"><span>+${nf(c.devs.length - 4)} developer lain</span></div>` : "") : `<div class="cmp-l"><span>Kompetitor: belum ada data</span></div>`); };
+    return line(OWN_DEV, {n:a.n, min:pr.length ? Math.min(...pr) : null, max:pr.length ? Math.max(...pr) : null, left:a.pct}, true, dim === "cluster" ? a.list.map(r => [r.type, ""]) : a.list.map(r => [r.cluster, r.type === "Semua tipe" ? "" : r.type]))
+      + (c && c.n ? c.devs.slice(0, 4).map(d => line(d.dev, d, false, d.items.map(compItem))).join("") + (c.devs.length > 4 ? `<div class="cmp-l"><span>+${nf(c.devs.length - 4)} developer lain</span></div>` : "") : `<div class="cmp-l"><span>Kompetitor: belum ada data</span></div>`); };
   let anyComp = null;
   $("#stTable").innerHTML = `<thead><tr><th>${dim === "type" ? "Tipe" : D.l[0].toUpperCase() + D.l.slice(1)}</th>${dim === "type" ? "" : `<th class="n">Tipe</th>`}<th class="n">Total</th><th class="n">Terjual</th><th class="n">Sisa</th><th>% sisa</th><th class="n">Laju / bln</th><th class="n">Habis dalam</th>${dim === "type" ? "" : `<th class="n">Porsi beli ${nf(A.P)} bln</th>`}${hasComp ? `<th>${esc(OWN_DEV)} vs kompetitor</th>` : ""}</tr></thead><tbody>${
     G.map(a => { const lv = stockLevel(a), r = a.list[0], c = hasComp ? compFor(dim, a.label) : null; if (c) anyComp = c;
@@ -4836,6 +4912,7 @@ function fillAnaControls(full){
   const opt = k => `<option value="${k}">${keyLabel(k)}</option>`;
   $("#anaFrom").innerHTML = full.map(opt).join(""); $("#anaTo").innerHTML = full.map(opt).join("");
   $("#anaFrom").value = ana.from; $("#anaTo").value = ana.to;
+  $("#anaQ").innerHTML = quarterOpts(full, ana.from, ana.to); presetPressed($("#anaPresets"), full, ana.from, ana.to);
   const segs = ["all", ...SEGMENTS.filter(g => sales.some(x=>segOf(x.cluster)===g))];
   $("#anaSeg").innerHTML = segs.map(g => `<button aria-pressed="${ana.seg===g}" data-s="${g}">${g==="all"?"Semua segmen":g}</button>`).join("");
 }
@@ -4853,12 +4930,17 @@ function hbar(id, entries, colors, fmt, axisFmt){
   mk(id, {type:"bar", data:{labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]), backgroundColor:colors || seriesColor(1), borderRadius:4, barThickness:14}]}, options:o}, {fmt:v => fmt ? fmt(v) : nf(v)});
 }
 // ---------- analisis per tipe rumah ----------
-const tp = {cluster:"all", n:"12", metric:"unit", zero:false, open:false};
+const tp = {cluster:"all", from:null, to:null, metric:"unit", zero:false, open:false};
 function renderTypes(){
   const el = $("#tpTable"); if (!el) return;
   const ms = allSalesMonths(); if (!ms.length){ el.innerHTML = `<tbody><tr><td class="empty">Belum ada data penjualan.</td></tr></tbody>`; return; }
-  const full = monthKeys(monthDiff(ms[0], ms[ms.length-1]) + 1, ms[ms.length-1]), last = full[full.length-1];
-  const from = tp.n === "all" ? full[0] : tp.n === "ytd" ? (full.find(k => k.startsWith(last.slice(0,4))) || full[0]) : full[Math.max(0, full.length - +tp.n)];
+  const full = monthKeys(monthDiff(ms[0], ms[ms.length-1]) + 1, ms[ms.length-1]);
+  if (!tp.to || !full.includes(tp.to)) tp.to = full[full.length-1];
+  if (!tp.from || !full.includes(tp.from)) tp.from = full[Math.max(0, full.length - 12)];
+  if (tp.from > tp.to) [tp.from, tp.to] = [tp.to, tp.from];
+  const from = tp.from, last = tp.to, opt = k => `<option value="${k}">${keyLabel(k)}</option>`;
+  $("#tpFrom").innerHTML = full.map(opt).join(""); $("#tpTo").innerHTML = full.map(opt).join(""); $("#tpFrom").value = from; $("#tpTo").value = last;
+  $("#tpQ").innerHTML = quarterOpts(full, from, last); presetPressed($("#tpPresets"), full, from, last);
   const inR = x => { const m = String(x.date).slice(0,7); return m >= from && m <= last; };
   const all = sales.filter(x => x.status !== "Batal" && inR(x));
   // pilihan cluster: yang ada di katalog atau punya penjualan
@@ -4866,9 +4948,8 @@ function renderTypes(){
   if (tp.cluster !== "all" && !clAll.includes(tp.cluster)) tp.cluster = "all";
   $("#tpCluster").innerHTML = `<option value="all">Semua cluster</option>` + clAll.map(c => `<option value="${esc(c)}"${tp.cluster === c ? " selected" : ""}>${esc(c)}</option>`).join("");
   $("#tpMetric").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === tp.metric));
-  $("#tpPresets").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.n === tp.n));
   const N = all.filter(x => tp.cluster === "all" || x.cluster === tp.cluster), scope = tp.cluster === "all" ? clAll : [tp.cluster];
-  $("#tpRange").textContent = `${keyLabel(from)} – ${keyLabel(last)} · ${nf(N.length)} unit`;
+  $("#tpRange").textContent = `${spanLabel(from, last)} · ${nf(N.length)} unit`;
   // agregasi
   const rows = new Map(); let noType = 0;
   const row = t => { let r = rows.get(t.key); if (!r){ r = {t, n:0, val:0, std:0, hook:0, last:""}; rows.set(t.key, r); } return r; };
@@ -4912,7 +4993,11 @@ function renderTypes(){
 }
 $("#tpCluster").onchange = e => { tp.cluster = e.target.value; renderTypes(); };
 $("#tpMetric").onclick = e => { const b = e.target.closest("button"); if (!b) return; tp.metric = b.dataset.m; renderTypes(); };
-$("#tpPresets").onclick = e => { const b = e.target.closest("button"); if (!b) return; tp.n = b.dataset.n; renderTypes(); };
+const tpFull = () => { const ms = allSalesMonths(); return ms.length ? monthKeys(monthDiff(ms[0], ms[ms.length-1]) + 1, ms[ms.length-1]) : []; };
+$("#tpPresets").onclick = e => { const b = e.target.closest("button"); if (!b) return; const full = tpFull(); if (!full.length) return; [tp.from, tp.to] = lastRange(full, b.dataset.n); renderTypes(); };
+$("#tpFrom").onchange = e => { tp.from = e.target.value; renderTypes(); };
+$("#tpTo").onchange = e => { tp.to = e.target.value; renderTypes(); };
+$("#tpQ").onchange = e => { const r = e.target.value && quarterRange(e.target.value, tpFull()); if (r){ [tp.from, tp.to] = r; renderTypes(); } };
 $("#tpToggle").onclick = () => { tp.open = !tp.open; renderTypes(); };
 $("#tpShow").onclick = e => { const b = e.target.closest("button"); if (!b) return; tp.zero = b.dataset.z === "1"; renderTypes(); };
 function renderAnalysis(){
@@ -4990,16 +5075,15 @@ function renderAnalysis(){
   oy.plugins.legend = {display:true, position:"bottom", labels:{color:css("--ink"), boxWidth:10, boxHeight:10, usePointStyle:true, pointStyle:"rectRounded", font:{size:11}}};
   oy.plugins.tooltip.callbacks = {label: ctx => `${ctx.dataset.label}: ${nf(ctx.raw)} unit`};
   mk("chAnaYear", {type:"bar", data:{labels:years, datasets:segs.map(g => ({label:g, data:years.map(y => allN.filter(x=>segOf(x.cluster)===g && String(x.date).startsWith(y)).length), backgroundColor:segColor(g), borderRadius:4, maxBarThickness:34}))}, options:oy});
+  renderChannel(months); renderProfile(); paintRangeNotes();
 }
 $("#anaGran").onclick = e => { const b=e.target.closest("button"); if(!b) return; ana.gran=b.dataset.g; $("#anaGran").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b)); renderAnalysis(); };
 $("#anaMetric").onclick = e => { const b=e.target.closest("button"); if(!b) return; ana.metric=b.dataset.m; $("#anaMetric").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b)); renderAnalysis(); };
 $("#anaFrom").onchange = e => { ana.from = e.target.value; renderAnalysis(); };
 $("#anaTo").onchange = e => { ana.to = e.target.value; renderAnalysis(); };
 $("#anaSeg").onclick = e => { const b=e.target.closest("button"); if(!b) return; ana.seg=b.dataset.s; renderAnalysis(); };
-$("#anaPresets").onclick = e => { const b=e.target.closest("button"); if(!b) return; const full = anaRangeKeys(); const n = b.dataset.n;
-  ana.to = full[full.length-1];
-  ana.from = n==="all" ? full[0] : n==="ytd" ? (full.find(k=>k.startsWith(ana.to.slice(0,4))) || full[0]) : full[Math.max(0, full.length - +n)];
-  renderAnalysis(); };
+$("#anaPresets").onclick = e => { const b=e.target.closest("button"); if(!b) return; const full = anaRangeKeys(); if (!full.length) return; [ana.from, ana.to] = lastRange(full, b.dataset.n); renderAnalysis(); };
+$("#anaQ").onchange = e => { const r = e.target.value && quarterRange(e.target.value, anaRangeKeys()); if (r){ [ana.from, ana.to] = r; renderAnalysis(); } };
 
 
 // ---------- event marketing: kalender harian, auto-save, dampak penjualan ----------
@@ -5727,7 +5811,9 @@ function openPptReport(){
 document.addEventListener("click", e => { if (e.target.closest("[data-ppt]")) openPptReport(); });
 
 $("#salesPeriod").onclick = e => { const b=e.target.closest("button"); if(!b) return; salesP = +b.dataset.p;
-  $("#salesPeriod").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed", x===b)); trend.gran = "month"; setTrendLast(salesP); renderSales(); };
+  $("#salesPeriod").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed", x===b)); trend.gran = "month"; setTrendLast(salesP);
+  { const full = anaRangeKeys(); if (full.length){ [ana.from, ana.to] = lastRange(full, String(salesP)); [tp.from, tp.to] = lastRange(full, String(salesP)); } }
+  renderSales(); };
 $("#quickActions").onclick = e => { const b=e.target.closest("[data-go]"); if(b) showTab(b.dataset.go); };
 $("#btnSalesAI").onclick = () => {
   const A = salesAgg(salesP); if (!A) return toast("Belum ada data penjualan");
