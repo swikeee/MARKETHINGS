@@ -246,7 +246,7 @@ function idNum(t) { const s = String(t).replace(/\s/g, '');
   if (/,\d{1,2}$/.test(s)) return parseFloat(s.replace(/\./g, '').replace(',', '.'));
   if (/^\d{1,3}(\.\d{3})+$/.test(s)) return parseFloat(s.replace(/\./g, ''));
   return parseFloat(s.replace(',', '.')); }
-function pageText(html) { return String(html).replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' '); }
+function pageText(html) { return String(html).replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/[|*_#>`]+/g, ' ').replace(/\s+/g, ' '); }   // juga bersih dari tanda markdown (hasil r.jina.ai)
 const MACRO_OK = { kurs: v => v > 5000 && v < 60000, bi: v => v >= 0 && v < 25, inf: v => v > -10 && v < 40 };
 function parseMacro(text) { const D = '(\\d{1,2}\\s+[A-Za-z]{3,9}\\.?\\s+\\d{4})';
   const g = (k, re) => { const m = text.match(re); if (!m) return null; const v = idNum(m[1]), d = idDate(m[2]); return d && MACRO_OK[k](v) ? { v: v, d: d } : null; };
@@ -254,16 +254,29 @@ function parseMacro(text) { const D = '(\\d{1,2}\\s+[A-Za-z]{3,9}\\.?\\s+\\d{4})
     kurs: g('kurs', new RegExp('JISDOR\\s*Rp\\s*([\\d.,]+)\\s*' + D, 'i')) }; }
 function parseJisdor(text) { const m = String(text).match(/(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})\s*Rp\s*([\d.,]+)/); if (!m) return null; const v = idNum(m[2]), d = idDate(m[1]); return d && MACRO_OK.kurs(v) ? { v: v, d: d } : null; }
 function readMacro() { try { const r = readTable('Settings').find(x => String(x.id) === 'macro'); return r && r.value ? JSON.parse(r.value) : {}; } catch (e) { return {}; } }
+/** Server Google sering ditolak bi.go.id ("Address unavailable"). Urutan cadangan:
+ *  1) halaman BI langsung · 2) halaman BI yang sama lewat pembaca publik r.jina.ai (isi tetap dari bi.go.id)
+ *  3) khusus kurs: kurs referensi ECB lewat api.frankfurter.app bila JISDOR tetap tidak terjangkau. */
+const READER = 'https://r.jina.ai/', FX_URL = 'https://api.frankfurter.app/latest?from=USD&to=IDR';
 function fetchMacro() {
-  const get = u => { const r = UrlFetchApp.fetch(u, { muteHttpExceptions: true, followRedirects: true, headers: { 'User-Agent': 'Mozilla/5.0 (MARKETHINGS)' } });
-    if (r.getResponseCode() !== 200) throw new Error('HTTP ' + r.getResponseCode()); return pageText(r.getContentText()); };
-  let found = {}; const errs = [];
-  try { found = parseMacro(get(MACRO_URL)); } catch (e) { errs.push('indikator: ' + e.message); }
-  if (!found.kurs) { try { const j = parseJisdor(get(JISDOR_URL)); if (j) found.kurs = j; } catch (e) { errs.push('JISDOR: ' + e.message); } }
+  const raw = u => { const r = UrlFetchApp.fetch(u, { muteHttpExceptions: true, followRedirects: true, headers: { 'User-Agent': 'Mozilla/5.0 (MARKETHINGS)' } });
+    if (r.getResponseCode() !== 200) throw new Error('HTTP ' + r.getResponseCode()); return r.getContentText(); };
+  const short = e => /address unavailable|dns|timed? ?out|unreachable/i.test(String(e && e.message)) ? 'tidak bisa dihubungi dari server Google' : String(e && e.message || e).slice(0, 80);
+  const found = {}, errs = [], take = (res, via) => ['kurs', 'bi', 'inf'].forEach(k => { if (!found[k] && res && res[k]) found[k] = Object.assign({}, res[k], { src: via }); });
+  const tryPage = (url, parse, label) => {
+    for (const [u, via] of [[url, 'bi.go.id'], [READER + url, 'bi.go.id via r.jina.ai']]) {
+      try { const res = parse(pageText(raw(u))); if (res && Object.keys(res).some(k => res[k])) { take(res, via); return; } errs.push(label + (u === url ? '' : ' (r.jina.ai)') + ': angka tidak ditemukan di halaman'); }
+      catch (e) { errs.push(label + (u === url ? '' : ' (r.jina.ai)') + ': ' + short(e)); } } };
+  tryPage(MACRO_URL, parseMacro, 'indikator BI');
+  if (!found.kurs) tryPage(JISDOR_URL, t => ({ kurs: parseJisdor(t) }), 'JISDOR');
+  if (!found.kurs) { try { const j = JSON.parse(raw(FX_URL)), v = j && j.rates && +j.rates.IDR;
+      if (MACRO_OK.kurs(v) && j.date) found.kurs = { v: Math.round(v * 100) / 100, d: String(j.date).slice(0, 10), src: 'ECB via frankfurter.app' }; } catch (e) { errs.push('kurs ECB: ' + short(e)); } }
   const cur = readMacro(), hist = Array.isArray(cur.hist) ? cur.hist : [];
   ['kurs', 'bi', 'inf'].forEach(k => { const x = found[k]; if (!x) return; cur[k] = x; if (!hist.some(h => h.k === k && h.d === x.d)) hist.push({ k: k, d: x.d, v: x.v }); });
   cur.hist = hist.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0).slice(-300);
-  cur.fetchedAt = now(); cur.status = found.kurs || found.bi ? 'ok' : 'gagal'; cur.err = errs.join('; ') || (found.kurs || found.bi ? '' : 'pola angka tidak ditemukan di halaman BI'); cur.src = MACRO_URL;
+  const miss = ['kurs', 'bi', 'inf'].filter(k => !found[k]).map(k => ({ kurs: 'kurs', bi: 'BI-Rate', inf: 'inflasi' })[k]);
+  cur.fetchedAt = now(); cur.status = !miss.length ? 'ok' : found.kurs || found.bi ? 'sebagian' : 'gagal';
+  cur.err = miss.length ? miss.join(', ') + ' belum terambil (' + (errs.join('; ') || 'pola angka tidak ditemukan') + ')' : ''; cur.src = MACRO_URL;
   upsert('Settings', { id: 'macro', value: JSON.stringify(cur), updatedAt: now() });
   return cur;
 }

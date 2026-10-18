@@ -346,5 +346,14 @@ delete env.props.READ_TOKEN;
   env.setFetch(() => ({code:200, type:'text/html', body:'<p>JISDOR Rp 99 1 Jan 2026</p>'}));
   m = post('refreshMacro', {}).macro;
   ok('makro: angka tidak wajar diabaikan', m.kurs.v === 18200);
+  // server Google ditolak bi.go.id → lewat r.jina.ai (isi halaman BI dalam bentuk markdown)
+  env.setFetch(url => { if (/^https:\/\/www\.bi\.go\.id/.test(url)) throw new Error('Address unavailable: ' + url);
+    if (url.includes('r.jina.ai') && url.includes('indikator')) return {code:200, type:'text/plain', body:'Title: Indikator\n\n**BI-Rate**\n\n6,00 %\n\n19 November 2026\n\n| Inflasi IHK (yoy) | 3,05 % | 30 September 2026 |\n\nJISDOR\n\nRp 18.300\n\n20 Nov 2026'};
+    return {code:404, body:''}; });
+  m = post('refreshMacro', {}).macro;
+  ok('makro: bi.go.id menolak server Google → terbaca lewat r.jina.ai', m.status === 'ok' && m.bi.v === 6 && m.bi.src === 'bi.go.id via r.jina.ai' && m.kurs.v === 18300 && m.inf.v === 3.05, JSON.stringify(m.bi) + m.err);
+  env.setFetch(url => { if (url.includes('frankfurter')) return {code:200, type:'application/json', body:JSON.stringify({amount:1, base:'USD', date:'2026-11-27', rates:{IDR:18412.5}})}; throw new Error('Address unavailable: ' + url); });
+  m = post('refreshMacro', {}).macro;
+  ok('makro: BI tidak terjangkau sama sekali → kurs dari ECB (frankfurter), BI-Rate tetap nilai terakhir, alasan jelas', m.kurs.v === 18412.5 && m.kurs.src.includes('ECB') && m.bi.v === 6 && m.status === 'sebagian' && /BI-Rate, inflasi belum terambil/.test(m.err) && /server Google/.test(m.err), m.err);
   }
 console.log(process.exitCode ? '\nADA YANG GAGAL' : `\nSemua ${n} uji backend lulus`);
