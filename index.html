@@ -1001,10 +1001,10 @@ html.side-mini #btnLogout{width:40px;height:36px;padding:0;display:grid;place-it
   var HASH = {marketing:"4b040a205ebf81516661d5cd86b785777db3a54339db3bfec42f25a0c5d67f4d", prodev:"a9cde4a5c4b50289937d95daf6f38fd017d0e3977c1bf445ff0315523f1c5422"};
   var NAME = {marketing:"Marketing", prodev:"Product Development"};
   var g = document.getElementById("gate"), root = document.documentElement, role = null, busy = false, tries = 0;
-  function cur(){ try { return sessionStorage.getItem("li.role"); } catch(e){ return null; } }
   function apply(r){ root.classList.toggle("role-mkt", r === "marketing"); root.classList.toggle("role-pd", r === "prodev"); window.MK_ROLE = r; }
-  window.MK_LOGOUT = function(){ try { sessionStorage.removeItem("li.role"); } catch(e){} location.reload(); };
-  var saved = cur(); if (saved && HASH[saved]){ apply(saved); g.remove(); return; }
+  // peran hanya disimpan di memori halaman: setiap refresh / buka ulang wajib login lagi
+  try { sessionStorage.removeItem("li.role"); } catch(e){}
+  window.MK_LOGOUT = function(){ location.reload(); };
   apply(null); g.hidden = false; root.classList.add("gate-lock");
   var $ = function(id){ return document.getElementById(id); };
   function pick(r){ role = r; tries = 0; $("gtPick").hidden = true; $("gtPass").hidden = false; $("gtRole").textContent = NAME[r];
@@ -1022,7 +1022,6 @@ html.side-mini #btnLogout{width:40px;height:36px;padding:0;display:grid;place-it
     busy = true; $("gtGo").textContent = "Memeriksa…";
     derive($("gtPw").value, role).then(function(h){ busy = false; $("gtGo").textContent = "Masuk";
       if (h !== HASH[role]){ tries++; $("gtPw").value = ""; $("gtPw").focus(); return fail("Password salah. Sisa percobaan: " + (5 - tries) + "."); }
-      try { sessionStorage.setItem("li.role", role); } catch(e){}
       apply(role); g.classList.add("out"); root.classList.remove("gate-lock"); dispatchEvent(new CustomEvent("role:ready", {detail:role}));
       setTimeout(function(){ g.remove(); }, 450);
     }, function(){ busy = false; $("gtGo").textContent = "Masuk"; fail("Browser ini tidak mendukung pemeriksaan password. Buka lewat https (GitHub Pages)."); });
