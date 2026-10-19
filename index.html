@@ -1108,7 +1108,7 @@ html.side-mini #btnLogout{width:40px;height:36px;padding:0;display:grid;place-it
     </div>
     <div class="sec-h" id="s-tren"><h2>Tren penjualan</h2></div>
     <div class="g-main reveal">
-      <div class="panel tone">
+      <div class="panel">
         <div class="ph"><div><h3>Nilai penjualan &amp; unit</h3><p class="desc">Nilai booking bersih (tanpa batal) dan jumlah unit per bulan atau per tahun. Atur rentang waktunya di sini; tombol periode di atas halaman ikut mengubah rentang ini.</p></div>
           <div class="ana-tools"><div class="seg" id="trGran"><button aria-pressed="true" data-g="month">Bulanan</button><button aria-pressed="false" data-g="year">Tahunan</button></div></div></div>
         <div class="ana-range">
@@ -1119,7 +1119,7 @@ html.side-mini #btnLogout{width:40px;height:36px;padding:0;display:grid;place-it
         <div class="chartbox" style="height:300px"><canvas id="chRev" aria-label="Nilai penjualan dan unit per periode"></canvas></div>
         <div class="legend"><span><i style="background:var(--c1);border-radius:2px"></i>Nilai (Rp M)</span><span><i style="background:var(--c2)"></i>Unit (angka di dasar batang)</span><span id="trSum" style="margin-left:auto;font-family:var(--f-mono)"></span></div>
       </div>
-      <div class="panel tone">
+      <div class="panel">
         <h3><span id="funnelTitle">Funnel penjualan</span></h3><p class="desc" id="funnelDesc">Dari leads sampai akad kredit / lunas.</p>
         <div id="funnel" class="funnel"></div>
       </div>
@@ -1580,6 +1580,13 @@ const DEMO = {"competitors": [{"id": "pp-pastigriya", "dummy": true, "isOwn": tr
 
 // ---------- helpers ----------
 const $ = s => document.querySelector(s);
+// Panel diseling: bagian ke-1, 3, 5 … tiap segmen bernuansa gelap (.tone), bagian di antaranya tetap polos.
+(function(){ const top = el => [...el.querySelectorAll(".panel")].filter(p => !p.parentElement.closest(".panel"));
+  document.querySelectorAll("section.tab").forEach(sec => { const heads = [...sec.querySelectorAll(".sec-h")];
+    if (!heads.length) return top(sec).forEach((p, i) => { if (i % 2) p.classList.add("tone"); });
+    const groups = heads.map(h => { const ps = []; let n = h.nextElementSibling;
+      while (n && !n.classList.contains("sec-h") && !n.querySelector(".sec-h")){ ps.push(...(n.classList.contains("panel") ? [n] : top(n))); n = n.nextElementSibling; } return ps; }).filter(g => g.length);
+    groups.forEach((g, i) => { if (!(i % 2)) g.forEach(p => p.classList.add("tone")); }); }); })();
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const nf = (n, d=0) => num(n).toLocaleString("id-ID", {maximumFractionDigits:d, minimumFractionDigits:0});
@@ -2112,9 +2119,10 @@ function toneChart(cfg, arc, horiz){ const o = cfg.options, pl = o.plugins = o.p
   pl.tooltip = Object.assign(pl.tooltip || {}, {backgroundColor:"#2E2139", titleColor:TONE.ink, bodyColor:TONE.ink, borderColor:"#4A3858", borderWidth:1});
   if (pl.legend?.labels) pl.legend.labels.color = TONE.muted;
   Object.values(o.scales || {}).forEach(sc => { if (sc.grid && sc.grid.display !== false) sc.grid.color = TONE.grid; sc.ticks = Object.assign(sc.ticks || {}, {color:TONE.muted}); sc.border = Object.assign(sc.border || {}, {color:TONE.edge}); });
-  let bi = 0; (cfg.data?.datasets || []).forEach(ds => { const t = ds.type || cfg.type;
+  let bi = 0, li = 0; (cfg.data?.datasets || []).forEach(ds => { const t = ds.type || cfg.type;
     if (arc){ ds.backgroundColor = TONE.pie; ds.borderColor = "#22172B"; ds.borderWidth = 2; }
-    else if (t === "line"){ ds.borderColor = TONE.line; ds.pointBackgroundColor = TONE.line; ds.pointBorderColor = "#22172B"; ds.backgroundColor = TONE.line; }
+    else if (t === "scatter" || t === "bubble" || Array.isArray(ds.backgroundColor)) return;   // warna per titik/batang punya arti: biarkan
+    else if (t === "line"){ if (li++) return; ds.borderColor = TONE.line; ds.pointBackgroundColor = TONE.line; ds.pointBorderColor = "#22172B"; ds.backgroundColor = TONE.line; }
     else { ds.backgroundColor = bi++ === 0 ? toneGrad(horiz, "#B83F8C", "#F29A45") : "rgba(255,255,255,.26)"; ds.borderColor = "transparent"; } }); }
 // Grafik dibuat saat kanvasnya masuk layar, jadi animasinya terlihat ketika di-scroll (semua segmen).
 const pendingCharts = {};
