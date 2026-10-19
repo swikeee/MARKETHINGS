@@ -760,6 +760,18 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
 .bep .big{font-size:52px}
 @media (max-width:900px){.jump{top:0}}
 
+/* panel bernuansa halaman masuk (plum gelap + cahaya magenta/oranye) untuk grafik utama */
+.panel.tone{--surface:#22172B;--surface-2:#31233D;--ink:#F6F1FA;--muted:#B9AAC7;--line:#3D2E4A;--c1:#D9559F;--c2:#F29A45;--accent:#F29A45;
+  position:relative;color:var(--ink);border-color:#3D2E4A;box-shadow:0 18px 40px rgba(30,12,40,.28);isolation:isolate;overflow:hidden;
+  background:radial-gradient(60% 55% at 0% 0%,rgba(196,71,150,.30),rgba(196,71,150,0) 70%),radial-gradient(50% 50% at 100% 100%,rgba(242,154,69,.20),rgba(242,154,69,0) 70%),linear-gradient(160deg,#25182F 0%,#170F1F 100%)}
+.panel.tone h3{color:#fff}
+.panel.tone .rp-presets button[aria-pressed="true"]{background:linear-gradient(90deg,#C44796,#F29A45);color:#fff;border-color:transparent}
+.panel.tone .seg button[aria-pressed="true"]{background:#4A3758;color:#fff;box-shadow:none}
+.panel.tone select{background-color:var(--surface-2);color:var(--ink);border-color:var(--line)}
+.panel.tone .fbar{background:rgba(255,255,255,.07)}
+.panel.tone .fbar i{background:linear-gradient(90deg,#C44796,#F29A45)}
+.panel.tone .legend i[style*="--c1"]{background:linear-gradient(180deg,#F29A45,#C44796)!important}
+.panel.tone .legend i[style*="--c2"]{background:#FFC37A!important}
 /* ---------- gerbang masuk (peran + password) ---------- */
 html.gate-lock,html.gate-lock body{overflow:hidden}
 #gate{position:fixed;inset:0;z-index:9990;display:grid;place-items:center;overflow:auto;padding:24px 16px;color:#fff;font-family:"Inter",var(--f-body);background:#140D1C;transition:opacity .4s,visibility .4s}
@@ -1096,7 +1108,7 @@ html.side-mini #btnLogout{width:40px;height:36px;padding:0;display:grid;place-it
     </div>
     <div class="sec-h" id="s-tren"><h2>Tren penjualan</h2></div>
     <div class="g-main reveal">
-      <div class="panel">
+      <div class="panel tone">
         <div class="ph"><div><h3>Nilai penjualan &amp; unit</h3><p class="desc">Nilai booking bersih (tanpa batal) dan jumlah unit per bulan atau per tahun. Atur rentang waktunya di sini; tombol periode di atas halaman ikut mengubah rentang ini.</p></div>
           <div class="ana-tools"><div class="seg" id="trGran"><button aria-pressed="true" data-g="month">Bulanan</button><button aria-pressed="false" data-g="year">Tahunan</button></div></div></div>
         <div class="ana-range">
@@ -1107,7 +1119,7 @@ html.side-mini #btnLogout{width:40px;height:36px;padding:0;display:grid;place-it
         <div class="chartbox" style="height:300px"><canvas id="chRev" aria-label="Nilai penjualan dan unit per periode"></canvas></div>
         <div class="legend"><span><i style="background:var(--c1);border-radius:2px"></i>Nilai (Rp M)</span><span><i style="background:var(--c2)"></i>Unit (angka di dasar batang)</span><span id="trSum" style="margin-left:auto;font-family:var(--f-mono)"></span></div>
       </div>
-      <div class="panel">
+      <div class="panel tone">
         <h3><span id="funnelTitle">Funnel penjualan</span></h3><p class="desc" id="funnelDesc">Dari leads sampai akad kredit / lunas.</p>
         <div id="funnel" class="funnel"></div>
       </div>
@@ -2038,7 +2050,7 @@ const dlPlugin = { id:"dl",
     if (e.type !== "mouseout") chart.getActiveElements().forEach(a => hot.add(a.datasetIndex + ":" + a.index));                                           // atau di atas datanya
     if (hot.size !== st.hot.size || [...hot].some(k => !st.hot.has(k))){ st.hot = hot; args.changed = true; } },
   afterDatasetsDraw(chart){
-    const st = dlState(chart), opt = dlOpts[chart.canvas.id] || {}, g = chart.ctx, ink = css("--ink"), surf = css("--surface");
+    const st = dlState(chart), opt = dlOpts[chart.canvas.id] || {}, g = chart.ctx, tn = chart.canvas.closest(".tone"), ink = tn ? "#F6F1FA" : css("--ink"), surf = tn ? "#22172B" : css("--surface");
     const now = performance.now(), dt = st.moving ? Math.min(now - st.last, 50) : 16; st.last = now;
     const base = opt.size || 10.5, items = [];
     chart.data.datasets.forEach((ds, di) => { if (!chart.isDatasetVisible(di)) return; const meta = chart.getDatasetMeta(di), type = meta.type;
@@ -2092,6 +2104,18 @@ const dlPlugin = { id:"dl",
     g.restore(); st.boxes = boxes; st.moving = moving;
     if (moving && !st.raf) st.raf = requestAnimationFrame(() => { st.raf = 0; if (chart.ctx && chart.attached) chart.draw(); });
   } };
+// Warna grafik di panel bernuansa gelap (.tone): batang gradasi magenta→oranye, garis oranye muda, sumbu terang.
+const TONE = {ink:"#F6F1FA", muted:"#B9AAC7", grid:"rgba(255,255,255,.08)", edge:"rgba(255,255,255,.14)", line:"#FFC37A", pie:["#D9559F","#F29A45","#A592D3","#E8454B","#F5C451","#7FCFC4","#8E6BB8"]};
+function toneGrad(horiz, a, b){ return c => { const ar = c.chart.chartArea; if (!ar) return a;
+  const g = horiz ? c.chart.ctx.createLinearGradient(ar.left, 0, ar.right, 0) : c.chart.ctx.createLinearGradient(0, ar.bottom, 0, ar.top); g.addColorStop(0, a); g.addColorStop(1, b); return g; }; }
+function toneChart(cfg, arc, horiz){ const o = cfg.options, pl = o.plugins = o.plugins || {};
+  pl.tooltip = Object.assign(pl.tooltip || {}, {backgroundColor:"#2E2139", titleColor:TONE.ink, bodyColor:TONE.ink, borderColor:"#4A3858", borderWidth:1});
+  if (pl.legend?.labels) pl.legend.labels.color = TONE.muted;
+  Object.values(o.scales || {}).forEach(sc => { if (sc.grid && sc.grid.display !== false) sc.grid.color = TONE.grid; sc.ticks = Object.assign(sc.ticks || {}, {color:TONE.muted}); sc.border = Object.assign(sc.border || {}, {color:TONE.edge}); });
+  let bi = 0; (cfg.data?.datasets || []).forEach(ds => { const t = ds.type || cfg.type;
+    if (arc){ ds.backgroundColor = TONE.pie; ds.borderColor = "#22172B"; ds.borderWidth = 2; }
+    else if (t === "line"){ ds.borderColor = TONE.line; ds.pointBackgroundColor = TONE.line; ds.pointBorderColor = "#22172B"; ds.backgroundColor = TONE.line; }
+    else { ds.backgroundColor = bi++ === 0 ? toneGrad(horiz, "#B83F8C", "#F29A45") : "rgba(255,255,255,.26)"; ds.borderColor = "transparent"; } }); }
 // Grafik dibuat saat kanvasnya masuk layar, jadi animasinya terlihat ketika di-scroll (semua segmen).
 const pendingCharts = {};
 function buildChart(id, cfg){ delete pendingCharts[id]; charts[id]?.destroy(); charts[id] = new Chart(document.getElementById(id), cfg); }
@@ -2100,6 +2124,7 @@ const chartIO = canAnim ? new IntersectionObserver(es => es.forEach(e => { if (!
 function shownEnough(el){ if (!el.offsetParent) return false; const r = el.getBoundingClientRect(), h = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0); return r.height > 0 && h / r.height >= .25; }
 function mk(id, cfg, dl){ if (typeof Chart==="undefined") return; const el = document.getElementById(id); if (!el) return;
   const o = cfg.options = cfg.options || {}, arc = cfg.type === "pie" || cfg.type === "doughnut", horiz = o.indexAxis === "y";
+  if (el.closest(".tone")) toneChart(cfg, arc, horiz);
   dl = dlOpts[id] = dl || {}; cfg.plugins = [...(cfg.plugins || []), dlPlugin];
   if (!arc){ const lay = o.layout = o.layout || {}, pad = {};        // ruang supaya label tidak terpotong
     if (horiz){ let w = 0; dlProbe.font = dlFont((dl.size || 10.5)*1.34, 1);
