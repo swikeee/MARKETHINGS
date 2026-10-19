@@ -760,6 +760,53 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
 .bep .big{font-size:52px}
 @media (max-width:900px){.jump{top:0}}
 
+/* ---------- gerbang masuk (peran + password) ---------- */
+html.gate-lock,html.gate-lock body{overflow:hidden}
+#gate{position:fixed;inset:0;z-index:9990;display:grid;place-items:center;overflow:auto;padding:24px 16px;color:#fff;font-family:"Inter",var(--f-body);background:#140D1C;transition:opacity .4s,visibility .4s}
+#gate.out{opacity:0;visibility:hidden}
+.gt-bg{position:fixed;inset:0;pointer-events:none;background:radial-gradient(60% 46% at 50% 0%,rgba(196,71,150,.38),rgba(196,71,150,0) 70%),radial-gradient(40% 36% at 82% 92%,rgba(242,154,69,.22),rgba(242,154,69,0) 70%),radial-gradient(40% 40% at 12% 80%,rgba(165,146,211,.18),rgba(165,146,211,0) 70%),linear-gradient(180deg,#1E1229 0%,#0E0A13 100%)}
+.gt-in{position:relative;width:min(440px,100%);display:grid;justify-items:center;gap:26px;text-align:center}
+.gt-in.shake{animation:gtShake .4s}
+@keyframes gtShake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.gt-brand{display:grid;justify-items:center;gap:6px}
+.gt-mk{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;margin-bottom:6px;background:radial-gradient(62% 46% at 50% 112%,#F29A45 0%,rgba(242,154,69,0) 72%),radial-gradient(80% 58% at 50% 92%,#E33A3E 0%,rgba(227,58,62,0) 72%),radial-gradient(90% 62% at 46% 66%,#C44796 0%,rgba(196,71,150,0) 72%),radial-gradient(64% 56% at 20% 40%,#A592D3 0%,rgba(165,146,211,0) 72%),linear-gradient(180deg,#E6EBF1 0%,#D6D5EC 46%,#CFA0D6 100%);box-shadow:0 10px 30px rgba(196,71,150,.35)}
+.gt-mk svg{width:74%;height:auto;overflow:visible} .gt-mk path{fill:none;stroke:#fff;stroke-width:58;stroke-linecap:round;stroke-linejoin:round}
+.gt-word{font:700 clamp(34px,7vw,44px)/1 "Inter",var(--f-display);letter-spacing:-.04em}
+.gt-word i{display:inline-block;padding-right:.08em;background:linear-gradient(90deg,#E58BC6,#F29A45);-webkit-background-clip:text;background-clip:text;color:transparent}
+.gt-slo{font:500 10.5px/1 var(--f-mono);letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+.gt-step{display:grid;justify-items:center;gap:22px;width:100%}
+#gate h1{margin:0;font:700 clamp(22px,4.6vw,30px)/1.2 "Inter",var(--f-display);letter-spacing:-.025em;color:#fff}
+.gt-roles{display:flex;gap:26px;justify-content:center;flex-wrap:wrap}
+.gt-role{display:grid;justify-items:center;gap:4px;width:132px;padding:0;border:0;background:none;color:#fff;cursor:pointer;font:inherit}
+.gt-role b{margin-top:10px;font:600 14px/1.25 "Inter",var(--f-body)} .gt-role small{font-size:11.5px;color:rgba(255,255,255,.55)}
+.gt-tile{width:106px;height:106px;border-radius:22px;display:grid;place-items:center;color:#fff;box-shadow:0 14px 34px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.14);transition:transform .2s cubic-bezier(.3,.8,.2,1),box-shadow .2s}
+.gt-tile svg{width:38px;height:38px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.gt-tile.mkt{background:linear-gradient(150deg,#C44796 0%,#8E3FA8 100%)}
+.gt-tile.pd{background:linear-gradient(150deg,#F29A45 0%,#D9533F 100%)}
+.gt-role:hover .gt-tile,.gt-role:focus-visible .gt-tile{transform:translateY(-4px);box-shadow:0 20px 40px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.3)}
+.gt-role:focus-visible{outline:none} .gt-role:focus-visible b{text-decoration:underline;text-underline-offset:4px}
+.gt-who{display:flex;align-items:center;gap:12px;text-align:left}
+.gt-tile.sm{width:46px;height:46px;border-radius:12px} .gt-tile.sm svg{width:21px;height:21px}
+.gt-who small{display:block;font-size:11.5px;color:rgba(255,255,255,.55)} .gt-who b{font:600 16px/1.3 "Inter",var(--f-body)}
+.gt-field{position:relative;display:grid;gap:6px;width:100%;text-align:left}
+.gt-field span{font-size:12px;color:rgba(255,255,255,.7)}
+.gt-field input{width:100%;box-sizing:border-box;height:46px;padding:0 46px 0 14px;border-radius:12px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#fff;font:500 15px "Inter",var(--f-body);outline:none;transition:border-color .15s,background .15s}
+.gt-field input:focus{border-color:#E58BC6;background:rgba(255,255,255,.09)}
+.gt-eye{position:absolute;right:6px;bottom:6px;width:34px;height:34px;border:0;border-radius:9px;background:none;color:rgba(255,255,255,.6);display:grid;place-items:center;cursor:pointer}
+.gt-eye:hover{color:#fff;background:rgba(255,255,255,.08)} .gt-eye svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8}
+.gt-msg{margin:-8px 0 0;width:100%;text-align:left;font-size:12.5px;color:#FF9C9C}
+.gt-go{width:100%;height:46px;border:0;border-radius:12px;background:linear-gradient(90deg,#C44796,#F29A45);color:#fff;font:600 15px "Inter",var(--f-body);cursor:pointer;box-shadow:0 10px 26px rgba(196,71,150,.35)}
+.gt-go:hover{filter:brightness(1.07)}
+.gt-back{margin-top:-8px;border:0;background:none;color:rgba(255,255,255,.6);font:500 13px "Inter",var(--f-body);cursor:pointer;padding:6px 10px;border-radius:8px}
+.gt-back:hover{color:#fff;background:rgba(255,255,255,.06)}
+.gt-foot{margin:4px 0 0;font-size:11.5px;color:rgba(255,255,255,.4)}
+/* hak akses per peran: Marketing tidak bisa membuka link sheet & Pengaturan */
+html.role-mkt #btnOpenSheet,html.role-mkt #btnSettings,html.role-mkt [data-open-settings]{display:none!important}
+.role-chip{display:inline-flex;align-items:center;gap:6px}
+.foot-role{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:8px;border-top:1px solid var(--line)}
+.foot-role .note{font-size:11.5px;line-height:1.3;min-width:0} .foot-role b{color:var(--ink);font-weight:600}
+html.side-mini .foot-role{border-top:0;padding-top:0;justify-content:center} html.side-mini .foot-role .note,html.side-mini #btnLogout .lb{display:none}
+html.side-mini #btnLogout{width:40px;height:36px;padding:0;display:grid;place-items:center}
 /* ---------- splash pembuka (animasi ±3 detik, keluar dengan scroll) + splash antar segmen ---------- */
 #splash,#segSplash{position:fixed;inset:0;overflow:hidden;font-family:"Inter",var(--f-display);-webkit-user-select:none;user-select:none;
   --sp-grad:radial-gradient(62% 46% at 50% 112%, #F29A45 0%, rgba(242,154,69,0) 72%),radial-gradient(80% 58% at 50% 92%, #E33A3E 0%, rgba(227,58,62,0) 72%),radial-gradient(90% 62% at 46% 66%, #C44796 0%, rgba(196,71,150,0) 72%),radial-gradient(64% 56% at 20% 40%, #A592D3 0%, rgba(165,146,211,0) 72%),linear-gradient(180deg,#E6EBF1 0%,#D6D5EC 46%,#CFA0D6 100%);
@@ -926,6 +973,63 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
 })();
 </script>
 <div id="segSplash" role="presentation" aria-hidden="true"></div>
+<div id="gate" role="dialog" aria-modal="true" aria-labelledby="gTitle" hidden>
+  <div class="gt-bg"></div>
+  <div class="gt-in">
+    <div class="gt-brand"><span class="gt-mk"><svg viewBox="56 52 808 508" aria-hidden="true"><g transform="translate(-6 -6)"><path d="M506 288 L376 146 Q338 94 300 150 L118 446 Q78 516 146 524 Q188 526 212 490 L306 360 Q340 318 376 350 L428 394 Q468 426 506 390 L736 136 Q768 98 826 100"/><path d="M712 164 Q668 212 696 264 L796 432 Q828 496 782 522 Q742 540 708 498 L590 374"/></g></svg></span><div class="gt-word">Marke<i>things</i></div><div class="gt-slo">Everything Marketing in One Place</div></div>
+    <div class="gt-step" id="gtPick">
+      <h1 id="gTitle">Kamu masuk sebagai siapa?</h1>
+      <div class="gt-roles">
+        <button type="button" class="gt-role" data-role="marketing"><span class="gt-tile mkt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5"/><path d="M18.5 7a7 7 0 0 1 0 10"/></svg></span><b>Marketing</b><small>Lihat dashboard</small></button>
+        <button type="button" class="gt-role" data-role="prodev"><span class="gt-tile pd"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span><b>Product Development</b><small>Kelola data</small></button>
+      </div>
+    </div>
+    <form class="gt-step" id="gtPass" hidden autocomplete="off">
+      <div class="gt-who"><span class="gt-tile sm" id="gtTile"></span><div><small>Masuk sebagai</small><b id="gtRole"></b></div></div>
+      <label class="gt-field"><span>Password</span><input type="password" id="gtPw" autocomplete="current-password" required><button type="button" class="gt-eye" id="gtEye" aria-label="Tampilkan password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></label>
+      <p class="gt-msg" id="gtMsg" role="alert" hidden></p>
+      <button type="submit" class="gt-go" id="gtGo">Masuk</button>
+      <button type="button" class="gt-back" id="gtBack">← Ganti peran</button>
+    </form>
+    <p class="gt-foot">Password tidak tersimpan sebagai teks di halaman ini.</p>
+  </div>
+</div>
+<script>
+/* Gerbang masuk: pilih peran + password. Hanya Product Development yang bisa membuka link Google Sheet & Pengaturan.
+   Password disimpan sebagai hash PBKDF2 (bukan teks asli). Untuk mengganti: hitung hash baru dengan salt "markethings-gate-v1:<peran>", 120000 iterasi, SHA-256. */
+(function(){
+  var HASH = {marketing:"4b040a205ebf81516661d5cd86b785777db3a54339db3bfec42f25a0c5d67f4d", prodev:"a9cde4a5c4b50289937d95daf6f38fd017d0e3977c1bf445ff0315523f1c5422"};
+  var NAME = {marketing:"Marketing", prodev:"Product Development"};
+  var g = document.getElementById("gate"), root = document.documentElement, role = null, busy = false, tries = 0;
+  function cur(){ try { return sessionStorage.getItem("li.role"); } catch(e){ return null; } }
+  function apply(r){ root.classList.toggle("role-mkt", r === "marketing"); root.classList.toggle("role-pd", r === "prodev"); window.MK_ROLE = r; }
+  window.MK_LOGOUT = function(){ try { sessionStorage.removeItem("li.role"); } catch(e){} location.reload(); };
+  var saved = cur(); if (saved && HASH[saved]){ apply(saved); g.remove(); return; }
+  apply(null); g.hidden = false; root.classList.add("gate-lock");
+  var $ = function(id){ return document.getElementById(id); };
+  function pick(r){ role = r; tries = 0; $("gtPick").hidden = true; $("gtPass").hidden = false; $("gtRole").textContent = NAME[r];
+    var t = g.querySelector('.gt-role[data-role="'+r+'"] .gt-tile'); $("gtTile").className = "gt-tile sm " + (r === "marketing" ? "mkt" : "pd"); $("gtTile").innerHTML = t.innerHTML;
+    $("gtMsg").hidden = true; $("gtPw").value = ""; setTimeout(function(){ $("gtPw").focus(); }, 30); }
+  Array.prototype.forEach.call(g.querySelectorAll(".gt-role"), function(b){ b.onclick = function(){ pick(b.dataset.role); }; });
+  $("gtBack").onclick = function(){ $("gtPass").hidden = true; $("gtPick").hidden = false; role = null; g.querySelector(".gt-role").focus(); };
+  $("gtEye").onclick = function(){ var i = $("gtPw"); i.type = i.type === "password" ? "text" : "password"; i.focus(); };
+  function hex(buf){ return Array.prototype.map.call(new Uint8Array(buf), function(x){ return ("0" + x.toString(16)).slice(-2); }).join(""); }
+  function derive(pw, r){ var enc = new TextEncoder(), c = window.crypto && crypto.subtle; if (!c) return Promise.reject(new Error("nocrypto"));
+    return c.importKey("raw", enc.encode(pw), "PBKDF2", false, ["deriveBits"]).then(function(k){ return c.deriveBits({name:"PBKDF2", hash:"SHA-256", salt:enc.encode("markethings-gate-v1:" + r), iterations:120000}, k, 256); }).then(hex); }
+  function fail(t){ var m = $("gtMsg"); m.textContent = t; m.hidden = false; g.querySelector(".gt-in").classList.remove("shake"); void g.offsetWidth; g.querySelector(".gt-in").classList.add("shake"); }
+  $("gtPass").onsubmit = function(e){ e.preventDefault(); if (busy || !role) return;
+    if (tries >= 5) return fail("Terlalu banyak percobaan. Muat ulang halaman untuk mencoba lagi.");
+    busy = true; $("gtGo").textContent = "Memeriksa…";
+    derive($("gtPw").value, role).then(function(h){ busy = false; $("gtGo").textContent = "Masuk";
+      if (h !== HASH[role]){ tries++; $("gtPw").value = ""; $("gtPw").focus(); return fail("Password salah. Sisa percobaan: " + (5 - tries) + "."); }
+      try { sessionStorage.setItem("li.role", role); } catch(e){}
+      apply(role); g.classList.add("out"); root.classList.remove("gate-lock"); dispatchEvent(new CustomEvent("role:ready", {detail:role}));
+      setTimeout(function(){ g.remove(); }, 450);
+    }, function(){ busy = false; $("gtGo").textContent = "Masuk"; fail("Browser ini tidak mendukung pemeriksaan password. Buka lewat https (GitHub Pages)."); });
+  };
+})();
+</script>
+
 
 <div class="shell">
 <aside class="side">
@@ -949,7 +1053,8 @@ h3{font:600 14px/1.35 var(--f-body);letter-spacing:-.005em;margin:0 0 12px}
         <path d="M712 164 Q668 212 696 264 L796 432 Q828 496 782 522 Q742 540 708 498 L590 374"/></g></svg></span><span class="mk-f mk-b"><svg viewBox="56 52 808 508" aria-hidden="true"><g transform="translate(-6 -6)">
         <path d="M506 288 L376 146 Q338 94 300 150 L118 446 Q78 516 146 524 Q188 526 212 490 L306 360 Q340 318 376 350 L428 394 Q468 426 506 390 L736 136 Q768 98 826 100"/>
         <path d="M712 164 Q668 212 696 264 L796 432 Q828 496 782 522 Q742 540 708 498 L590 374"/></g></svg></span></span></span></div>
-  <div class="foot"><span class="chip" id="modeChip">Demo</span><p id="footNote">Data contoh. Hubungkan Google Sheet lewat Pengaturan.</p><button class="btn sm" id="btnSettings"><svg class="ic-mini" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="lb">Pengaturan</span></button></div>
+  <div class="foot"><span class="chip" id="modeChip">Demo</span><p id="footNote">Data contoh. Hubungkan Google Sheet lewat Pengaturan.</p><button class="btn sm" id="btnSettings"><svg class="ic-mini" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="lb">Pengaturan</span></button>
+    <div class="foot-role"><span class="note">Masuk sebagai <b id="roleName"></b></span><button class="btn sm" id="btnLogout" type="button" title="Keluar"><svg class="ic-mini" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg><span class="lb">Keluar</span></button></div></div>
 </aside>
 <div class="maincol" style="min-width:0">
 <header class="top">
@@ -3865,7 +3970,11 @@ const currentPassHash = () => store.get("li.sheetPass") || SHEET_PASS_HASH;
 const validPass = p => /^[A-Za-z0-9]{6,}$/.test(p) && /[A-Za-z]/.test(p) && /[0-9]/.test(p);
 function sheetUrl(){ const u = (String(SALES_SHEET).match(/^https:\/\/docs\.google\.com\/spreadsheets\/d\/[a-zA-Z0-9_-]+/) || [])[0]; return u ? u + "/edit" : ""; }
 let sheetUnlocked = false, passTries = 0;
+const isProdev = () => window.MK_ROLE === "prodev";
+if (isProdev()) sheetUnlocked = true;                      // Product Development sudah lolos password di gerbang masuk
+addEventListener("role:ready", e => { sheetUnlocked = e.detail === "prodev"; renderRole(); });
 function openSheetGate(){
+  if (!isProdev()) return toast("Link Google Sheet hanya untuk Product Development");
   const url = sheetUrl(); if (!url) return toast("Belum ada Google Sheet yang terhubung");
   askPass(() => window.open(url, "_blank", "noopener"), "Buka sheet");
 }
@@ -3907,7 +4016,9 @@ function changeSheetPass(){
 }
 
 // ---------- pengaturan ----------
-$("#btnSettings").onclick = () => {
+function renderRole(){ const r = window.MK_ROLE, el = $("#roleName"); if (el) el.textContent = r === "prodev" ? "Product Development" : r === "marketing" ? "Marketing" : ""; }
+renderRole(); $("#btnLogout") && ($("#btnLogout").onclick = () => window.MK_LOGOUT && window.MK_LOGOUT());
+$("#btnSettings").onclick = () => { if (!isProdev()) return toast("Pengaturan hanya untuk Product Development");
   $("#mTitle").textContent = "Pengaturan koneksi";
   $("#mBody").innerHTML = `<div class="form">
     <details class="pivot" open style="margin:0"><summary>Data disimpan di mana?</summary>
@@ -6140,14 +6251,14 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { 
   const nameOf = b => [...b.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join("").trim();
   const show = b => { if (!root.classList.contains("side-mini")) return;
     const tab = b.closest("nav") && b.dataset.tab, ct = b.querySelector(".ct")?.textContent.trim(), grp = b.closest(".navg")?.querySelector(".gl")?.textContent.trim();
-    const name = tab ? nameOf(b) : b === btn ? "Tampilkan menu" : "Pengaturan", sub = tab ? [grp, ct ? ct + " data" : "", b.getAttribute("aria-selected") === "true" ? "sedang dibuka" : ""].filter(Boolean).join(" · ") : b === btn ? "Tombol [ di keyboard" : $("#modeChip")?.textContent.trim() || "";
+    const out = b.id === "btnLogout", name = tab ? nameOf(b) : b === btn ? "Tampilkan menu" : out ? "Keluar" : "Pengaturan", sub = tab ? [grp, ct ? ct + " data" : "", b.getAttribute("aria-selected") === "true" ? "sedang dibuka" : ""].filter(Boolean).join(" · ") : b === btn ? "Tombol [ di keyboard" : out ? "Masuk sebagai " + ($("#roleName")?.textContent || "") : $("#modeChip")?.textContent.trim() || "";
     const ic = b.querySelector("svg"); tip.innerHTML = `<span class="ic">${ic ? ic.outerHTML : ""}</span><span><b></b><small></small></span>`;
     tip.querySelector("b").textContent = name; tip.querySelector("small").textContent = sub; tip.querySelector("small").hidden = !sub;
     tip.classList.toggle("cur", b.getAttribute("aria-selected") === "true");
     const r = b.getBoundingClientRect(), side = $(".side").getBoundingClientRect(); tip.style.left = side.right + 12 + "px"; tip.style.top = r.top + r.height/2 + "px";
     requestAnimationFrame(() => tip.classList.add("on")); };
   const hide = () => tip.classList.remove("on");
-  [...document.querySelectorAll(".side nav button"), btn, $("#btnSettings")].forEach(b => { if (!b) return;
+  [...document.querySelectorAll(".side nav button"), btn, $("#btnSettings"), $("#btnLogout")].forEach(b => { if (!b) return;
     b.addEventListener("mouseenter", () => show(b)); b.addEventListener("focus", () => show(b)); b.addEventListener("mouseleave", hide); b.addEventListener("blur", hide); b.addEventListener("click", () => setTimeout(() => tip.classList.contains("on") && show(b), 30)); });
   $(".side").addEventListener("scroll", hide, {passive:true});
   const set = (mini, save) => { root.classList.toggle("side-mini", mini); btn.setAttribute("aria-expanded", !mini); hide();
