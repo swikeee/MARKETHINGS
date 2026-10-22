@@ -428,6 +428,22 @@ td.n .note{font-family:var(--f-body)}
 @media (max-width:1100px){.prof{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:560px){.prof{grid-template-columns:minmax(0,1fr)}}
 .prof h4{margin:0 0 8px;font:600 13px var(--f-body)}
+.prof:has(> div:nth-child(5)){grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:1280px){.prof:has(> div:nth-child(5)){grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:1100px){.prof:has(> div:nth-child(5)){grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.prof:has(> div:nth-child(5)){grid-template-columns:minmax(0,1fr)}}
+.prof-flt{display:inline-block;margin-bottom:4px;color:var(--ink)}
+.linkbtn{border:0;background:none;padding:0;color:var(--accent);font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.inc-x{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.inc-x h4{margin:0 0 10px;font:600 13px var(--f-body)}
+.inc-t{width:100%;border-collapse:collapse;font-size:12.5px}
+.inc-t th{font:500 11.5px var(--f-body);color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.inc-t td{padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.inc-t .num{text-align:right;font-variant-numeric:tabular-nums}
+.inc-t td.num[style]{background:color-mix(in srgb,var(--c2) calc(var(--p) * 70%),transparent)}
+.inc-t td.top{font-weight:700;box-shadow:inset 0 0 0 1.5px var(--c2)}
+.inc-t tbody tr{cursor:pointer} .inc-t tbody tr:hover td{background-color:var(--surface-2)} .inc-t tbody tr:hover td.num[style]{background:color-mix(in srgb,var(--c2) calc(var(--p) * 70% + 6%),var(--surface-2))}
+.inc-t tr.on td:first-child{box-shadow:inset 3px 0 0 var(--c1)}
 .bl{display:grid;gap:6px}
 .bl .bi{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;font-size:12px}
 .bl .bi span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1222,9 +1238,10 @@ html.side-mini #btnLogout{width:40px;height:36px;padding:0;display:grid;place-it
     <div class="sec-h" id="s-pembeli"><h2>Profil pembeli</h2><span class="rng-note" data-rng=""></span></div>
     <div class="panel reveal" id="profilePanel">
       <div class="ph"><div><p class="note" id="profDesc" style="margin:0;max-width:72ch"></p></div>
-        <div class="ana-tools"><div class="seg" id="profCmp"><button aria-pressed="true" data-c="">Tanpa pembanding</button><button aria-pressed="false" data-c="yoy">vs tahun lalu</button><button aria-pressed="false" data-c="prev">vs periode sebelumnya</button></div></div></div>
+        <div class="ana-tools"><label class="sel" for="profCl">Cluster <select id="profCl"></select></label><label class="sel" for="profTp">Tipe <select id="profTp"></select></label><div class="seg" id="profCmp"><button aria-pressed="true" data-c="">Tanpa pembanding</button><button aria-pressed="false" data-c="yoy">vs tahun lalu</button><button aria-pressed="false" data-c="prev">vs periode sebelumnya</button></div></div></div>
       <p class="st-insight" id="profSum" hidden></p>
       <div class="prof" id="profile"></div>
+      <div class="inc-x" id="incX" hidden></div>
     </div>
     <div class="sec-h scene" id="s-kalender"><h2>Kalender &amp; event</h2></div>
     <div class="panel reveal">
@@ -4613,9 +4630,27 @@ const keyLabel = (k, yr=true) => MONTHS_ID[+k.slice(5,7)-1] + (yr ? " " + k.slic
 function monthKeys(n, endKey){ const e = keyDate(endKey), out = []; for (let i=n-1; i>=0; i--) out.push(dateKey(new Date(e.getFullYear(), e.getMonth()-i, 1))); return out; }
 function rng(seed){ return () => (seed = (seed*1664525 + 1013904223) % 4294967296) / 4294967296; }
 function pickW(list, r){ const t = list.reduce((a,x)=>a+x[1],0); let v = r()*t; for (const x of list){ if ((v -= x[1]) <= 0) return x[0]; } return list[0][0]; }
+// ---------- range income pembeli (kolom RANGE INCOME, di kanan PEKERJAAN) ----------
+// Isian bebas ("10-20 jt", "Rp 15.000.000 - 25.000.000", "< 10 juta", "di atas 50 jt") dirapikan jadi label seragam dalam juta/bulan.
+const INC_CACHE = new Map();
+function incomeBand(v){ const raw = String(v ?? "").trim(); if (!raw || /^(-|–|0|tidak (tercatat|ada)|n\/?a)$/i.test(raw)) return null;
+  if (INC_CACHE.has(raw)) return INC_CACHE.get(raw);
+  const u = raw.toLowerCase().replace(/rp\.?/g, " ").replace(/\s+/g, " ").trim();
+  const mult = /\b(m|miliar|milyar)\b/.test(u) ? 1000 : 1;
+  const ns = (u.match(/\d+(?:[.,]\d+)*/g) || []).map(t => { let x = /^\d{1,3}(\.\d{3})+$/.test(t) ? +t.replace(/\./g, "") : parseFloat(t.replace(/\.(?=\d{3}\b)/g, "").replace(",", ".")); if (x >= 1e5) x /= 1e6; else x *= mult; return x; }).filter(x => isFinite(x));
+  const lt = /(<|≤|di ?bawah|kurang dari|maks|max|s\/?d|sampai)/.test(u) && ns.length === 1, gt = /(>|≥|di ?atas|lebih dari|min\b|minimal|\+)/.test(u) && ns.length === 1;
+  const f = x => nf(x, x < 10 && x % 1 ? 1 : 0);
+  const out = !ns.length ? {label:titleCase(raw), k:1e9} : lt ? {label:`< ${f(ns[0])} jt`, k:ns[0] - .001} : gt ? {label:`> ${f(ns[0])} jt`, k:ns[0] + .001}
+    : ns.length >= 2 ? {label:`${f(Math.min(ns[0], ns[1]))}–${f(Math.max(ns[0], ns[1]))} jt`, k:Math.min(ns[0], ns[1])} : {label:`${f(ns[0])} jt`, k:ns[0]};
+  INC_CACHE.set(raw, out); return out; }
+const incomeOf = x => incomeBand(x.income)?.label || "";
+const DEMO_INCOME = ["< 10 JT", "10 - 20 JT", "20 - 35 JT", "35 - 50 JT", "> 50 JT"];
+var incRng = null;   // generator acak terpisah supaya angka dummy lain tidak ikut berubah
+function demoIncome(price){ const r = incRng ||= rng(991), c = Math.max(0, Math.min(4, Math.round((price/1e9 - .2)/1.1))); return pickW(DEMO_INCOME.map((b, i) => [b, [6, 2.2, .6, .15, .05][Math.abs(i - c)]]), r); }
 
 /** Data dummy: 24 bulan terakhir (sampai bulan lalu), deterministik supaya angka tidak berubah tiap dibuka. */
 function makeDemoSales(){
+  incRng = null;
   const r = rng(20261), now = new Date(), endKey = dateKey(new Date(now.getFullYear(), now.getMonth()-1, 1));
   const months = monthKeys(24, endKey), out = [], ld = [], rt = rng(77);
   const demoType = cl => { const l = (TYPES[cl] || []).filter(t => t.lt); if (!l.length) return {}; const t = l[Math.min(l.length-1, Math.floor(Math.pow(rt(), 1.6)*l.length))]; return {unitType:t.name, kavling:`${t.w} x ${t.d}`}; };
@@ -4629,7 +4664,7 @@ function makeDemoSales(){
         const st = r() < .075 ? "Batal" : (age <= 1 && r() < .65) || (age === 2 && r() < .25) ? "Booking" : "Akad";
         out.push({id:`s${i}-${out.length}`, date:`${m}-${String(1+Math.floor(r()*27)).padStart(2,"0")}`, cluster:c.name, price:Math.round(c.price*(.94+.12*r())/1e6)*1e6, channel:ch, agent:ag, status:st,
           ...demoType(c.name), payment:pickW([["KPR DELUXE",5],["KB 24x DLX",3],["CK DELUXE",2],["CASH KERAS",1]], r), purpose:r()<.1?"INVESTASI":"PAKAI SENDIRI", hook:r()<.22?"Hook":"Standard",
-          job:pickW([["KARYAWAN SWASTA",5],["WIRASWASTA",3],["IBU RUMAH TANGGA",3],["PNS",2],["DOKTER",1]], r), city:pickW([["BANDUNG",6],["KAB. BANDUNG",4],["CIMAHI",1],["JAKARTA",1],["BEKASI",1]], r), age:Math.round(24+r()*32)});
+          job:pickW([["KARYAWAN SWASTA",5],["WIRASWASTA",3],["IBU RUMAH TANGGA",3],["PNS",2],["DOKTER",1]], r), city:pickW([["BANDUNG",6],["KAB. BANDUNG",4],["CIMAHI",1],["JAKARTA",1],["BEKASI",1]], r), age:Math.round(24+r()*32), income:demoIncome(c.price)});
         perCh[ch] = (perCh[ch]||0) + 1;
       }
     });
@@ -4816,17 +4851,32 @@ function paintRangeNotes(){ if (!ana.from) return; const n = monthDiff(ana.from,
 document.addEventListener("click", e => { if (e.target.closest("[data-goana]")) $("#anaPanel").scrollIntoView({behavior:"smooth", block:"start"}); });
 
 // ---------- profil pembeli: ikut rentang grafik Cluster, bisa dibandingkan dengan tahun lalu / periode sebelumnya ----------
-const prof = {cmp:""};
+const prof = {cmp:"", cl:"", tp:""};
 const PROF_GENS = [["Gen Z",1997,9999],["Milenial",1981,1996],["Gen X",1965,1980],["Boomer",0,1964]];
 function renderProfile(){
   const panel = $("#profilePanel"); if (!ana.from){ panel.hidden = true; return; }
   const inK = (a, b) => x => { const m = String(x.date).slice(0,7); return x.status !== "Batal" && m >= a && m <= b; };
-  const n = monthDiff(ana.from, ana.to) + 1, N = sales.filter(inK(ana.from, ana.to));
-  const hasF = f => N.some(x => has(x[f]));
-  if (!N.length || !(hasF("job") || hasF("city") || hasF("age") || hasF("purpose"))){ panel.hidden = true; return; }
+  const n = monthDiff(ana.from, ana.to) + 1, N0 = sales.filter(inK(ana.from, ana.to));
+  if (!N0.length || !["job", "city", "age", "purpose", "income"].some(f => N0.some(x => has(x[f])))){ panel.hidden = true; return; }
   panel.hidden = false;
+  // filter cluster & tipe (pilihan diambil dari pembeli di rentang ini)
+  const tpOf = x => typeBase(x.unitType);
+  const cls = [...new Set(N0.map(x => x.cluster))].sort((a, b) => CLUSTERS.findIndex(c => c.name === a) - CLUSTERS.findIndex(c => c.name === b) || a.localeCompare(b));
+  if (prof.cl && !cls.includes(prof.cl)) prof.cl = "";
+  const tps = [...new Set(N0.filter(x => !prof.cl || x.cluster === prof.cl).map(tpOf).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  if (prof.tp && !tps.includes(prof.tp)) prof.tp = "";
+  $("#profCl").innerHTML = `<option value="">Semua</option>` + cls.map(c => `<option${c === prof.cl ? " selected" : ""}>${esc(c)}</option>`).join("");
+  $("#profTp").innerHTML = `<option value="">Semua</option>` + tps.map(t => `<option${t === prof.tp ? " selected" : ""}>${esc(t)}</option>`).join("");
+  $("#profTp").disabled = !tps.length;
+  const pick = x => (!prof.cl || x.cluster === prof.cl) && (!prof.tp || tpOf(x) === prof.tp), filt = !!(prof.cl || prof.tp);
+  const fLabel = [prof.tp, prof.cl].filter(Boolean).join(" · ");
+  const N = N0.filter(pick);
+  const hasF = f => N.some(x => has(x[f]));
   let C = null, cf = "", ct = "";
-  if (prof.cmp){ const sh = prof.cmp === "yoy" ? 12 : n; cf = shiftKey(ana.from, -sh); ct = shiftKey(ana.to, -sh); C = sales.filter(inK(cf, ct)); }
+  if (prof.cmp){ const sh = prof.cmp === "yoy" ? 12 : n; cf = shiftKey(ana.from, -sh); ct = shiftKey(ana.to, -sh); C = sales.filter(inK(cf, ct)).filter(pick); }
+  renderIncomeX(N0.filter(x => !prof.cl || x.cluster === prof.cl));
+  if (!N.length){ $("#profile").innerHTML = `<p class="note" style="margin:0">Belum ada pembeli ${esc(fLabel)} di ${esc(spanLabel(ana.from, ana.to))}.</p>`; $("#profSum").hidden = true;
+    $("#profDesc").innerHTML = `<b>${esc(spanLabel(ana.from, ana.to))}</b> · 0 pembeli ${esc(fLabel)}`; return; }
   $("#profCmp").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.c === prof.cmp));
   const refY = +ana.to.slice(0,4), norm = v => String(v ?? "").trim().toUpperCase();
   const genLab = ([g, lo, hi]) => `${hi === 9999 ? "≤ " + (refY - lo) : lo === 0 ? (refY - hi) + "+" : (refY - hi) + "–" + (refY - lo)} (${g})`;
@@ -4847,10 +4897,13 @@ function renderProfile(){
   $("#profile").innerHTML = [
     hasF("purpose") ? block("Tujuan", "purpose", 3) : "",
     hasF("job") ? block("Pekerjaan", "job", 5) : "",
+    hasF("income") ? block(`Range income <span class="note" style="font-weight:400">· per bulan</span>`, incomeOf, 0, incomeOrder()) : "",
     hasF("city") ? block("Domisili", "city", 5) : "",
     ages.length ? block(`Umur <span class="note" style="font-weight:400">· median ${med} th</span><button type="button" class="hint" aria-label="Keterangan" data-tip="Generasi dihitung dari tahun lahir pembeli (tahun beli − umur): Gen Z 1997–2012, Milenial 1981–1996, Gen X 1965–1980, Boomer ≤ 1964. Rentang umur ditulis menurut tahun ${refY}.">i</button>`, genOf, 0, PROF_GENS.map(genLab)) : ""
   ].join("");
-  $("#profDesc").innerHTML = `<b>${esc(spanLabel(ana.from, ana.to))}</b> · ${nf(N.length)} pembeli (tanpa batal)` + (C ? ` · dibanding <b>${esc(spanLabel(cf, ct))}</b> (${nf(C.length)} pembeli). <span class="prof-leg"><i class="cur"></i>${esc(spanLabel(ana.from, ana.to))}<i class="pv"></i>${esc(spanLabel(cf, ct))}</span> ▲▼ = selisih poin persentase.` : ". Pilih pembanding untuk melihat perubahan komposisi pembeli.");
+  const incC = counts(N, incomeOf), incTop = Object.entries(incC.o).sort((a, b) => b[1] - a[1])[0];
+  $("#profDesc").innerHTML = (filt ? `<span class="prof-flt">Pembeli <b>${esc(fLabel)}</b>${incTop ? ` mayoritas berpenghasilan <b>${esc(incTop[0])}</b> per bulan (${nf(incTop[1]/incC.t*100)}% dari ${nf(incC.t)} pembeli yang income-nya tercatat)` : ""}. <button type="button" class="linkbtn" id="profClear">Hapus filter</button></span><br>` : "")
+    + `<b>${esc(spanLabel(ana.from, ana.to))}</b> · ${nf(N.length)} pembeli${filt ? " " + esc(fLabel) : ""} (tanpa batal)` + (C ? ` · dibanding <b>${esc(spanLabel(cf, ct))}</b> (${nf(C.length)} pembeli). <span class="prof-leg"><i class="cur"></i>${esc(spanLabel(ana.from, ana.to))}<i class="pv"></i>${esc(spanLabel(cf, ct))}</span> ▲▼ = selisih poin persentase.` : ". Pilih pembanding untuk melihat perubahan komposisi pembeli.");
   const sum = $("#profSum");
   if (!C){ sum.hidden = true; }
   else if (!C.length){ sum.hidden = false; sum.innerHTML = `Belum ada penjualan di ${esc(spanLabel(cf, ct))}, jadi belum bisa dibandingkan.`; }
@@ -4861,6 +4914,25 @@ function renderProfile(){
       + (N.length < 20 || C.length < 20 ? ` <span class="note">Sampel kecil (${nf(N.length)} vs ${nf(C.length)} pembeli), baca dengan hati-hati.</span>` : ""); }
 }
 $("#profCmp").onclick = e => { const b = e.target.closest("button"); if (!b) return; prof.cmp = b.dataset.c; renderProfile(); };
+$("#profCl").onchange = e => { prof.cl = e.target.value; prof.tp = ""; renderProfile(); };
+$("#profTp").onchange = e => { prof.tp = e.target.value; renderProfile(); };
+$("#profilePanel").addEventListener("click", e => {
+  if (e.target.closest("#profClear")){ prof.cl = prof.tp = ""; return renderProfile(); }
+  const r = e.target.closest("[data-inc-tp]"); if (r){ prof.cl = r.dataset.incCl; prof.tp = r.dataset.incTp; renderProfile(); scrollTo({top:$("#profilePanel").getBoundingClientRect().top + scrollY - 130, behavior:"smooth"}); } });
+// urutan label income dari kecil ke besar (berdasarkan seluruh data)
+function incomeOrder(){ const m = new Map(); sales.forEach(x => { const b = incomeBand(x.income); if (b) m.set(b.label, b.k); }); return [...m.entries()].sort((a, b) => a[1] - b[1]).map(e => e[0]); }
+// tabel silang: tiap tipe → sebaran range income pembelinya (persen per baris), sel terbesar ditebalkan
+function renderIncomeX(L){ const el = $("#incX"), rows = {}; const order = incomeOrder();
+  L.forEach(x => { const b = incomeOf(x), t = typeBase(x.unitType); if (!b || !t) return; const k = x.cluster + "|" + t; const r = rows[k] ??= {cl:x.cluster, tp:t, n:0, o:{}}; r.n++; r.o[b] = (r.o[b] || 0) + 1; });
+  const list = Object.values(rows).sort((a, b) => b.n - a.n).slice(0, 12);
+  if (!list.length || !order.length){ el.hidden = true; return; }
+  const cols = order.filter(b => list.some(r => r.o[b]));
+  el.hidden = false;
+  el.innerHTML = `<h4>Range income per tipe <span class="note" style="font-weight:400">· % pembeli tiap tipe, ${esc(spanLabel(ana.from, ana.to))}${prof.cl ? " · " + esc(prof.cl) : ""}. Klik baris untuk memfilter profil.</span></h4>
+    <div class="tablewrap"><table class="inc-t"><thead><tr><th>Tipe</th><th class="num">Pembeli</th>${cols.map(c => `<th class="num">${esc(c)}</th>`).join("")}<th>Mayoritas</th></tr></thead><tbody>${list.map(r => {
+      const top = cols.reduce((a, c) => (r.o[c] || 0) > (r.o[a] || 0) ? c : a, cols[0]), on = prof.tp === r.tp && (!prof.cl || prof.cl === r.cl);
+      return `<tr data-inc-tp="${esc(r.tp)}" data-inc-cl="${esc(r.cl)}"${on ? ' class="on"' : ""} title="Filter profil: ${esc(r.tp)} · ${esc(r.cl)}"><td><b>${esc(r.tp)}</b> <span class="note">${esc(r.cl)}</span></td><td class="num">${nf(r.n)}</td>${cols.map(c => { const p = (r.o[c] || 0)/r.n*100;
+        return `<td class="num${c === top ? " top" : ""}" style="--p:${(p/100).toFixed(3)}">${p ? nf(p) + "%" : "–"}</td>`; }).join("")}<td><b>${esc(top)}</b> <span class="note">${nf((r.o[top] || 0)/r.n*100)}%</span></td></tr>`; }).join("")}</tbody></table></div>`; }
 
 // ---------- Google Sheet "REKAP ALL TIME" sebagai sumber penjualan ----------
 let salesSource = "demo", sheetLoadedAt = null, sheetError = "", lastSalesSig = "";
@@ -4891,10 +4963,10 @@ function parseDateID(s, fallbackMonth){
 }
 const titleCase = s => String(s||"").toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
 function rekapToSales(rows){
-  const FIELDS = {cluster:"CLUSTER", unitType:"TIPE", hook:"TIPE STD/HOOK", kavling:"UK KAVLING", unit:"UNIT", date:"TGL.", month:"BULAN", city:"DOMISILI", age:"UMUR", purpose:"TUJUAN", price:"REV.", payment:"CARA BAYAR", payCat:"KATEGORI BAYAR", job:"PEKERJAAN", agent:"SALES", channel:"SUMBER INFORMASI", status:"STATUS", seg:["SEGMEN","SEGMENT","SEGMEN CLUSTER"], ppn:["FREE PPN","PPN DTP","PROGRAM PPN","STATUS PPN"]};
+  const FIELDS = {cluster:"CLUSTER", unitType:"TIPE", hook:"TIPE STD/HOOK", kavling:"UK KAVLING", unit:"UNIT", date:"TGL.", month:"BULAN", city:"DOMISILI", age:"UMUR", purpose:"TUJUAN", price:"REV.", payment:"CARA BAYAR", payCat:"KATEGORI BAYAR", job:"PEKERJAAN", income:["RANGE INCOME","INCOME","RANGE PENGHASILAN","PENGHASILAN","RANGE GAJI","GAJI"], agent:"SALES", channel:"SUMBER INFORMASI", status:"STATUS", seg:["SEGMEN","SEGMENT","SEGMEN CLUSTER"], ppn:["FREE PPN","PPN DTP","PROGRAM PPN","STATUS PPN"]};
   let best = -1, bestScore = 0, map = {};
   rows.slice(0, 12).forEach((r, i) => { const m = {}; let sc = 0;
-    Object.entries(FIELDS).forEach(([k, hs]) => { const j = r.findIndex(c => { const u = String(c).toUpperCase().replace(/\s+/g," ").trim(); return [].concat(hs).some(h => u === h || u.endsWith(" " + h)); }); if (j >= 0){ m[k] = j; if (k !== "seg" && k !== "ppn") sc++; } });
+    Object.entries(FIELDS).forEach(([k, hs]) => { const j = r.findIndex(c => { const u = String(c).toUpperCase().replace(/\s+/g," ").trim(); return [].concat(hs).some(h => u === h || u.endsWith(" " + h)); }); if (j >= 0){ m[k] = j; if (k !== "seg" && k !== "ppn" && k !== "income") sc++; } });
     if (sc > bestScore){ bestScore = sc; best = i; map = m; } });
   if (best < 0 || map.cluster === undefined || map.price === undefined) throw new Error("Kolom CLUSTER / REV. tidak ditemukan. Pastikan tab yang dipilih adalah REKAP ALL TIME.");
   const known = Object.fromEntries(CLUSTERS.map(c => [c.name.toUpperCase(), c.name]));
@@ -4908,7 +4980,7 @@ function rekapToSales(rows){
     const st = g("status").toUpperCase();
     out.push({id:"r"+i, date, cluster: known[cl.toUpperCase()] || titleCase(cl), price: pr, channel: g("channel") || "Tidak tercatat", agent: g("agent") || "Tidak tercatat",
       status: /BATAL/.test(st) ? "Batal" : /BOOK/.test(st) ? "Booking" : "Akad", unitType:g("unitType"), hook:g("hook"), kavling:g("kavling"), unit:g("unit"), payment:g("payment"), payCat:g("payCat"), purpose:g("purpose").toUpperCase(),
-      job:g("job"), city:g("city"), age: num(g("age")) || null, seg:g("seg"), ppn:g("ppn")});
+      job:g("job"), income:g("income"), city:g("city"), age: num(g("age")) || null, seg:g("seg"), ppn:g("ppn")});
   });
   return out;
 }
